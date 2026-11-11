@@ -8,7 +8,6 @@ import {
   ArrowUpLeft,
   ArrowUpRight,
   Mic,
-  MicOff,
   Minus,
   Move,
   Plus,
@@ -190,7 +189,7 @@ export function TalkButton({ entityId, onTalking, large }: { entityId: string; o
         }
       }}
     >
-      {busy ? <Spinner className="size-6 text-accent" /> : live ? <Mic className={large ? 'size-8' : 'size-6'} aria-hidden /> : <MicOff className={large ? 'size-8' : 'size-6'} aria-hidden />}
+      {busy ? <Spinner className="size-6 text-accent" /> : <Mic className={large ? 'size-8' : 'size-6'} aria-hidden />}
       {large && <span>{live ? 'Du sprichst' : busy ? 'Verbinde …' : 'Sprechen'}</span>}
     </button>
   );

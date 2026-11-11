@@ -262,30 +262,41 @@ export function DoorPage() {
             </LiveView>
           </div>
 
-          <div className="mt-4 flex items-center gap-4 rounded-tile bg-surface p-4 shadow-tile">
-            {door.features.talk && door.available && <TalkButton entityId={door.id} onTalking={setTalking} />}
-            <div className="min-w-0 flex-1 space-y-2.5">
+          <div className="mt-4 space-y-4 rounded-tile bg-surface p-4 shadow-tile">
+            {(door.features.talk || door.features.light) && (
+              <div className="flex items-center justify-center gap-6">
+                {door.features.talk && door.available && <TalkButton entityId={door.id} onTalking={setTalking} large />}
+                {door.features.light && (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <IconButton
+                      icon={Lightbulb}
+                      label="Licht an der Tür einschalten"
+                      variant="filled"
+                      size="lg"
+                      disabled={!door.available}
+                      onClick={() => {
+                        haptic();
+                        post(`/api/doors/${encodeURIComponent(id)}/light`).then(
+                          () => toast.success('Licht eingeschaltet'),
+                          (err: unknown) => toast.fromError(err),
+                        );
+                      }}
+                    />
+                    <span className="text-xs font-medium text-muted" aria-hidden>
+                      Licht
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* The sliders get the full width: a short track is hard to hit and hides its own label. */}
+            <div className="space-y-2.5">
               {canOpen ? (
                 door.relays.map((relay) => <OpenDoorSlider key={relay.id} door={door} relayId={relay.id} relayName={relay.name} />)
               ) : (
-                <p className="text-sm text-muted">Zum Öffnen der Tür fehlt dir die Berechtigung.</p>
+                <p className="text-center text-sm text-muted">Zum Öffnen der Tür fehlt dir die Berechtigung.</p>
               )}
             </div>
-            {door.features.light && (
-              <IconButton
-                icon={Lightbulb}
-                label="Licht an der Tür einschalten"
-                variant="filled"
-                disabled={!door.available}
-                onClick={() => {
-                  haptic();
-                  post(`/api/doors/${encodeURIComponent(id)}/light`).then(
-                    () => toast.success('Licht eingeschaltet'),
-                    (err: unknown) => toast.fromError(err),
-                  );
-                }}
-              />
-            )}
           </div>
           <FavoriteRow entity={door} />
         </div>

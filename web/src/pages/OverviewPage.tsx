@@ -311,14 +311,14 @@ export function OverviewPage() {
             ))}
           </TileGrid>
         ) : (
-          <Card className="flex items-center gap-3.5 p-4">
+          <Card className="flex flex-wrap items-center gap-x-3.5 gap-y-3 p-4">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-warm/15 text-warm">
               <Star className="size-5" aria-hidden />
             </span>
-            <p className="min-w-0 flex-1 text-sm text-muted">
+            <p className="min-w-0 flex-1 basis-52 text-sm text-muted">
               Hier erscheinen deine wichtigsten Geräte. Tippe bei einem Gerät auf das Regler-Symbol und wähle „Auf der Übersicht zeigen“.
             </p>
-            <Button size="sm" onClick={() => navigate('/raeume')}>
+            <Button size="sm" className="ml-auto" onClick={() => navigate('/raeume')}>
               Zu den Räumen
             </Button>
           </Card>

@@ -127,7 +127,7 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
               icon={alarm.triggered ? ShieldAlert : ShieldCheck}
               tone={alarm.triggered ? 'danger' : alarm.breached ? 'warn' : 'ok'}
               title={alarm.name}
-              subtitle={alarm.stateText}
+              subtitle={<span className="whitespace-normal">{alarm.stateText}</span>}
               trailing={<Badge tone={alarm.mode === 'armed' ? 'accent' : 'neutral'}>{alarm.mode === 'armed' ? 'Scharf' : alarm.mode === 'disarmed' ? 'Unscharf' : 'Unbekannt'}</Badge>}
             />
           ))}

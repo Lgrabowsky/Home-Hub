@@ -5,7 +5,7 @@ import type { SpotifyStatus } from '@home-hub/shared';
 import { errorMessage, get, post } from '../../lib/api.ts';
 import { isNative } from '../../lib/platform.ts';
 import { toast } from '../toast.tsx';
-import { Badge, Button, Card, ConfirmDialog, Field, Notice, RowGroup, Section, Segmented, Spinner, TextInput } from '../ui.tsx';
+import { Badge, Button, Card, ConfirmDialog, Field, IconButton, Notice, RowGroup, Section, Segmented, Spinner, TextInput } from '../ui.tsx';
 import type { FormProps } from './meta.ts';
 import { ChipsInput, HowTo, isHost, SecretInput, SwitchRow } from './parts.tsx';
 
@@ -51,21 +51,19 @@ export function SonosForm({ value, onChange }: FormProps<'sonos'>) {
 function CopyBox({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-control bg-surface py-1.5 pl-3.5 pr-1.5">
-      <code className="min-w-0 flex-1 break-all font-mono text-[13px]">{text}</code>
-      <Button
+    <div className="-ml-4.5 mt-2 flex items-center gap-1 rounded-control bg-surface py-1 pl-3.5 pr-1">
+      <code className="min-w-0 flex-1 select-all break-all font-mono text-[13px]">{text}</code>
+      <IconButton
         size="sm"
-        variant="ghost"
         icon={copied ? Check : Copy}
+        label={copied ? 'Kopiert' : 'Adresse kopieren'}
         onClick={() =>
           void navigator.clipboard?.writeText(text).then(() => {
             setCopied(true);
             window.setTimeout(() => setCopied(false), 2500);
           })
         }
-      >
-        {copied ? 'Kopiert' : 'Kopieren'}
-      </Button>
+      />
     </div>
   );
 }
@@ -138,7 +136,7 @@ export function SpotifyForm({ value, saved, onChange, dirty, save }: FormProps<'
             <>Die „Client ID“ der neuen App kopieren und unten einfügen.</>,
           ]}
         >
-          {status.data && !status.data.redirectUri.startsWith('https://') && (
+          {status.data && !/^(https:\/\/|http:\/\/(127\.0\.0\.1|\[::1\])[:/])/.test(status.data.redirectUri) && (
             <p className="mt-2 text-warn">Spotify akzeptiert nur https-Adressen. Öffne die App über die https-Adresse deines Hubs und richte Spotify von dort aus ein.</p>
           )}
         </HowTo>

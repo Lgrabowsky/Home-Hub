@@ -1,4 +1,4 @@
-import { ChevronRight, Disc3, Heart, History, ListMusic, Mic2, Music2, Play, Podcast, Search, Speaker, TrendingUp, X, type LucideIcon } from 'lucide-react';
+import { ChevronRight, Disc3, Heart, History, ListMusic, Mic2, Music2, Play, Podcast, Search, Speaker, TrendingUp, Volume2, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, Route, Routes, useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -15,7 +15,7 @@ import {
   TransportButtons,
   useTargetGroup,
 } from '../../components/music/parts.tsx';
-import { Badge, Button, Card, cx, EmptyState, Notice, PageHeader, Section, Segmented, Slider, Spinner, TextInput } from '../../components/ui.tsx';
+import { Badge, Button, Card, cx, EmptyState, IconButton, Notice, PageHeader, Section, Segmented, Slider, Spinner, TextInput } from '../../components/ui.tsx';
 import { groupCommand } from '../../lib/actions.ts';
 import { errorMessage, get } from '../../lib/api.ts';
 import { useHub } from '../../store/hub.ts';
@@ -60,7 +60,7 @@ function TargetBar({ group, onChange }: { group: MusicGroup | undefined; onChang
   );
 }
 
-function GroupCard({ group, selected, onOpen }: { group: MusicGroup; selected: boolean; onOpen(): void }) {
+function GroupCard({ group, selected, onOpen, onGroup, canGroup }: { group: MusicGroup; selected: boolean; onOpen(): void; onGroup(): void; canGroup: boolean }) {
   const can = useCan('music.control');
   const badge = sourceBadge(group);
   const playing = group.state === 'playing';
@@ -85,8 +85,10 @@ function GroupCard({ group, selected, onOpen }: { group: MusicGroup; selected: b
         </button>
         <TransportButtons group={group} />
       </div>
-      <div className="mt-2.5">
-        <Slider thin tone="music" label={`Lautstärke ${group.name}`} value={group.volume} disabled={!can} onCommit={(value) => void groupCommand(group, { action: 'set_volume', value }, { volume: value })} />
+      <div className="mt-1.5 flex items-center gap-2.5">
+        <Volume2 className="size-4.5 shrink-0 text-faint" aria-hidden />
+        <Slider thin tone="music" className="flex-1" label={`Lautstärke ${group.name}`} value={group.volume} disabled={!can} onCommit={(value) => void groupCommand(group, { action: 'set_volume', value }, { volume: value })} />
+        {canGroup && can && <IconButton icon={Speaker} size="sm" label={`Räume für ${group.name} gruppieren`} className="-mr-1.5" onClick={onGroup} />}
       </div>
     </Card>
   );
@@ -98,7 +100,8 @@ function Rooms({ target, onSelect }: { target: MusicGroup | undefined; onSelect(
   const isAdmin = useIsAdmin();
   const [params, setParams] = useSearchParams();
   const [open, setOpen] = useState<string | null>(null);
-  const [grouping, setGrouping] = useState(false);
+  // Grouping can be reached from the now-playing sheet (and returns to it) or straight from a card.
+  const [grouping, setGrouping] = useState<string | null>(null);
 
   // Deep link from a room page or the mini player: select that room (and open it).
   useEffect(() => {
@@ -141,14 +144,19 @@ function Rooms({ target, onSelect }: { target: MusicGroup | undefined; onSelect(
           key={group.id}
           group={group}
           selected={group.id === target?.id}
+          canGroup={music.players.length > 1}
           onOpen={() => {
             onSelect(group);
             setOpen(group.id);
           }}
+          onGroup={() => {
+            onSelect(group);
+            setGrouping(group.id);
+          }}
         />
       ))}
-      <NowPlayingSheet groupId={grouping ? null : open} onClose={() => setOpen(null)} onGroup={() => setGrouping(true)} />
-      <GroupingSheet groupId={open} open={grouping} onClose={() => setGrouping(false)} />
+      <NowPlayingSheet groupId={grouping ? null : open} onClose={() => setOpen(null)} onGroup={() => setGrouping(open)} />
+      <GroupingSheet groupId={grouping} open={grouping !== null} onClose={() => setGrouping(null)} />
     </div>
   );
 }

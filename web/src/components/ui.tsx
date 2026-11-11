@@ -180,7 +180,7 @@ export function PageHeader({ title, subtitle, back, actions }: { title: ReactNod
       )}
       <div className="min-w-0 flex-1">
         <h1 className="truncate text-[26px] font-bold leading-tight tracking-tight">{title}</h1>
-        {subtitle && <p className="mt-0.5 truncate text-muted">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 line-clamp-2 text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
     </header>
@@ -241,7 +241,8 @@ export function Row({
       )}
       <span className="min-w-0 flex-1 text-left">
         <span className="block truncate font-medium">{title}</span>
-        {subtitle && <span className="block truncate text-sm text-muted">{subtitle}</span>}
+        {/* Two lines before cutting off: German explanations rarely fit on one. */}
+        {subtitle && <span className="line-clamp-2 break-words text-sm text-muted">{subtitle}</span>}
       </span>
       {trailing && <span className="flex shrink-0 items-center gap-2 text-sm text-muted">{trailing}</span>}
     </>
@@ -586,8 +587,8 @@ export function SlideToConfirm({ label, onConfirm, icon: Icon, disabled, busy }:
       aria-disabled={disabled || busy}
     >
       <div className="absolute inset-y-0 left-0 rounded-full bg-ok/25" style={{ width: offset + THUMB + 4 }} aria-hidden />
-      <span className="pointer-events-none absolute inset-0 flex items-center justify-center pl-10 text-sm font-medium text-muted">
-        {busy ? 'Wird geöffnet …' : label}
+      <span className="pointer-events-none absolute inset-y-0 left-16 right-5 flex items-center justify-center text-sm font-medium text-muted">
+        <span className="truncate">{busy ? 'Wird geöffnet …' : label}</span>
       </span>
       <button
         type="button"

@@ -54,22 +54,24 @@ export function SettingsList() {
       <Section title="Einstellungen">
         <RowGroup>
           <Row icon={ShieldCheck} tone="accent" title="Konto & Sicherheit" subtitle="Passwort, Zwei-Faktor, angemeldete Geräte" trailing={chevron} onClick={() => navigate('/einstellungen/konto')} />
-          <Row
-            icon={Palette}
-            tone="accent"
-            title="Darstellung"
-            trailing={
-              <Segmented<ThemeChoice>
-                value={theme.choice}
-                onChange={theme.setChoice}
-                options={[
-                  { value: 'system', label: 'System' },
-                  { value: 'dark', label: 'Dunkel' },
-                  { value: 'light', label: 'Hell' },
-                ]}
-              />
-            }
-          />
+          {/* Not a <Row>: the switch needs the width, the label must not be squeezed to "Dar…". */}
+          <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5">
+            <span className="flex items-center gap-3 font-medium">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                <Palette className="size-4.5" aria-hidden />
+              </span>
+              Darstellung
+            </span>
+            <Segmented<ThemeChoice>
+              value={theme.choice}
+              onChange={theme.setChoice}
+              options={[
+                { value: 'system', label: 'Automatisch' },
+                { value: 'dark', label: 'Dunkel' },
+                { value: 'light', label: 'Hell' },
+              ]}
+            />
+          </div>
         </RowGroup>
       </Section>
 

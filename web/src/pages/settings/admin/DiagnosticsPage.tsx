@@ -104,7 +104,7 @@ export function DiagnosticsPage() {
                   icon={copied ? Check : Copy}
                   onClick={() => void navigator.clipboard?.writeText(JSON.stringify(report, null, 2)).then(() => { setCopied(true); window.setTimeout(() => setCopied(false), 2500); })}
                 >
-                  {copied ? 'Kopiert' : 'Diagnose kopieren'}
+                  {copied ? 'Kopiert' : 'Kopieren'}
                 </Button>
               }
             >
