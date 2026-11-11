@@ -1,0 +1,27 @@
+{
+  "name": "home-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Home Hub – eine App für MyGekko, DoorBird, Reolink, Sonos und Spotify",
+  "type": "module",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "shared",
+    "hub",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:hub": "npm run dev -w hub",
+    "dev:web": "npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w hub",
+    "start": "npm run start -w hub",
+    "demo": "npm run build && HUB_DEMO=1 npm run start -w hub",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w hub && npm run typecheck -w web",
+    "test": "npm run test -w hub && npm run test -w web",
+    "e2e": "npm run e2e -w web"
+  }
+}
