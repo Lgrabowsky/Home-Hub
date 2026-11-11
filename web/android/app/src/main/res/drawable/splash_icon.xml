@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App mark for the splash screen (drawn inside the centre two thirds, as Android masks the rest). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <group
+        android:pivotX="32"
+        android:pivotY="32"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path android:pathData="M32,13 L12,30.5 a2,2 0 0 0 1.3,3.5 H17 v13.5 a3.5,3.5 0 0 0 3.5,3.5 h23 a3.5,3.5 0 0 0 3.5,-3.5 V34 h3.7 a2,2 0 0 0 1.3,-3.5 Z">
+            <aapt:attr name="android:fillColor">
+                <gradient
+                    android:startX="12"
+                    android:startY="13"
+                    android:endX="52"
+                    android:endY="51"
+                    android:type="linear"
+                    android:startColor="#FF6AA2FF"
+                    android:endColor="#FF7A5CFF" />
+            </aapt:attr>
+        </path>
+        <path
+            android:fillColor="#FF0B0E13"
+            android:pathData="M32,37 m-6.2,0 a6.2,6.2 0 1 0 12.4,0 a6.2,6.2 0 1 0 -12.4,0" />
+        <path
+            android:fillColor="#FFFFD27A"
+            android:pathData="M32,37 m-2.6,0 a2.6,2.6 0 1 0 5.2,0 a2.6,2.6 0 1 0 -5.2,0" />
+    </group>
+</vector>

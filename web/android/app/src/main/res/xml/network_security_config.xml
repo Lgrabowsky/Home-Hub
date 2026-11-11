@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Encrypted connections only. Besides the public certificate authorities the app also accepts
+  authorities the owner installed on the device, so a hub that uses a private CA (for example
+  inside a VPN) works too. Android shows a permanent notice when such a CA is installed.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

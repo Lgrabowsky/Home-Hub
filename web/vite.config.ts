@@ -2,10 +2,34 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
+
+/**
+ * The hub sends a strict Content-Security-Policy header for the web app. Inside
+ * the Android app the pages are local files, so the same policy is baked into
+ * the HTML instead; the only difference is that the hub is a remote HTTPS origin there.
+ */
+function nativeContentSecurityPolicy(): Plugin {
+  const policy = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob: mediastream:",
+    "connect-src 'self' https: wss:",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'none'",
+  ].join('; ');
+  return {
+    name: 'home-hub:native-csp',
+    transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: policy }, injectTo: 'head-prepend' }],
+  };
+}
 
 /**
  * Two targets from one code base:
@@ -19,6 +43,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
+      native && nativeContentSecurityPolicy(),
       !native &&
         VitePWA({
           registerType: 'autoUpdate',
