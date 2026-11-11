@@ -52,6 +52,8 @@ export interface ReolinkSim {
   settings(base: { id: string; name: string } & Partial<ReolinkDeviceSettings>): ReolinkDeviceSettings;
   close(): Promise<void>;
 
+  /** The picture the camera sees right now (PNG) — what `Snap` would deliver. */
+  frame(): Buffer;
   /** Every PTZ command received, oldest first. */
   readonly ptzLog: ReolinkSimPtz[];
   /** Pan position −1 (left) … 1 (right) right now. */
@@ -387,6 +389,10 @@ export async function startReolinkSim(options: ReolinkSimOptions = {}): Promise<
       return { host: '127.0.0.1', port, https: false, username, password, channel: 0, room: '', rtspPort: 554, streamProtocol: 'rtsp', ...base };
     },
     close: shut,
+    frame() {
+      settle();
+      return renderScene({ kind: scene, label: name, pan, light: light.state === 1 });
+    },
     ptzLog,
     get pan() {
       settle();

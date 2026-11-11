@@ -7,6 +7,8 @@ import { streamName } from '../integrations/media.ts';
 import { describeError } from '../util/http.ts';
 import { DOORBIRD_DEMO_STATIONS, startDoorBirdSim, type DoorBirdSim } from './doorbird-sim.ts';
 import { startMyGekkoSim, type MyGekkoSim } from './mygekko-sim.ts';
+import { REOLINK_DEMO_CAMERAS, startReolinkSim } from './reolink-sim.ts';
+import { startSonosSim } from './sonos-sim.ts';
 import { startSpotifySim, type SpotifySim } from './spotify-sim.ts';
 
 /**
@@ -39,8 +41,8 @@ interface FrameSource {
   file: string;
   busy: boolean;
   lastAt: number;
-  /** Refresh quickly until this time (e.g. while a camera is turning). */
-  fastUntil: number;
+  /** True while the picture changes quickly (a camera is turning). */
+  fast?: () => boolean;
 }
 
 const FRAME_INTERVAL_MS = 1000;
@@ -82,9 +84,9 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
   // Cover art and snapshots come from the simulators on this machine.
   ctx.images.allowLanHost('127.0.0.1');
 
-  function addVideo(kind: 'cam' | 'door', id: string, snapshot: () => Promise<Buffer>, qualities: ('main' | 'sub')[]): void {
+  function addVideo(kind: 'cam' | 'door', id: string, snapshot: () => Promise<Buffer>, qualities: ('main' | 'sub')[], fast?: () => boolean): void {
     const file = join(frameDir, `${kind}-${id}.png`);
-    frames.push({ kind, id, snapshot, file, busy: false, lastAt: 0, fastUntil: 0 });
+    frames.push({ kind, id, snapshot, file, busy: false, lastAt: 0, fast });
     for (const quality of qualities) {
       const [width, height] = quality === 'main' ? [1280, 720] : [640, 360];
       integrations.streamOverrides.set(streamName(kind, id, quality), [videoSource(ffmpeg, file, width, height)]);
@@ -125,6 +127,27 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     devices: doors.map((door, index) => door.sim.settings(DOORBIRD_DEMO_STATIONS[index]!.device)),
   });
 
+  // --- Reolink -----------------------------------------------------------------------------------
+
+  const cameraDevices = [];
+  for (const entry of REOLINK_DEMO_CAMERAS) {
+    const sim = await startReolinkSim(entry.sim);
+    closers.push(() => sim.close());
+    cameraDevices.push(sim.settings(entry.device));
+    const id = entry.device.id;
+    // Straight from the simulator (not through the hub's one-second snapshot cache), so turning the camera looks smooth.
+    addVideo('cam', id, async () => sim.frame(), ['main', 'sub'], () => sim.moving);
+    // The simulated cameras have no RTSP server: something else has to "be the speaker".
+    integrations.streamOverrides.set(streamName('cam', id, 'talk'), [talkSink(ffmpeg)]);
+  }
+  settings.override('reolink', { enabled: true, devices: cameraDevices });
+
+  // --- Sonos -------------------------------------------------------------------------------------
+
+  const sonosSim = await startSonosSim();
+  closers.push(() => sonosSim.close());
+  settings.override('sonos', { enabled: true, hosts: [sonosSim.seedHosts[0]!], spotifyRegion: 'EU' });
+
   // --- Spotify -----------------------------------------------------------------------------------
 
   const spotifySim: SpotifySim = await startSpotifySim();
@@ -163,7 +186,7 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     for (const frame of frames) {
       if (frame.busy) continue;
       // Nobody is looking: one picture a minute keeps the file fresh enough for the first viewer.
-      const interval = now < frame.fastUntil ? FAST_FRAME_INTERVAL_MS : active ? FRAME_INTERVAL_MS : 60_000;
+      const interval = active && frame.fast?.() ? FAST_FRAME_INTERVAL_MS : active ? FRAME_INTERVAL_MS : 60_000;
       if (now - frame.lastAt >= interval) void refresh(frame);
     }
   }, FAST_FRAME_INTERVAL_MS);
