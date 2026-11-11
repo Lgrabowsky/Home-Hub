@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Entity, HubEvent, HubState, MusicState, ServiceHealth, ServiceId } from '@home-hub/shared';
+import type { Entity, Floor, HubEvent, HubState, MusicState, ServiceHealth, ServiceId } from '@home-hub/shared';
 
 /**
  * Live picture of the house as pushed by the hub. Components read from here;
@@ -20,6 +20,8 @@ interface HubStore {
   /** A snapshot has been received at least once since signing in. */
   loaded: boolean;
   hubName: string;
+  /** Storeys as configured on the hub (empty: the app groups by itself). */
+  floors: Floor[];
   /** Hub clock minus device clock (ms) — used to extrapolate playback positions. */
   clockOffset: number;
   entities: Record<string, Entity>;
@@ -92,6 +94,7 @@ export const useHub = create<HubStore>((set) => ({
   link: 'connecting',
   loaded: false,
   hubName: 'Zuhause',
+  floors: [],
   clockOffset: 0,
   entities: {},
   services: {},
@@ -106,6 +109,7 @@ export const useHub = create<HubStore>((set) => ({
       return {
         loaded: true,
         hubName: state.hubName,
+        floors: state.floors ?? [],
         clockOffset: state.serverTime - Date.now(),
         entities: state.entities,
         services: state.services,

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Entity } from '@home-hub/shared';
 import { blind, light, runAction, toggleClock, toggleSwitch } from '../../lib/actions.ts';
 import { formatAgo, formatNumber, formatPercent, formatTemperature } from '../../lib/format.ts';
+import { BlindGlyph, BulbGlyph, ClimateGlyph, SwitchGlyph } from '../home/glyphs.tsx';
 import { HubImage } from '../HubImage.tsx';
 import { Tile } from '../Tile.tsx';
 import { cx, type Tone } from '../ui.tsx';
@@ -104,14 +105,14 @@ export function EntityTile({ entity, onDetails, showRoom }: EntityTileProps) {
 
   switch (entity.kind) {
     case 'light':
-      return <Tile {...common} pressLabel={`${entity.name} ${entity.on ? 'ausschalten' : 'einschalten'}`} onPress={() => void light.toggle(entity)} />;
+      return <Tile {...common} visual={<BulbGlyph entity={entity} />} pressLabel={`${entity.name} ${entity.on ? 'ausschalten' : 'einschalten'}`} onPress={() => void light.toggle(entity)} />;
 
     case 'switch':
-      return <Tile {...common} pressLabel={`${entity.name} ${entity.on ? 'ausschalten' : 'einschalten'}`} onPress={() => void toggleSwitch(entity)} />;
+      return <Tile {...common} visual={<SwitchGlyph entity={entity} />} pressLabel={`${entity.name} ${entity.on ? 'ausschalten' : 'einschalten'}`} onPress={() => void toggleSwitch(entity)} />;
 
     case 'blind':
       return (
-        <Tile {...common} pressLabel={`${entity.name}: Einstellungen`} onPress={() => onDetails(entity.id)}>
+        <Tile {...common} visual={<BlindGlyph entity={entity} />} pressLabel={`${entity.name}: Einstellungen`} onPress={() => onDetails(entity.id)}>
           <div className="flex gap-1.5">
             {(
               [
@@ -147,7 +148,8 @@ export function EntityTile({ entity, onDetails, showRoom }: EntityTileProps) {
               {entity.windowOpen ? ' · Fenster offen' : ''}
             </>
           }
-          title={`${title} · ${formatTemperature(entity.temperature)}`}
+          visual={<ClimateGlyph heating={entity.heating} cooling={entity.cooling} />}
+          value={entity.temperature === null ? '–' : `${formatNumber(entity.temperature)}°`}
           pressLabel={`${entity.name}: Temperatur einstellen`}
           onPress={() => onDetails(entity.id)}
         />

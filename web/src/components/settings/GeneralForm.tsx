@@ -1,6 +1,7 @@
 import { ShieldAlert } from 'lucide-react';
 import { Card, Field, Notice, RowGroup, Section, TextInput } from '../ui.tsx';
 import type { FormProps } from './meta.ts';
+import { FloorsEditor } from './FloorsEditor.tsx';
 import { NumberInput, SwitchRow } from './parts.tsx';
 
 export function GeneralForm({ value, onChange }: FormProps<'general'>) {
@@ -12,6 +13,10 @@ export function GeneralForm({ value, onChange }: FormProps<'general'>) {
             <TextInput value={value.hubName} maxLength={40} onChange={(event) => onChange({ ...value, hubName: event.target.value })} />
           </Field>
         </Card>
+      </Section>
+
+      <Section title="Stockwerke">
+        <FloorsEditor floors={value.floors} onChange={(floors) => onChange({ ...value, floors })} />
       </Section>
 
       <Section title="Anmeldung">

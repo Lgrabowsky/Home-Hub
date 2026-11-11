@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppShell } from './components/AppShell.tsx';
+import { CATEGORIES } from './components/home/categories.tsx';
 import { Toaster } from './components/toast.tsx';
 import { Spinner } from './components/ui.tsx';
 import { ApiError } from './lib/api.ts';
@@ -11,6 +12,7 @@ import { SetupPage } from './pages/auth/SetupPage.tsx';
 import { ConnectPage, LoadingPage, LockedPage, OutdatedPage, UnreachablePage } from './pages/auth/StatusPages.tsx';
 import { OverviewPage } from './pages/OverviewPage.tsx';
 import { RoomPage } from './pages/RoomPage.tsx';
+import { CategoryPage } from './pages/home/CategoryPage.tsx';
 import { RoomsPage } from './pages/RoomsPage.tsx';
 import { useSession } from './store/session.ts';
 
@@ -20,7 +22,6 @@ const CameraPage = lazy(() => import('./pages/security/CameraPage.tsx').then((m)
 const DoorPage = lazy(() => import('./pages/security/DoorPage.tsx').then((m) => ({ default: m.DoorPage })));
 const MusicPage = lazy(() => import('./pages/music/MusicPage.tsx').then((m) => ({ default: m.MusicPage })));
 const MorePage = lazy(() => import('./pages/more/MorePage.tsx').then((m) => ({ default: m.MorePage })));
-const AutomationsPage = lazy(() => import('./pages/more/AutomationsPage.tsx').then((m) => ({ default: m.AutomationsPage })));
 const HousePage = lazy(() => import('./pages/more/HousePage.tsx').then((m) => ({ default: m.HousePage })));
 const SettingsRoutes = lazy(() => import('./pages/settings/SettingsRoutes.tsx').then((m) => ({ default: m.SettingsRoutes })));
 
@@ -51,12 +52,15 @@ function SignedIn() {
           <Route index element={<OverviewPage />} />
           <Route path="raeume" element={<RoomsPage />} />
           <Route path="raeume/:roomId" element={<RoomPage />} />
+          {CATEGORIES.map((category) => (
+            <Route key={category.id} path={category.path.slice(1)} element={<CategoryPage key={category.id} id={category.id} />} />
+          ))}
           <Route path="sicherheit" element={<Suspense fallback={<PageFallback />}><SecurityPage /></Suspense>} />
           <Route path="sicherheit/kamera/:id" element={<Suspense fallback={<PageFallback />}><CameraPage /></Suspense>} />
           <Route path="sicherheit/tuer/:id" element={<Suspense fallback={<PageFallback />}><DoorPage /></Suspense>} />
           <Route path="musik/*" element={<Suspense fallback={<PageFallback />}><MusicPage /></Suspense>} />
           <Route path="mehr" element={<Suspense fallback={<PageFallback />}><MorePage /></Suspense>} />
-          <Route path="mehr/automationen" element={<Suspense fallback={<PageFallback />}><AutomationsPage /></Suspense>} />
+          <Route path="mehr/automationen" element={<Navigate to="/aktionen" replace />} />
           <Route path="mehr/haus" element={<Suspense fallback={<PageFallback />}><HousePage /></Suspense>} />
           <Route path="einstellungen/*" element={<Suspense fallback={<PageFallback />}><SettingsRoutes /></Suspense>} />
           <Route path="*" element={<Navigate to="/" replace />} />

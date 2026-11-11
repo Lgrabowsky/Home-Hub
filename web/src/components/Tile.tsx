@@ -21,6 +21,10 @@ interface TileProps {
   children?: ReactNode;
   /** Accessible description of what tapping does, e.g. "Licht ausschalten". */
   pressLabel?: string;
+  /** Replaces the icon: a picture of the device's state (see components/home/glyphs). */
+  visual?: ReactNode;
+  /** A large value next to the picture, e.g. the room temperature. */
+  value?: ReactNode;
   className?: string;
 }
 
@@ -29,19 +33,19 @@ interface TileProps {
  * the most common action. Every device type renders through this, which is
  * what makes lights, blinds, sockets and scenes feel like one system.
  */
-export function Tile({ icon: Icon, title, subtitle, active, tone = 'accent', unavailable, onPress, onMore, moreLabel = 'Einstellungen', children, pressLabel, className }: TileProps) {
+export function Tile({ icon: Icon, title, subtitle, active, tone = 'accent', unavailable, onPress, onMore, moreLabel = 'Einstellungen', children, pressLabel, visual, value, className }: TileProps) {
   const interactive = Boolean(onPress) && !unavailable;
   return (
     <div
       className={cx(
-        'group relative flex min-h-[6.75rem] flex-col rounded-tile bg-surface p-3.5 shadow-tile transition',
+        'panel group relative flex min-h-[7rem] flex-col rounded-tile p-3.5 transition-[background] duration-300',
         unavailable && 'opacity-55',
         className,
       )}
       // An active tile glows faintly in its state colour (warm for light, cool for shading …).
       style={
         active && !unavailable
-          ? { background: `linear-gradient(140deg, color-mix(in srgb, ${toneVar[tone]} 17%, var(--hh-raised)), var(--hh-raised) 70%)` }
+          ? { background: `radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, ${toneVar[tone]} 16%, transparent), transparent 65%), var(--hh-panel), var(--hh-raised)` }
           : undefined
       }
     >
@@ -54,9 +58,12 @@ export function Tile({ icon: Icon, title, subtitle, active, tone = 'accent', una
         />
       )}
       <div className="pointer-events-none relative flex items-start justify-between gap-2">
-        <span className={cx('flex size-10 shrink-0 items-center justify-center rounded-full transition-colors', active ? toneSoft[tone] : 'bg-sunken text-muted')}>
-          <Icon className="size-5" aria-hidden />
-        </span>
+        {visual ?? (
+          <span className={cx('flex size-10 shrink-0 items-center justify-center rounded-full transition-colors', active ? toneSoft[tone] : 'bg-sunken text-muted')}>
+            <Icon className="size-5" aria-hidden />
+          </span>
+        )}
+        {value !== undefined && <span className="ml-auto text-[22px] font-semibold leading-none tracking-tight tabular-nums">{value}</span>}
         {onMore && !unavailable && (
           <button
             type="button"

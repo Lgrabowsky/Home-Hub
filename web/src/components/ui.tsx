@@ -131,7 +131,7 @@ export function IconButton({ icon: Icon, label, size = 'md', active, tone = 'acc
 
 export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div {...rest} className={cx('rounded-tile bg-surface shadow-tile', className)}>
+    <div {...rest} className={cx('panel rounded-tile', className)}>
       {children}
     </div>
   );

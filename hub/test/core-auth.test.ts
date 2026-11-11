@@ -257,6 +257,21 @@ describe('settings', () => {
     expect(invalid.statusCode).toBe(400);
   });
 
+  it('stores the storeys and hands them to every app', async () => {
+    const { client } = await setupAdmin(hub);
+    await hub.start();
+    const floors = [
+      { name: 'Erdgeschoss', rooms: ['Küche', 'Wohnzimmer'] },
+      { name: 'Obergeschoss', rooms: ['Bad'] },
+    ];
+    const saved = await client.put('/api/admin/settings/general', { hubName: 'Zuhause', requireTotp: false, sessionDays: 30, floors });
+    expect(saved.statusCode).toBe(200);
+    await expect.poll(async () => ((await client.get('/api/state')).json() as { floors: unknown }).floors).toEqual(floors);
+
+    const nameless = await client.put('/api/admin/settings/general', { hubName: 'Zuhause', requireTotp: false, sessionDays: 30, floors: [{ name: ' ', rooms: [] }] });
+    expect(nameless.statusCode).toBe(400);
+  });
+
   it('never writes credentials to the log', async () => {
     const { client } = await setupAdmin(hub);
     await client.post('/api/auth/login', { ...ADMIN, client: 'web' });

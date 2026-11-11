@@ -40,6 +40,11 @@ Gut zu wissen:
 - **Lasten werden dauerhaft eingeschaltet.** Was nur einen kurzen Impuls bekommen darf (Türöffner,
   Garagentor-Taster), legst du am myGEKKO besser als Aktion an und startest diese aus der App.
 - **Gesperrte Jalousien** (z. B. Windalarm) zeigt die App als gesperrt; Befehle lehnt der myGEKKO dann ab.
+- **Stockwerke:** Unter **Geräte & Dienste › Allgemein › Stockwerke** legst du fest, welcher Raum auf
+  welchem Stockwerk liegt; die App gruppiert Räume und Menüs danach. Ohne diese Angabe erkennt sie
+  Stockwerke an Raumnamen wie „EG Küche“ oder „OG Bad“. Kontakte, die am myGEKKO auf einer eigenen
+  Seite liegen („Türen und Fenster“), erscheinen in dem Raum, der in ihrem Namen vorkommt
+  („Fenster Küche“ → Küche).
 
 ### Fenster- und Türkontakte
 

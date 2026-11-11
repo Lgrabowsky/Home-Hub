@@ -1,8 +1,9 @@
 import { Home, LayoutGrid, Menu, Music2, Shield, WifiOff, type LucideIcon } from 'lucide-react';
-import { useEffect, useMemo } from 'react';
+import { Fragment, useEffect, useMemo } from 'react';
 import { NavLink, Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { useHub } from '../store/hub.ts';
 import { useCan } from '../store/session.ts';
+import { CATEGORIES, HOME_PATHS } from './home/categories.tsx';
 import { DoorbellOverlay } from './DoorbellOverlay.tsx';
 import { Logo } from './Logo.tsx';
 import { MiniPlayer } from './MiniPlayer.tsx';
@@ -19,7 +20,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Übersicht', icon: Home, end: true },
-  { to: '/raeume', label: 'Räume', icon: LayoutGrid },
+  { to: '/raeume', label: 'Räume', icon: LayoutGrid, also: HOME_PATHS },
   { to: '/sicherheit', label: 'Sicherheit', icon: Shield },
   { to: '/musik', label: 'Musik', icon: Music2 },
   { to: '/mehr', label: 'Mehr', icon: Menu, also: ['/einstellungen'] },
@@ -64,6 +65,24 @@ function ConnectionBanner() {
   );
 }
 
+/** On wide screens the house menus sit right under "Räume" in the sidebar. */
+function HomeSubNav({ pathname }: { pathname: string }) {
+  return (
+    <div className="mb-1 ml-6 hidden flex-col border-l border-line pl-2 lg:flex">
+      {CATEGORIES.map((category) => (
+        <NavLink
+          key={category.id}
+          to={category.path}
+          className={cx('flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm transition', pathname === category.path ? 'bg-sunken font-medium text-fg' : 'text-muted hover:text-fg')}
+        >
+          <category.icon className="size-4" aria-hidden />
+          {category.label === 'Geräte' ? 'Geräte & Steckdosen' : category.label}
+        </NavLink>
+      ))}
+    </div>
+  );
+}
+
 export function AppShell() {
   const { pathname } = useLocation();
   const hubName = useHub((state) => state.hubName);
@@ -71,7 +90,7 @@ export function AppShell() {
   const badge = useSecurityBadge();
 
   const isActive = (item: NavItem) =>
-    item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`) || (item.also ?? []).some((prefix) => pathname.startsWith(prefix));
+    item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`) || (item.also ?? []).some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
   return (
     <div className="min-h-dvh md:pl-20 lg:pl-60">
@@ -88,8 +107,8 @@ export function AppShell() {
           {NAV.map((item) => {
             const active = isActive(item);
             return (
+              <Fragment key={item.to}>
               <NavLink
-                key={item.to}
                 to={item.to}
                 end={item.end}
                 aria-current={active ? 'page' : undefined}
@@ -107,6 +126,8 @@ export function AppShell() {
                   </span>
                 )}
               </NavLink>
+              {item.to === '/raeume' && active && <HomeSubNav pathname={pathname} />}
+              </Fragment>
             );
           })}
         </div>

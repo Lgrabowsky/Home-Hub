@@ -22,10 +22,10 @@ export function MorePage() {
           <Row
             icon={Workflow}
             tone="accent"
-            title="Automationen"
+            title="Aktionen"
             subtitle={`${plural(scenes.length, 'Szene', 'Szenen')} · ${plural(clocks.length, 'Zeitschaltuhr', 'Zeitschaltuhren')}`}
             trailing={chevron}
-            onClick={() => navigate('/mehr/automationen')}
+            onClick={() => navigate('/aktionen')}
           />
           <Row icon={Thermometer} tone="warm" title="Haus & Klima" subtitle={climate.length > 0 ? `${plural(climate.length, 'Raum', 'Räume')} mit Heizung` : 'Klima, Wetter, Energie'} trailing={chevron} onClick={() => navigate('/mehr/haus')} />
         </RowGroup>

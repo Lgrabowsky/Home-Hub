@@ -48,4 +48,49 @@ test.describe('rooms and devices', () => {
     await page.getByRole('button', { name: `${name}: Anhalten` }).click();
     await expect.poll(current, { timeout: 20_000 }).toMatchObject({ motion: 'stopped' });
   });
+
+  test('the rooms are grouped by storey', async ({ page }) => {
+    await page.goto('/raeume');
+    await expect(page.getByRole('heading', { name: 'Erdgeschoss' })).toBeVisible();
+    const upstairs = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Obergeschoss' }) });
+    await expect(upstairs.getByRole('link', { name: 'Bad öffnen' })).toBeVisible();
+    await expect(upstairs.getByRole('link', { name: 'Küche öffnen' })).toHaveCount(0);
+  });
+
+  test('the light menu switches a lamp of any room', async ({ page, request }) => {
+    await page.goto('/raeume');
+    await page.getByRole('navigation', { name: 'Bereiche' }).getByRole('link', { name: /Licht/ }).click();
+    await expect(page.getByRole('heading', { name: 'Licht', level: 1 })).toBeVisible();
+    const lamp = page.getByRole('switch', { name: /^Stehlampe (ein|aus)schalten$/ });
+    const wasOn = (await lamp.getAttribute('aria-checked')) === 'true';
+    await lamp.click();
+    await expect(lamp).toHaveAttribute('aria-checked', String(!wasOn));
+    await expect
+      .poll(async () => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'light' && entity.name === 'Stehlampe'))
+      .toMatchObject({ on: !wasOn });
+  });
+
+  test('the heating menu changes the wished temperature', async ({ page, request }) => {
+    const room = Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'climate' && entity.available && entity.features.target && entity.target !== null);
+    expect(room).toBeTruthy();
+    if (room?.kind !== 'climate') return;
+    const before = room.target!;
+    const up = before + room.targetRange.step <= room.targetRange.max;
+    await page.goto('/klima');
+    await page.getByRole('button', { name: `${room.name}: ${up ? 'wärmer' : 'kälter'}` }).click();
+    // Sent once the taps stop, then read back from the controller.
+    await expect
+      .poll(async () => {
+        const now = Object.values((await hubState(request)).entities).find((entity) => entity.id === room.id);
+        return now?.kind === 'climate' ? now.target : null;
+      }, { timeout: 20_000 })
+      .toBe(up ? before + room.targetRange.step : before - room.targetRange.step);
+  });
+
+  test('all blinds of the house move with one tap', async ({ page, request }) => {
+    const moving = async () => Object.values((await hubState(request)).entities).filter((entity) => entity.kind === 'blind' && !entity.isGroup && entity.motion === 'up').length;
+    await page.goto('/jalousien');
+    await page.getByRole('button', { name: 'Alle hoch' }).click();
+    await expect.poll(moving, { timeout: 20_000 }).toBeGreaterThan(1);
+  });
 });

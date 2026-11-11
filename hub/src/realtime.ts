@@ -85,6 +85,10 @@ export class RealtimeHub extends EventEmitter<RealtimeEvents> {
       }
     });
     state.on('music', (music) => this.broadcast({ type: 'music', music }));
+    // Name or floor plan changed: everybody gets a fresh (filtered) snapshot.
+    state.on('layout', () => {
+      for (const client of [...this.clients]) this.send(client, { type: 'snapshot', state: filterState(this.state.snapshot(), client.user) });
+    });
     state.on('services', (services) => this.broadcast({ type: 'services', services }));
     state.on('event', (event) => {
       const needed = eventPermission(event);

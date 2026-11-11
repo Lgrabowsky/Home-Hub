@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import {
   SERVICE_IDS,
   type Entity,
+  type Floor,
   type HubEvent,
   type HubState,
   type MusicState,
@@ -20,6 +21,7 @@ export interface StateEvents {
   music: [music: MusicState];
   services: [services: ServiceHealth[]];
   event: [event: HubEvent];
+  layout: [];
 }
 
 const EMPTY_MUSIC: MusicState = { players: [], groups: [], spotify: { linked: false, account: null } };
@@ -32,6 +34,7 @@ export class StateStore extends EventEmitter<StateEvents> {
   private music: MusicState = EMPTY_MUSIC;
   private musicFingerprint = JSON.stringify(EMPTY_MUSIC);
   hubName = 'Zuhause';
+  private floors: Floor[] = [];
 
   constructor() {
     super();
@@ -160,6 +163,14 @@ export class StateStore extends EventEmitter<StateEvents> {
 
   // --- Events / snapshot -----------------------------------------------------------
 
+  /** Name and floor plan of the house; every app receives a fresh snapshot when they change. */
+  setLayout(hubName: string, floors: Floor[]): void {
+    if (hubName === this.hubName && JSON.stringify(floors) === JSON.stringify(this.floors)) return;
+    this.hubName = hubName;
+    this.floors = floors;
+    this.emit('layout');
+  }
+
   publish(event: HubEvent): void {
     this.emit('event', event);
   }
@@ -169,6 +180,6 @@ export class StateStore extends EventEmitter<StateEvents> {
     for (const [id, entity] of this.entities) entities[id] = entity;
     const services = {} as Record<ServiceId, ServiceHealth>;
     for (const [id, health] of this.services) services[id] = health;
-    return { serverTime: Date.now(), hubName: this.hubName, services, entities, music: this.music };
+    return { serverTime: Date.now(), hubName: this.hubName, floors: this.floors, services, entities, music: this.music };
   }
 }

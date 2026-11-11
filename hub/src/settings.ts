@@ -42,6 +42,10 @@ function uniqueIds<T extends { id: string }>(devices: T[], ctx: z.RefinementCtx)
 const schemas = {
   general: z.object({
     hubName: z.string().trim().min(1).max(40).default('Zuhause'),
+    floors: z
+      .array(z.object({ name: z.string().trim().min(1, 'Name des Stockwerks fehlt.').max(40), rooms: z.array(z.string().trim().min(1).max(60)).max(100).default([]) }))
+      .max(20)
+      .default([]),
     requireTotp: z.boolean().default(true),
     sessionDays: z.number().int().min(1).max(365).default(30),
   }),
@@ -202,6 +206,8 @@ export function maskSecrets<K extends SettingsKey>(key: K, value: IntegrationSet
 const FIELD_LABELS: Record<string, string> = {
   hubName: 'Name',
   sessionDays: 'Angemeldet bleiben',
+  floors: 'Stockwerke',
+  rooms: 'Räume',
   host: 'Adresse',
   hosts: 'Adressen',
   username: 'Benutzername',

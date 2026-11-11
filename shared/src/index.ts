@@ -532,9 +532,17 @@ export interface Room {
   name: string;
 }
 
+/** A storey of the house and the rooms on it (rooms by their name as the devices report it). */
+export interface Floor {
+  name: string;
+  rooms: string[];
+}
+
 export interface HubState {
   serverTime: number;
   hubName: string;
+  /** How the rooms are arranged; empty = the app groups by itself. */
+  floors: Floor[];
   services: Record<ServiceId, ServiceHealth>;
   entities: Record<string, Entity>;
   music: MusicState;
@@ -751,6 +759,8 @@ export interface SpotifySettings {
 
 export interface GeneralSettings {
   hubName: string;
+  /** Storeys, top to bottom as they should be listed. Rooms not listed are grouped automatically. */
+  floors: Floor[];
   /** Force every user to set up two-factor authentication. */
   requireTotp: boolean;
   /** Days a session stays valid without being used. */

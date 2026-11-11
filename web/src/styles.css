@@ -40,6 +40,35 @@
   --animate-sheet-up: sheet-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-pop: pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
   --animate-ring: ring 1.6s ease-out infinite;
+  --animate-rise: rise 2.4s ease-in infinite;
+  --animate-spin-slow: spin 2.2s linear infinite;
+  --animate-slats: slats 0.9s linear infinite;
+  --animate-glow: glow 0.6s ease-out both;
+
+  @keyframes rise {
+    0% {
+      transform: translateY(6px) scaleY(0.8);
+      opacity: 0;
+    }
+    30% {
+      opacity: 0.9;
+    }
+    100% {
+      transform: translateY(-14px) scaleY(1.1);
+      opacity: 0;
+    }
+  }
+  @keyframes slats {
+    to {
+      background-position: 0 6px;
+    }
+  }
+  @keyframes glow {
+    from {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+  }
 
   @keyframes fade-in {
     from {
@@ -71,23 +100,26 @@
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --hh-bg: #0a0d12;
-  --hh-surface: #131821;
-  --hh-raised: #1a212d;
-  --hh-sunken: #0e1219;
-  --hh-line: rgb(255 255 255 / 0.08);
+  --hh-bg: #0b0e15;
+  --hh-surface: #151a24;
+  --hh-raised: #1c2330;
+  --hh-sunken: #0f131b;
+  --hh-line: rgb(255 255 255 / 0.07);
   --hh-fg: #eef1f6;
   --hh-muted: #9aa5b8;
   --hh-faint: #5d6880;
-  --hh-accent: #6d9bff;
+  --hh-accent: #7aa2ff;
   --hh-accent-fg: #06101f;
-  --hh-warm: #ffbe5c;
-  --hh-cool: #5cc8ff;
+  --hh-warm: #ffbd66;
+  --hh-cool: #62cfe6;
+  /* Page backdrop: two faint, soft light sources instead of a flat colour. */
+  --hh-backdrop: radial-gradient(1100px 520px at 12% -12%, rgb(92 120 210 / 0.16), transparent 70%), radial-gradient(800px 460px at 105% 0%, rgb(60 170 180 / 0.08), transparent 70%);
+  --hh-panel: linear-gradient(180deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0.01));
   --hh-ok: #3fd297;
   --hh-warn: #ffb347;
   --hh-danger: #ff6b6b;
   --hh-music: #b48cff;
-  --hh-shadow-tile: 0 0 0 1px rgb(255 255 255 / 0.05);
+  --hh-shadow-tile: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 0 0 1px rgb(255 255 255 / 0.05), 0 8px 24px -16px rgb(0 0 0 / 0.6);
   --hh-shadow-float: 0 18px 50px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.07);
 }
 
@@ -111,6 +143,8 @@
   --hh-music: #7a4ddb;
   --hh-shadow-tile: 0 1px 2px rgb(15 23 42 / 0.05), 0 0 0 1px rgb(15 23 42 / 0.05);
   --hh-shadow-float: 0 18px 50px -12px rgb(15 23 42 / 0.28), 0 0 0 1px rgb(15 23 42 / 0.06);
+  --hh-backdrop: radial-gradient(1100px 520px at 12% -12%, rgb(90 120 220 / 0.10), transparent 70%);
+  --hh-panel: linear-gradient(180deg, rgb(255 255 255 / 0), rgb(255 255 255 / 0));
 }
 
 @layer base {
@@ -124,7 +158,8 @@
   body {
     min-height: 100%;
     margin: 0;
-    background: var(--hh-bg);
+    background: var(--hh-backdrop), var(--hh-bg);
+    background-attachment: fixed;
     color: var(--hh-fg);
     font-family: var(--font-sans);
     font-size: 15px;
@@ -182,6 +217,12 @@
 }
 
 @layer components {
+  /* Card surface: a faint top light over the surface colour. */
+  .panel {
+    background: var(--hh-panel), var(--hh-surface);
+    box-shadow: var(--hh-shadow-tile);
+  }
+
   /* Thin scrollbars that stay out of the way. */
   .scroll-area {
     scrollbar-width: thin;

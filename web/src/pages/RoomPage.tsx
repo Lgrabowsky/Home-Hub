@@ -1,14 +1,15 @@
-import { Home, Music2, Power } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Music2, Power } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { Entity, EntityKind } from '@home-hub/shared';
+import type { BlindEntity, Entity, EntityKind, LightEntity } from '@home-hub/shared';
+import { ClimateGlyph } from '../components/home/glyphs.tsx';
 import { EntityTile } from '../components/entities/EntityTile.tsx';
 import { EntitySheet } from '../components/entities/sheets.tsx';
 import { Tile } from '../components/Tile.tsx';
-import { Button, EmptyState, PageHeader, Section, TileGrid } from '../components/ui.tsx';
-import { useRooms } from '../hooks/entities.ts';
-import { sendCommand } from '../lib/actions.ts';
-import { formatTemperature } from '../lib/format.ts';
+import { Button, EmptyState, IconButton, PageHeader, Section, TileGrid } from '../components/ui.tsx';
+import { useFloors, useRooms } from '../hooks/entities.ts';
+import { blind, sendCommand } from '../lib/actions.ts';
+import { formatNumber } from '../lib/format.ts';
 import { useHub } from '../store/hub.ts';
 import { useCan } from '../store/session.ts';
 
@@ -27,6 +28,7 @@ export function RoomPage() {
   const { roomId } = useParams();
   const navigate = useNavigate();
   const rooms = useRooms();
+  const floors = useFloors();
   const room = rooms.find((entry) => entry.id === roomId);
   const groups = useHub((state) => state.music.groups);
   const canControl = useCan('home.control');
@@ -49,28 +51,45 @@ export function RoomPage() {
     );
   }
 
-  const lightsOn = room.entities.filter((entity) => entity.kind === 'light' && entity.on && entity.available);
+  const lightsOn = room.entities.filter((entity): entity is LightEntity => entity.kind === 'light' && entity.on && entity.available);
+  const blinds = room.entities.filter((entity): entity is BlindEntity => entity.kind === 'blind' && entity.available);
+  const floor = floors.find((entry) => entry.rooms.some((candidate) => candidate.id === room.id))?.name;
 
   return (
     <>
-      <PageHeader
-        title={room.name}
-        back="/raeume"
-        subtitle={room.temperature !== null ? formatTemperature(room.temperature) : undefined}
-        actions={
-          canControl && lightsOn.length > 1 ? (
-            <Button
-              size="sm"
-              icon={Power}
-              onClick={() => {
-                for (const entity of lightsOn) void sendCommand(entity, { action: 'turn_off' }, { on: false });
-              }}
-            >
-              Licht aus
-            </Button>
-          ) : undefined
-        }
-      />
+      <PageHeader title={room.name} back="/raeume" subtitle={floor || undefined} />
+
+      {(room.temperature !== null || lightsOn.length > 0 || blinds.length > 1) && (
+        <div className="panel mb-7 flex flex-wrap items-center gap-x-5 gap-y-4 rounded-tile p-5">
+          {room.temperature !== null && (
+            <div className="flex min-w-0 flex-1 items-center gap-4">
+              <ClimateGlyph heating={room.heating} cooling={false} />
+              <div>
+                <p className="text-[34px] font-semibold leading-none tracking-tight tabular-nums">
+                  {formatNumber(room.temperature)}
+                  <span className="ml-0.5 align-top text-lg font-medium text-muted">°C</span>
+                </p>
+                <p className="mt-1 text-sm text-muted">{room.target !== null ? `${room.heating ? 'heizt auf' : 'Wunsch'} ${formatNumber(room.target)} °C` : 'Raumtemperatur'}</p>
+              </div>
+            </div>
+          )}
+          {canControl && (
+            <div className="flex gap-2">
+              {lightsOn.length > 0 && (
+                <Button icon={Power} onClick={() => lightsOn.forEach((entity) => void sendCommand(entity, { action: 'turn_off' }, { on: false }))}>
+                  Licht aus
+                </Button>
+              )}
+              {blinds.length > 1 && (
+                <>
+                  <IconButton icon={ChevronUp} variant="filled" label="Alle Jalousien im Raum hochfahren" onClick={() => blinds.forEach((entity) => void blind.up(entity))} />
+                  <IconButton icon={ChevronDown} variant="filled" label="Alle Jalousien im Raum herunterfahren" onClick={() => blinds.forEach((entity) => void blind.down(entity))} />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {sections.map((section) => (
         <Section key={section.title} title={section.title}>

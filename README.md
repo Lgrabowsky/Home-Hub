@@ -16,7 +16,7 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
 
 | Bereich | Funktionen |
 | --- | --- |
-| **Räume** (myGEKKO) | Lichter (schalten, dimmen, Farbe), Jalousien und Rollläden (Position, Lamellen), Heizung je Raum, Steckdosen und Geräte, Szenen/Aktionen, Zeitschaltuhren, Wetterwerte |
+| **Räume** (myGEKKO) | Lichter (schalten, dimmen, Farbe), Jalousien und Rollläden (Position, Lamellen), Heizung je Raum, Steckdosen und Geräte, Szenen/Aktionen, Zeitschaltuhren, Wetterwerte – wahlweise nach Stockwerk und Raum oder wie am myGEKKO nach Funktion (Licht, Jalousien, Klima, Geräte & Steckdosen, Aktionen), jeweils mit „Alle aus“ / „Alle hoch“ |
 | **Sicherheit** | Alle Fenster- und Türkontakte auf einen Blick („2 von 14 offen“), Zustand der Alarmüberwachung (Hülle), Live-Bilder aller Kameras und Türstationen |
 | **Türstationen** (DoorBird) | Live-Video, Gegensprechen, Tür öffnen (mit Schiebe-Bestätigung), Licht, Verlauf mit Bildern (Klingeln, Bewegung, Öffnungen), Klingel-Meldung in der App |
 | **Kameras** (Reolink) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer, Sirene |

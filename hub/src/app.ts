@@ -50,7 +50,15 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
 
   if (config.demo) {
     // The demo must be usable without an authenticator app at hand.
-    settings.override('general', { hubName: 'Demo-Zuhause', requireTotp: false });
+    settings.override('general', {
+      hubName: 'Demo-Zuhause',
+      requireTotp: false,
+      floors: [
+        { name: 'Erdgeschoss', rooms: ['Eingang', 'Flur', 'Wohnzimmer', 'Esszimmer', 'Küche', 'Büro', 'Hauswirtschaftsraum'] },
+        { name: 'Obergeschoss', rooms: ['Schlafzimmer', 'Kinderzimmer', 'Bad'] },
+        { name: 'Außen', rooms: ['Außen', 'Terrasse'] },
+      ],
+    });
   }
 
   const ctx: HubContext = {

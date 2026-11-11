@@ -3,9 +3,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { BlindEntity, ClimateEntity, Entity, LightEntity } from '@home-hub/shared';
 import { useEntity, useIsFavorite } from '../../hooks/entities.ts';
 import { blind, climate, light } from '../../lib/actions.ts';
-import { formatPercent, formatTemperature } from '../../lib/format.ts';
+import { formatNumber, formatPercent, formatTemperature } from '../../lib/format.ts';
+import { BlindGlyph, ClimateGlyph } from '../home/glyphs.tsx';
 import { useCan } from '../../store/session.ts';
-import { Button, cx, IconButton, Notice, Row, RowGroup, Segmented, Sheet, Slider, Toggle } from '../ui.tsx';
+import { Button, cx, IconButton, Notice, Row, RowGroup, Sheet, Slider, Toggle } from '../ui.tsx';
 
 /** "Show on the overview" switch that every detail sheet ends with. */
 export function FavoriteRow({ entity }: { entity: Entity }) {
@@ -40,7 +41,7 @@ export function EntitySheet({ entityId, onClose }: EntitySheetProps) {
   const shown = entity ?? last.current;
   if (!shown) return null;
   return (
-    <Sheet open={entityId !== null} onClose={onClose} title={shown.name} subtitle={shown.room ?? undefined}>
+    <Sheet open={entityId !== null} onClose={onClose} title={shown.name} subtitle={shown.room && shown.room !== shown.name ? shown.room : undefined}>
       {!shown.available && <Notice tone="warn">Dieses Gerät ist gerade nicht erreichbar.</Notice>}
       {shown.kind === 'light' && <LightControls entity={shown} />}
       {shown.kind === 'blind' && <BlindControls entity={shown} />}
@@ -137,9 +138,17 @@ export function blindStateText(entity: BlindEntity): string {
   return `${Math.round(entity.position)} % geschlossen`;
 }
 
+const BLIND_PRESETS = [
+  { label: 'Offen', value: 0 },
+  { label: 'Halb', value: 50 },
+  { label: 'Zu', value: 100 },
+];
+
 function BlindControls({ entity }: { entity: BlindEntity }) {
   const can = useCan('home.control');
   const disabled = !can || !entity.available;
+  // While the finger is on the slider, the picture follows it.
+  const [preview, setPreview] = useState<number | null>(null);
   return (
     <div>
       {entity.locked && (
@@ -147,20 +156,47 @@ function BlindControls({ entity }: { entity: BlindEntity }) {
           Die Jalousie ist am Gebäude gesperrt (z. B. Wind- oder Alarmschutz).
         </Notice>
       )}
-      <p className="mb-3 text-center text-muted">{blindStateText(entity)}</p>
-      <div className="flex justify-center gap-4">
-        <IconButton icon={ChevronUp} label="Hochfahren" size="lg" variant="filled" active={entity.motion === 'up'} tone="cool" disabled={disabled} onClick={() => void blind.up(entity)} />
-        {!entity.isGroup && <IconButton icon={Square} label="Anhalten" size="lg" variant="filled" disabled={disabled} onClick={() => void blind.stop(entity)} />}
-        <IconButton icon={ChevronDown} label="Herunterfahren" size="lg" variant="filled" active={entity.motion === 'down'} tone="cool" disabled={disabled} onClick={() => void blind.down(entity)} />
+      <div className="flex items-center justify-center gap-7 py-2">
+        <BlindGlyph entity={{ ...entity, position: preview ?? entity.position }} size="lg" />
+        <div className="flex flex-col items-center gap-3">
+          <IconButton icon={ChevronUp} label="Hochfahren" size="lg" variant="filled" active={entity.motion === 'up'} tone="cool" disabled={disabled} onClick={() => void blind.up(entity)} />
+          {!entity.isGroup && <IconButton icon={Square} label="Anhalten" size="lg" variant="filled" disabled={disabled} onClick={() => void blind.stop(entity)} />}
+          <IconButton icon={ChevronDown} label="Herunterfahren" size="lg" variant="filled" active={entity.motion === 'down'} tone="cool" disabled={disabled} onClick={() => void blind.down(entity)} />
+        </div>
       </div>
+      <p className="mt-2 text-center text-muted" role="status">
+        {blindStateText(entity)}
+      </p>
 
       {entity.features.position && (
         <>
-          <Label value={entity.position === null ? '–' : formatPercent(entity.position)}>Position (geschlossen)</Label>
-          <Slider label="Position" tone="cool" value={entity.position ?? 0} disabled={disabled} onCommit={(value) => void blind.setPosition(entity, value)} />
-          <div className="mt-1 flex justify-between px-0.5 text-xs text-faint">
-            <span>Offen</span>
-            <span>Geschlossen</span>
+          <Label value={entity.position === null ? '–' : formatPercent(preview ?? entity.position)}>Position (geschlossen)</Label>
+          <Slider
+            label="Position"
+            tone="cool"
+            value={entity.position ?? 0}
+            disabled={disabled}
+            onChange={setPreview}
+            onCommit={(value) => {
+              setPreview(null);
+              void blind.setPosition(entity, value);
+            }}
+          />
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {BLIND_PRESETS.map((preset) => (
+              <button
+                key={preset.value}
+                type="button"
+                disabled={disabled}
+                onClick={() => void blind.setPosition(entity, preset.value)}
+                className={cx(
+                  'h-11 rounded-2xl text-sm font-medium transition active:scale-[0.97] disabled:opacity-50',
+                  entity.position !== null && Math.abs(entity.position - preset.value) < 3 ? 'bg-cool/20 text-cool' : 'bg-sunken text-muted hover:text-fg',
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </>
       )}
@@ -185,11 +221,41 @@ const MODE_LABELS: Record<ClimateEntity['mode'], string> = {
   unknown: 'Unbekannt',
 };
 
+/** A round button with a glow when on — the power switch of the inspiration's AC panel. */
+function PowerButton({ on, label, disabled, onClick, tone = 'warm' }: { on: boolean; label: string; disabled?: boolean; onClick(): void; tone?: 'warm' | 'cool' | 'accent' }) {
+  const colour = `var(--hh-${tone})`;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onClick}
+      className={cx('flex size-12 shrink-0 items-center justify-center rounded-full transition duration-300 active:scale-95 disabled:opacity-50', on ? 'text-white' : 'bg-sunken text-muted')}
+      style={on ? { background: colour, boxShadow: `0 0 0 4px color-mix(in srgb, ${colour} 22%, transparent), 0 0 26px -2px ${colour}` } : undefined}
+    >
+      <Power className="size-5.5" aria-hidden />
+    </button>
+  );
+}
+
+function InfoTile({ label, value, tone }: { label: string; value: ReactNode; tone?: 'warm' | 'cool' | 'warn' }) {
+  return (
+    <div className="rounded-2xl bg-sunken px-3.5 py-3">
+      <p className="text-xs text-muted">{label}</p>
+      <p className={cx('mt-0.5 font-semibold tabular-nums', tone === 'warm' && 'text-warm', tone === 'cool' && 'text-cool', tone === 'warn' && 'text-warn')}>{value}</p>
+    </div>
+  );
+}
+
+const SELECTABLE_MODES = ['comfort', 'reduced', 'standby', 'manual'] as const;
+
 function ClimateControls({ entity }: { entity: ClimateEntity }) {
   const can = useCan('home.control');
   const disabled = !can || !entity.available;
   // The target follows the buttons instantly; the command is sent once the user pauses.
   const [target, setTarget] = useState(entity.target);
+  const [sync, setSync] = useState<'idle' | 'sending' | 'done'>('idle');
   const timer = useRef<number | null>(null);
   const editing = useRef(false);
   useEffect(() => {
@@ -201,63 +267,125 @@ function ClimateControls({ entity }: { entity: ClimateEntity }) {
     },
     [],
   );
+  const { min, max, step: size } = entity.targetRange;
+  const clamp = (value: number) => Math.min(max, Math.max(min, Math.round(value / size) * size));
 
-  const step = (delta: number) => {
-    const { min, max, step: size } = entity.targetRange;
-    const base = target ?? entity.temperature ?? 21;
-    const next = Math.min(max, Math.max(min, Math.round((base + delta * size) / size) * size));
+  const send = (next: number, delay: number) => {
     setTarget(next);
     editing.current = true;
+    setSync('sending');
     if (timer.current) window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
-      void climate.setTarget(entity, next).finally(() => {
+      void climate.setTarget(entity, next).then((ok) => {
         editing.current = false;
+        setSync(ok ? 'done' : 'idle');
+        if (ok) timer.current = window.setTimeout(() => setSync('idle'), 2000);
       });
-    }, 700);
+    }, delay);
   };
+  const step = (delta: number) => send(clamp((target ?? entity.temperature ?? 21) + delta * size), 700);
+
+  const off = entity.mode === 'off';
+  const status = sync === 'sending' ? 'Wird übertragen …' : sync === 'done' ? 'Übernommen' : entity.cooling ? 'Kühlt gerade' : entity.heating ? 'Heizt gerade' : off ? 'Ausgeschaltet' : 'Temperatur erreicht';
 
   return (
     <div>
-      <div className="mt-1 flex items-center justify-between rounded-tile bg-sunken px-5 py-4">
-        <div>
-          <p className="text-sm text-muted">Aktuell</p>
-          <p className="text-4xl font-bold tabular-nums tracking-tight">{formatTemperature(entity.temperature)}</p>
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted">Raumtemperatur</p>
+          <p className="text-xl font-semibold tabular-nums">{formatTemperature(entity.temperature)}</p>
         </div>
-        <div className="text-right text-sm text-muted">
-          {entity.humidity !== null && <p>Luftfeuchte {formatPercent(entity.humidity)}</p>}
-          {entity.output !== null && <p>Ventil {formatPercent(entity.output)}</p>}
-          <p className={cx(entity.heating && 'text-warm', entity.cooling && 'text-cool')}>{entity.cooling ? 'Kühlt' : entity.heating ? 'Heizt' : 'Ruht'}</p>
-        </div>
+        {entity.features.mode && (
+          <PowerButton
+            on={!off}
+            disabled={disabled}
+            label={off ? 'Heizung einschalten' : 'Heizung ausschalten'}
+            tone={entity.cooling ? 'cool' : 'warm'}
+            onClick={() => void climate.setMode(entity, off ? 'comfort' : 'off')}
+          />
+        )}
       </div>
 
-      {entity.windowOpen && (
-        <Notice tone="warn" icon={Wind} className="mt-3">
-          In diesem Raum ist ein Fenster offen.
-        </Notice>
-      )}
+      <div className={cx('mt-2 flex flex-col items-center transition-opacity duration-300', off && 'opacity-45')}>
+        <ClimateGlyph heating={entity.heating} cooling={entity.cooling} size="lg" />
+        {entity.features.target && (
+          <p className="mt-3 text-[64px] font-light leading-none tracking-tight tabular-nums" aria-live="polite">
+            {target === null ? '–' : formatNumber(target)}
+            <span className="ml-1 align-top text-2xl font-normal text-muted">°C</span>
+          </p>
+        )}
+        <p className="mt-2 text-sm text-muted">Wunschtemperatur</p>
+      </div>
 
       {entity.features.target && (
-        <>
-          <Label>Wunschtemperatur</Label>
-          <div className="flex items-center justify-between gap-3">
-            <IconButton icon={Minus} label="Kälter" size="lg" variant="filled" disabled={disabled} onClick={() => step(-1)} />
-            <span className="text-3xl font-semibold tabular-nums">{formatTemperature(target)}</span>
-            <IconButton icon={Plus} label="Wärmer" size="lg" variant="filled" disabled={disabled} onClick={() => step(1)} />
+        <div className="mt-5">
+          <div className="flex items-center gap-3">
+            <IconButton icon={Minus} label="Kälter" variant="filled" disabled={disabled} onClick={() => step(-1)} />
+            <div className="flex-1 rounded-full px-1" style={{ background: 'linear-gradient(90deg, var(--hh-cool), color-mix(in srgb, var(--hh-warm) 60%, var(--hh-cool)), var(--hh-warm), #ff7a59)' }}>
+              <Slider
+                thin
+                bare
+                label="Wunschtemperatur"
+                min={min}
+                max={max}
+                step={size}
+                value={target ?? min}
+                disabled={disabled}
+                onChange={(value) => {
+                  editing.current = true;
+                  setTarget(value);
+                }}
+                onCommit={(value) => send(clamp(value), 0)}
+              />
+            </div>
+            <IconButton icon={Plus} label="Wärmer" variant="filled" disabled={disabled} onClick={() => step(1)} />
           </div>
-        </>
+          <div className="mt-1.5 flex justify-between px-14 text-xs text-faint tabular-nums">
+            <span>{formatNumber(min)}°</span>
+            <span>{formatNumber(max)}°</span>
+          </div>
+        </div>
+      )}
+
+      {entity.windowOpen && (
+        <Notice tone="warn" icon={Wind} className="mt-4">
+          In diesem Raum ist ein Fenster offen.
+        </Notice>
       )}
 
       {entity.features.mode && (
         <>
           <Label>Betriebsart</Label>
-          <Segmented
-            className="w-full"
-            value={entity.mode}
-            onChange={(mode) => !disabled && void climate.setMode(entity, mode)}
-            options={(['comfort', 'reduced', 'off', 'manual', 'standby'] as const).map((mode) => ({ value: mode, label: MODE_LABELS[mode] }))}
-          />
+          <div className="grid grid-cols-2 gap-2 min-[420px]:grid-cols-4">
+            {SELECTABLE_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={entity.mode === mode}
+                disabled={disabled}
+                onClick={() => void climate.setMode(entity, mode)}
+                className={cx(
+                  'h-12 rounded-2xl text-sm font-medium transition active:scale-[0.97] disabled:opacity-50',
+                  entity.mode === mode ? 'bg-fg text-bg' : 'bg-sunken text-muted hover:text-fg',
+                )}
+              >
+                {MODE_LABELS[mode]}
+              </button>
+            ))}
+          </div>
         </>
       )}
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {entity.output !== null && <InfoTile label="Ventil" value={formatPercent(entity.output)} tone={entity.heating ? 'warm' : undefined} />}
+        {entity.humidity !== null && <InfoTile label="Luftfeuchte" value={formatPercent(entity.humidity)} />}
+        {entity.windowOpen !== null && <InfoTile label="Fenster" value={entity.windowOpen ? 'Offen' : 'Zu'} tone={entity.windowOpen ? 'warn' : undefined} />}
+      </div>
+
+      <p className="mt-4 flex items-center justify-center gap-2 text-sm text-muted" role="status">
+        <span className={cx('size-1.5 rounded-full', sync === 'sending' ? 'animate-pulse bg-accent' : entity.heating ? 'bg-warm' : entity.cooling ? 'bg-cool' : 'bg-faint')} />
+        {status}
+      </p>
     </div>
   );
 }
