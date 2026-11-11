@@ -1,0 +1,152 @@
+{
+  "globals": {
+    "network": {
+      "gekkoname": { "value": "Hostname of myGEKKO", "type": "STRING", "permission": "READ", "index": 1 }
+    },
+    "alarm": {
+      "sumstate": { "value": "0|2|3 (OK|ACKNOWLEDGED|ALARM)", "type": "INT", "permission": "READ", "index": 101 }
+    },
+    "meteo": {
+      "twilight": { "value": "55.8 (Act.Value)", "type": "REAL", "unit": "lux", "permission": "READ", "index": 201 },
+      "humidity": { "value": "25.8 (Act.Value)", "type": "REAL", "unit": "%rH", "permission": "READ", "index": 202 },
+      "brightness": { "value": "15.8 (Act.Value)", "type": "REAL", "unit": "kLux", "permission": "READ", "index": 203 },
+      "wind": { "value": "5.4 (Act.Value)", "type": "REAL", "unit": "m/s", "permission": "READ", "index": 204 },
+      "temperature": { "value": "25.4 (Act.Value)", "type": "REAL", "unit": "°C", "permission": "READ", "index": 205 }
+    },
+    "profile": {
+      "sumstate": { "value": "0|1 (Away|At Home)", "type": "INT", "permission": "READ", "index": 301 },
+      "scmd": { "value": "P0|P1 (Away|At Home)", "type": "STRING", "permission": "WRITE", "index": 302 }
+    }
+  },
+  "lights": {
+    "item0": {
+      "name": "Diele",
+      "sumstate": { "value": "0;77;45476;0 (On|Off;DimmValue;RGBColor;Locked)", "type": "STRING", "permission": "READ", "index": 100000 },
+      "scmd": { "value": "1|0|D100|T|C44782 (On|Off|Dim%|Toggle|RGB24Bit)", "type": "STRING", "permission": "WRITE", "index": 100001 }
+    },
+    "item1": {
+      "name": "Wohnraum Pendel",
+      "sumstate": { "value": "0;77;45476;0 (On|Off;DimmValue;RGBColor;Locked)", "type": "STRING", "permission": "READ", "index": 100100 },
+      "scmd": { "value": "1|0|D100|T|C44782 (On|Off|Dim%|Toggle|RGB24Bit)", "type": "STRING", "permission": "WRITE", "index": 100101 }
+    },
+    "item4": {
+      "name": "Vitrine",
+      "sumstate": { "value": "0;77;45476;0 (On|Off;DimmValue;RGBColor;Locked)", "type": "STRING", "permission": "READ", "index": 100400 },
+      "scmd": { "value": "1|0|D100|T|C44782 (On|Off|Dim%|Toggle|RGB24Bit)", "type": "STRING", "permission": "WRITE", "index": 100401 }
+    }
+  },
+  "blinds": {
+    "item0": {
+      "name": "Rollo Diele",
+      "sumstate": {
+        "value": "0;45.6;22.6;0 (-2=hold_down|-1=down|0=stop|1=up|2=hold_up;Position;Angle;Locked;SlatRotationArea)",
+        "type": "STRING",
+        "permission": "READ",
+        "index": 200000
+      },
+      "scmd": {
+        "value": "-2|-1|0|1|2|T|P55.4|S32.4 (hold_down|down|stop|up|hold_up|Toggle|Position|Angle)",
+        "type": "STRING",
+        "permission": "WRITE",
+        "index": 200001
+      }
+    },
+    "item8": {
+      "name": "Rollo Wohnraum",
+      "sumstate": {
+        "value": "0;45.6;22.6;0 (-2=hold_down|-1=down|0=stop|1=up|2=hold_up;Position;Angle;Locked;SlatRotationArea)",
+        "type": "STRING",
+        "permission": "READ",
+        "index": 200800
+      },
+      "scmd": {
+        "value": "-2|-1|0|1|2|T|P55.4|S32.4 (hold_down|down|stop|up|hold_up|Toggle|Position|Angle)",
+        "type": "STRING",
+        "permission": "WRITE",
+        "index": 200801
+      }
+    }
+  },
+  "vents": {
+    "item0": {
+      "name": "Lüftung Haus",
+      "sumstate": {
+        "value": "3;1;0;0;4;55.7;64.0;54.7;22.1;22.8;7.6;9.3;33.3;33.3;0; (Level|Type|Mode|Bypassstate|MaxLevel|Humidity|CO2|VOC|TempSupplyAir|TempExhaustAir|TempOutsideAir|TempOutgoingAir|LevelIn%|LevelOut%|Locked)",
+        "type": "STRING",
+        "permission": "READ",
+        "index": 300000
+      },
+      "scmd": { "value": "-1|1|2|3|4|T (Off|Level1|Level2|Level3|Level4|Toggle)", "type": "STRING", "permission": "WRITE", "index": 300001 }
+    }
+  },
+  "loads": {
+    "item0": {
+      "name": "Steckdose Werkbank",
+      "sumstate": { "value": "0|1|2 (Off|On Impulse|On Permanent)", "type": "STRING", "permission": "READ", "index": 400000 },
+      "scmd": { "value": "0|1|2|T (Off|On Impulse|On Permanent|Toggle)", "type": "STRING", "permission": "WRITE", "index": 400001 }
+    },
+    "item1": {
+      "name": "Teichpumpe",
+      "sumstate": { "value": "0|1|2 (Off|On Impulse|On Permanent)", "type": "STRING", "permission": "READ", "index": 400100 },
+      "scmd": { "value": "0|1|2|T (Off|On Impulse|On Permanent|Toggle)", "type": "STRING", "permission": "WRITE", "index": 400101 }
+    }
+  },
+  "roomtemps": {
+    "item0": {
+      "name": "Wohnraum",
+      "sumstate": { "value": "0|1|2 (Off|On Impulse|On Permanent)", "type": "STRING", "permission": "READ", "index": 500000 },
+      "scmd": {
+        "value": "M1|M8|M16|M64|M256|K2.4 (Mode_Off|Mode_Auto|Mode_Reduced|Mode_Standby|Mode_Manual|Temp. adjustment[°C])",
+        "type": "STRING",
+        "permission": "WRITE",
+        "index": 500001
+      }
+    },
+    "item8": {
+      "name": "Werkstatt",
+      "sumstate": { "value": "0|1|2 (Off|On Impulse|On Permanent)", "type": "STRING", "permission": "READ", "index": 500800 },
+      "scmd": {
+        "value": "M1|M8|M16|M64|M256|K2.4 (Mode_Off|Mode_Auto|Mode_Reduced|Mode_Standby|Mode_Manual|Temp. adjustment[°C])",
+        "type": "STRING",
+        "permission": "WRITE",
+        "index": 500801
+      }
+    }
+  },
+  "multirooms": {
+    "item0": {
+      "name": "Musik Wohnraum",
+      "sumstate": {
+        "value": "1;45.0;543;FM4;1;Webradio;MP3;;;;;;;;;;;;; (1=ON|0=OFF;Volume[%];Time[sec];Title;Act.Playlist[1..15];NamePlaylist1;NamePlaylist2;...;NamePlaylist15;)",
+        "type": "STRING",
+        "permission": "READ",
+        "index": 1300000
+      },
+      "scmd": {
+        "value": "PLAY|STOP|T|N+1|C1|V24.5 (PLAY|STOP|TOGGLE|CHANGE SONG|CHANGE PLAYLIST|CHANGE VOLUME)",
+        "type": "STRING",
+        "permission": "WRITE",
+        "index": 1300001
+      }
+    }
+  },
+  "actions": {
+    "item0": {
+      "name": "Heimkommen",
+      "sumstate": { "value": "1;1; (0=OFF|1=ON;0=LOCKED|1=ENABLED)", "type": "STRING", "permission": "READ", "index": 1600000 },
+      "scmd": { "value": "-1|1|T (STOP|START|TOGGLE)", "type": "STRING", "permission": "WRITE", "index": 1600001 }
+    }
+  },
+  "alarms_logics": {
+    "item0": {
+      "name": "Fenster Werkstatt",
+      "sumstate": { "value": "55.0;", "type": "STRING", "permission": "READ", "index": 1700000 },
+      "scmd": { "value": "S44.7 (SetpointValue)", "type": "STRING", "permission": "WRITE", "index": 1700001 }
+    },
+    "item1": {
+      "name": "Bewegung Hof",
+      "sumstate": { "value": "55.0;", "type": "STRING", "permission": "READ", "index": 1700100 },
+      "scmd": { "value": "S44.7 (SetpointValue)", "type": "STRING", "permission": "WRITE", "index": 1700101 }
+    }
+  }
+}

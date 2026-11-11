@@ -6,7 +6,7 @@ import { GekkoClient, GekkoError, isGekkoError, type GekkoErrorKind } from './my
 import { isSuperseding, planCommand } from './mygekko/commands.ts';
 import { ROOM_WINDOW_FIELD, listCandidates, openRoomWindows, resolveContacts, type ResolvedContact } from './mygekko/contacts.ts';
 import { EntityFactory, MAPPED_SYSTEMS, SERVICE } from './mygekko/entities.ts';
-import { controllerKey, credentialsKey, loginBlockedUntil, noteRejection } from './mygekko/lockout.ts';
+import { controllerKey, credentialsKey, loginBlockedUntil, noteRejection, wereRejected } from './mygekko/lockout.ts';
 import { clockTime, describeFailure, missingSetting } from './mygekko/messages.ts';
 import { filled, parseStatus, parseTree, splitSumstate, type GekkoStatus, type GekkoTree, type TreeItem } from './mygekko/protocol.ts';
 import { runConnectionTest } from './mygekko/selftest.ts';
@@ -157,8 +157,11 @@ export class MyGekkoIntegration implements Integration {
   private failures = 0;
   private emptyAnswers = 0;
   private pausedUntil = 0;
+  /** Length of the current pause — to notice a system clock that was set back meanwhile. */
+  private pauseMs = 0;
   private pauseReason: PauseReason | null = null;
-  private commandsBlockedUntil = 0;
+  /** The last round of the poll loop was skipped because of a pause. */
+  private pollDeferred = false;
   private lastPollAt = 0;
   private lastOkAt: number | null = null;
   private lastPollMs: number | null = null;
@@ -249,7 +252,7 @@ export class MyGekkoIntegration implements Integration {
     for (const entity of this.deps.state.all()) {
       if (entity.service === SERVICE) entities[entity.kind] = (entities[entity.kind] ?? 0) + 1;
     }
-    const paused = Date.now() < this.pausedUntil;
+    const paused = this.pauseRemaining() > 0;
     return {
       mode: this.settings.mode,
       transport: this.client?.transport ?? null,
@@ -331,9 +334,12 @@ export class MyGekkoIntegration implements Integration {
   // --- Polling --------------------------------------------------------------------
 
   private nextDelay(): number {
-    const remaining = this.pausedUntil - Date.now();
+    const remaining = this.pauseRemaining();
     // Sleep through a pause, but look up now and then so a changed rhythm is picked up.
     if (remaining > 0) return Math.min(Math.max(remaining, 50), 60_000);
+    // The pause ran out right after a round was skipped for it (timers may fire a moment early):
+    // poll now instead of sleeping a whole interval on top.
+    if (this.pollDeferred) return 0;
     return this.active ? this.timing.activeMs : this.timing.idleMs;
   }
 
@@ -349,8 +355,11 @@ export class MyGekkoIntegration implements Integration {
 
   private async tick(signal: AbortSignal): Promise<void> {
     const client = this.client;
-    if (!client || this.stopped || Date.now() < this.pausedUntil) return;
-    const wait = this.lastPollAt + this.timing.minPollGapMs - Date.now();
+    if (!client || this.stopped) return;
+    this.pollDeferred = this.pauseRemaining() > 0;
+    if (this.pollDeferred) return;
+    // Never longer than the gap itself: should the system clock be set back, the loop must not sleep through the difference.
+    const wait = Math.min(this.timing.minPollGapMs, this.lastPollAt + this.timing.minPollGapMs - Date.now());
     if (wait > 0) await sleep(wait, signal);
     if (this.stopped || signal.aborted) return;
 
@@ -390,10 +399,14 @@ export class MyGekkoIntegration implements Integration {
   private async refreshTree(client: GekkoClient, status: GekkoStatus, signal: AbortSignal): Promise<void> {
     const now = Date.now();
     const unknown = this.tree ? [...status.values.keys()].filter((key) => !this.knows(key)) : [];
+    // Distances in time are taken as absolute values so that a clock that was set back cannot stall anything.
     const due =
-      !this.tree || this.treeStale || now - this.treeLoadedAt >= this.timing.treeRefreshMs || unknown.some((key) => !this.unknownElements.has(key));
+      !this.tree ||
+      this.treeStale ||
+      Math.abs(now - this.treeLoadedAt) >= this.timing.treeRefreshMs ||
+      unknown.some((key) => !this.unknownElements.has(key));
     if (!due) return;
-    if (this.tree && now - this.treeFailedAt < this.timing.treeRetryMs) return;
+    if (this.tree && Math.abs(now - this.treeFailedAt) < this.timing.treeRetryMs) return;
     try {
       const tree = parseTree(await client.readTree(signal));
       if (!tree) throw new GekkoError('resource tree is not a JSON object', 'protocol');
@@ -458,6 +471,7 @@ export class MyGekkoIntegration implements Integration {
     this.online = true;
     this.failures = 0;
     this.pausedUntil = 0;
+    this.pauseMs = 0;
     this.pauseReason = null;
     this.lastOkAt = Date.now();
     if (this.authBlockStored) {
@@ -505,7 +519,22 @@ export class MyGekkoIntegration implements Integration {
 
   private pause(until: number, reason: PauseReason): void {
     this.pausedUntil = until;
+    this.pauseMs = Math.max(0, until - Date.now());
     this.pauseReason = reason;
+  }
+
+  /** Milliseconds the current pause still lasts; 0 when the controller may be talked to. */
+  private pauseRemaining(): number {
+    const now = Date.now();
+    const remaining = this.pausedUntil - now;
+    if (remaining <= 0) return 0;
+    if (remaining > this.pauseMs) {
+      // The system clock was set back (e.g. NTP correcting a wrong hardware clock after boot). A pause
+      // never lasts longer than it was meant to; it starts over, which is the safe side for the lock-out rule.
+      this.pausedUntil = now + this.pauseMs;
+      return this.pauseMs;
+    }
+    return remaining;
   }
 
   private goOffline(message: string, cause: { kind: string; status: number | null }): void {
@@ -538,7 +567,9 @@ export class MyGekkoIntegration implements Integration {
 
   private restore(): void {
     const now = Date.now();
-    let blockedUntil = loginBlockedUntil(this.settings, now, this.timing.authPauseMs) ?? 0;
+    let blockedUntil = Math.min(loginBlockedUntil(this.settings, now, this.timing.authPauseMs) ?? 0, now + this.timing.authPauseMs);
+    // Were these very credentials rejected, or "only" other attempts on the same account (e.g. while testing)?
+    let rejected = wereRejected(this.settings, now, this.timing.authPauseMs);
     try {
       const stored = this.deps.settings.getInternal<Partial<PersistedState>>(STATE_KEY);
       if (stored && stored.controller === controllerKey(this.settings)) {
@@ -549,7 +580,9 @@ export class MyGekkoIntegration implements Integration {
         if (block && block.credentials === credentialsKey(this.settings) && typeof block.until === 'number') {
           this.authBlockStored = true;
           // A wrong clock must not stretch the pause beyond its length.
-          blockedUntil = Math.max(blockedUntil, Math.min(block.until, now + this.timing.authPauseMs));
+          const until = Math.min(block.until, now + this.timing.authPauseMs);
+          if (until > now) rejected = true;
+          blockedUntil = Math.max(blockedUntil, until);
         }
       }
     } catch (err) {
@@ -559,7 +592,9 @@ export class MyGekkoIntegration implements Integration {
       this.pause(blockedUntil, 'auth');
       this.failures = 2;
       this.lastProblem = { kind: 'auth', status: 403, at: now };
-      const message = describeFailure(new GekkoError('login was rejected recently', 'auth', 403), this.settings.mode);
+      const message = rejected
+        ? describeFailure(new GekkoError('login was rejected recently', 'auth', 403), this.settings.mode)
+        : 'Der myGEKKO hat eben mehrere Anmeldungen abgelehnt. Damit er das Konto nicht sperrt, wartet der Hub mit der nächsten.';
       this.goOffline(`${message} Nächster Versuch gegen ${clockTime(blockedUntil)} Uhr.`, { kind: 'auth', status: 403 });
     }
   }
@@ -586,21 +621,18 @@ export class MyGekkoIntegration implements Integration {
 
   /** Throws when nothing may be sent to the controller right now. */
   private assertReady(): void {
-    const now = Date.now();
     if (this.stopped || !this.started || !this.client) throw unavailable('Der myGEKKO ist gerade nicht verbunden.');
-    if (now < this.pausedUntil && this.pauseReason === 'auth') {
+    const paused = this.pauseRemaining();
+    if (paused > 0 && this.pauseReason === 'auth') {
       throw unavailable('Der myGEKKO lehnt die Anmeldung des Hubs ab. Bitte die Zugangsdaten in den Einstellungen prüfen.');
     }
-    if (now < this.pausedUntil && this.pauseReason === 'rate_limit') {
+    if (paused > 0 && this.pauseReason === 'rate_limit') {
       throw new HttpError(
         429,
         'rate_limited',
         'Der myGEKKO nimmt gerade keine Befehle an (zu viele Anfragen). Bitte in ein paar Minuten noch einmal versuchen.',
-        Math.ceil((this.pausedUntil - now) / 1000),
+        Math.ceil(paused / 1000),
       );
-    }
-    if (now < this.commandsBlockedUntil) {
-      throw new HttpError(502, 'device_forbidden', 'Der myGEKKO hat eben einen Befehl des Hubs abgelehnt. Bitte prüfen, ob der Benutzer am myGEKKO schalten darf, und gleich noch einmal versuchen.');
     }
     if (!this.online) throw unavailable('Der myGEKKO ist gerade nicht erreichbar.');
   }
@@ -615,8 +647,11 @@ export class MyGekkoIntegration implements Integration {
       const key = isSuperseding(command) ? `${entityId}|${command.action}` : `${entityId}|${command.action}|${++this.commandSeq}`;
       const waiting = this.queue.get(key);
       if (waiting) {
+        // The newest command also takes the newest place in line: after "dim, off, dim" the light must end up dimmed, not off.
+        this.queue.delete(key);
         waiting.command = command;
         waiting.waiters.push({ resolve, reject });
+        this.queue.set(key, waiting);
         this.stats.superseded++;
       } else {
         this.queue.set(key, { entityId, command, waiters: [{ resolve, reject }] });
@@ -650,7 +685,7 @@ export class MyGekkoIntegration implements Integration {
   }
 
   private async execute(job: QueuedCommand): Promise<void> {
-    const gap = this.lastCommandAt + this.timing.commandGapMs - Date.now();
+    const gap = Math.min(this.timing.commandGapMs, this.lastCommandAt + this.timing.commandGapMs - Date.now());
     if (gap > 0) await sleep(gap, this.abort.signal);
     this.assertReady();
     const entity = this.deps.state.get(job.entityId);
@@ -686,14 +721,18 @@ export class MyGekkoIntegration implements Integration {
     }
     log.warn({ kind: err.kind, status: err.status }, 'myGEKKO command failed');
     switch (err.kind) {
-      case 'auth':
-        // Reading worked a moment ago, so this is most likely a missing write permission.
-        // No more commands for a while (each one would raise an alarm on the controller);
-        // the next status poll tells whether the login itself still works.
-        this.commandsBlockedUntil = Date.now() + this.timing.errorPauseMs;
-        this.poller.kick();
-        // 502, not 403: for the app a 403 means that the signed-in person lacks a permission on the hub.
-        return new HttpError(502, 'device_forbidden', 'Der myGEKKO hat den Befehl abgelehnt. Bitte prüfen, ob der Benutzer am myGEKKO schalten darf.');
+      case 'auth': {
+        // 403 is the answer to a wrong login (the error list of the pinpong client has 405 for a missing
+        // permission), and the controller locks the account after repeated ones. So this is treated exactly
+        // like a rejected poll: nothing more is sent — no status poll to "check" either — until the
+        // lock-out window has passed.
+        const cause = { kind: err.kind, status: err.status ?? null };
+        this.failures++;
+        this.lastProblem = { ...cause, at: Date.now() };
+        this.goOffline(this.loginRejected(describeFailure(err, this.settings.mode)), cause);
+        // 503, not 403: for the app a 403 means that the signed-in person lacks a permission on the hub.
+        return unavailable('Der myGEKKO lehnt die Anmeldung des Hubs ab. Bitte die Zugangsdaten in den Einstellungen prüfen.');
+      }
       case 'rate_limit': {
         const until = Date.now() + this.timing.rateLimitPauseMs;
         this.pause(until, 'rate_limit');
@@ -710,7 +749,8 @@ export class MyGekkoIntegration implements Integration {
         this.poller.kick();
         return new HttpError(404, 'not_found', `„${name}“ gibt es auf dem myGEKKO nicht mehr.`);
       case 'not_writable':
-        return new HttpError(400, 'unsupported', `„${name}“ lässt sich nicht schalten.`);
+        // 405: the element is read-only, or the controller's user may not write (pinpong: "permission denied").
+        return new HttpError(400, 'unsupported', `„${name}“ lässt sich nicht schalten (der myGEKKO erlaubt es nicht).`);
       case 'not_executed':
         return new HttpError(409, 'not_executed', `Der myGEKKO konnte den Befehl für „${name}“ nicht ausführen.`);
       case 'gone':

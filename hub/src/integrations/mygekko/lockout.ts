@@ -52,7 +52,11 @@ export function credentialsKey(settings: Credentials): string {
 
 function recent(settings: Credentials, now: number, windowMs: number): Rejection[] {
   const key = accountKey(settings);
-  const list = (rejections.get(key) ?? []).filter((rejection) => now - rejection.at < windowMs);
+  const list = (rejections.get(key) ?? [])
+    // A rejection "from the future" means the system clock was set back: it counts as fresh (the safe side)
+    // instead of being kept for as long as the clock jumped.
+    .map((rejection) => (rejection.at > now ? { ...rejection, at: now } : rejection))
+    .filter((rejection) => now - rejection.at < windowMs);
   if (list.length > 0) rejections.set(key, list);
   else rejections.delete(key);
   return list;
@@ -77,6 +81,12 @@ export function loginBlockedUntil(settings: Credentials, now: number, windowMs: 
     return list[list.length - MAX_REJECTIONS_PER_WINDOW]!.at + windowMs;
   }
   return null;
+}
+
+/** True when exactly these credentials were rejected within the window (and not just other attempts on the same account). */
+export function wereRejected(settings: Credentials, now: number, windowMs: number): boolean {
+  const credentials = credentialsKey(settings);
+  return recent(settings, now, windowMs).some((rejection) => rejection.credentials === credentials);
 }
 
 /** For tests: start with a clean memory. */

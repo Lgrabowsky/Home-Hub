@@ -1,0 +1,44 @@
+{
+  "globals": {
+    "network": { "gekkoname": { "value": "ALTBAU" } },
+    "alarm": { "sumstate": { "value": "2" } },
+    "meteo": {
+      "twilight": { "value": "0.000000" },
+      "humidity": { "value": "41.000000" },
+      "brightness": { "value": "0.000000" },
+      "wind": { "value": "35.000000" },
+      "temperature": { "value": "12.000000" }
+    },
+    "profile": { "sumstate": { "value": "1" } }
+  },
+  "lights": {
+    "item0": { "sumstate": { "value": "0;;;0;" } },
+    "item1": { "sumstate": { "value": "1;15.85;;0;" } },
+    "item4": { "sumstate": { "value": "1;100;45476;0;" } }
+  },
+  "blinds": {
+    "item0": { "sumstate": { "value": "0;0;0;;0;90" } },
+    "item8": { "sumstate": { "value": "0;100;0;;0;90" } }
+  },
+  "vents": {
+    "item0": { "sumstate": { "value": "1;0;0;2;1;;;;;;;;300.0;300.0;0;" } }
+  },
+  "loads": {
+    "item0": { "sumstate": { "value": "0;0" } },
+    "item1": { "sumstate": { "value": "2;0" } }
+  },
+  "roomtemps": {
+    "item0": { "sumstate": { "value": "21.54599952697754;21.99;98.60;8;0;0.49;0;" } },
+    "item8": { "sumstate": { "value": "19.13199996948242;16.00;0.00;16;0;0.00;0;" } }
+  },
+  "multirooms": {
+    "item0": { "sumstate": { "value": "1;1;0;x-example-stream:PLAYER_0001:spdif;0;LISTE EINS,Radio,,,,,,,,,,,,,,," } }
+  },
+  "actions": {
+    "item0": { "sumstate": { "value": "0;1" } }
+  },
+  "alarms_logics": {
+    "item0": { "sumstate": { "value": "1.00;" } },
+    "item1": { "sumstate": { "value": "0.00;" } }
+  }
+}

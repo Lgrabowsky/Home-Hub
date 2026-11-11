@@ -80,6 +80,32 @@ function errorForStatus(status: number): GekkoError | null {
   return new GekkoError(`myGEKKO answered with HTTP ${status}`, kind, status);
 }
 
+/** The JSON document of an answer; throws `SyntaxError` when it is none. */
+function parseBody(response: DeviceResponse): unknown {
+  return JSON.parse(response.body.toString('utf8').replace(/^\uFEFF/, '')) as unknown;
+}
+
+/** A good answer carrying a JSON object — what both documents of the Query API look like. */
+function isApiAnswer(response: DeviceResponse): boolean {
+  if (response.status < 200 || response.status >= 300) return false;
+  try {
+    const body = parseBody(response);
+    return typeof body === 'object' && body !== null && !Array.isArray(body);
+  } catch {
+    return false;
+  }
+}
+
+/** An answer that proves the Query API is on the other end: a document, or one of its own refusals. */
+function speaksApi(response: DeviceResponse): boolean {
+  return isApiAnswer(response) || response.status === 401 || response.status === 403 || response.status === 429;
+}
+
+/** Something answered, but it is not the Query API: an unknown path or a page that is no JSON document. */
+function isForeignAnswer(response: DeviceResponse): boolean {
+  return response.status === 404 || (response.status >= 200 && response.status < 300 && !isApiAnswer(response));
+}
+
 /** The host cannot be reached at all — asking again over plain HTTP would only double the wait. */
 const UNREACHABLE = new Set(['ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'EHOSTDOWN', 'ENETDOWN']);
 
@@ -109,8 +135,10 @@ export class GekkoClient {
   private readonly auth: string;
   private readonly cloud: DeviceHttp | null = null;
   private readonly local: Record<Scheme, DeviceHttp> | null = null;
-  /** Local mode: the scheme the controller answered on. */
+  /** Local mode: the scheme the controller answered on; forgotten when it stops answering. */
   private scheme: Scheme | null = null;
+  /** Local mode: the scheme that worked last (commands are never used to find out which one works). */
+  private lastScheme: Scheme | null = null;
   private lastHttpsAttemptAt = 0;
 
   /** Throws `GekkoError('config')` when the settings cannot describe a controller. */
@@ -182,8 +210,10 @@ export class GekkoClient {
     if (this.cloud) {
       response = await this.send(this.cloud, path, signal);
     } else {
-      if (!this.scheme) throw new GekkoError('no connection to the controller yet', 'network');
-      response = await this.send(this.local![this.scheme], path, signal);
+      // A single failed poll forgets `scheme`; the controller is most likely still there, on the same scheme.
+      const scheme = this.scheme ?? this.lastScheme;
+      if (!scheme) throw new GekkoError('no connection to the controller yet', 'network');
+      response = await this.send(this.local![scheme], path, signal);
     }
     const failure = errorForStatus(response.status);
     if (failure) throw failure;
@@ -195,7 +225,7 @@ export class GekkoClient {
     const failure = errorForStatus(response.status);
     if (failure) throw failure;
     try {
-      return JSON.parse(response.body.toString('utf8').replace(/^﻿/, '')) as unknown;
+      return parseBody(response);
     } catch (err) {
       throw new GekkoError('answer is not JSON', 'protocol', response.status, { cause: err });
     }
@@ -204,7 +234,10 @@ export class GekkoClient {
   /**
    * Which scheme the controller speaks depends on its firmware (PyMyGekko
    * assumes https, the pinpong client http). HTTPS is tried first; plain HTTP
-   * is the fallback when no HTTPS answer can be had. Whatever answered is kept.
+   * is the fallback when no HTTPS answer can be had — or when what answers on
+   * the HTTPS port is not the Query API at all (404, a web page). A login that
+   * HTTPS rejects is never repeated over HTTP: every rejected login counts
+   * towards the controller's lock-out. Whatever answered is kept.
    * While on HTTP the controller is asked over HTTPS again now and then, so a
    * fallback caused by a hiccup does not leave the password in clear text on
    * the network forever.
@@ -226,12 +259,16 @@ export class GekkoClient {
     if (this.scheme === 'https') return forgetOnFailure('https');
 
     if (this.scheme === 'http') {
-      if (Date.now() - this.lastHttpsAttemptAt >= this.options.httpsRetryMs) {
+      if (Math.abs(Date.now() - this.lastHttpsAttemptAt) >= this.options.httpsRetryMs) {
         this.lastHttpsAttemptAt = Date.now();
         try {
           const response = await this.send(local.https, path, signal, Math.min(this.options.timeoutMs, HTTPS_UPGRADE_TIMEOUT_MS));
-          this.scheme = 'https';
-          return response;
+          // Only a proper answer is a reason to leave a connection that works: whatever else listens
+          // on the HTTPS port (or rejects this login there) must not cut the hub off from the controller.
+          if (isApiAnswer(response)) {
+            this.answeredOn('https');
+            return response;
+          }
         } catch (err) {
           if (!isTransportFailure(err)) throw err;
         }
@@ -240,16 +277,39 @@ export class GekkoClient {
     }
 
     this.lastHttpsAttemptAt = Date.now();
+    let foreign: DeviceResponse | null = null;
     try {
       const response = await this.send(local.https, path, signal);
-      this.scheme = 'https';
-      return response;
+      if (!isForeignAnswer(response)) {
+        this.answeredOn('https');
+        return response;
+      }
+      foreign = response;
     } catch (err) {
       if (!isTransportFailure(err) || UNREACHABLE.has(networkCode(err))) throw err;
     }
-    const response = await this.send(local.http, path, signal);
-    this.scheme = 'http';
-    return response;
+    if (!foreign) {
+      const response = await this.send(local.http, path, signal);
+      this.answeredOn('http');
+      return response;
+    }
+    // Something else listens on the HTTPS port. The API may still be there on plain HTTP.
+    try {
+      const response = await this.send(local.http, path, signal);
+      if (speaksApi(response)) {
+        this.answeredOn('http');
+        return response;
+      }
+    } catch (err) {
+      if (!isTransportFailure(err)) throw err;
+    }
+    // Not the Query API on either side: report what the HTTPS port said and look again next time.
+    return foreign;
+  }
+
+  private answeredOn(scheme: Scheme): void {
+    this.scheme = scheme;
+    this.lastScheme = scheme;
   }
 
   /** Any HTTP answer is returned as it is; only the lack of one is an error here. */

@@ -37,11 +37,18 @@ export function describeFailure(err: unknown, mode: GekkoMode): string {
       const detail = networkDetail(err);
       return detail ? `${who} ist nicht erreichbar: ${detail}.` : `${who} ist nicht erreichbar.`;
     }
+    case 'not_writable':
+      // 405 on a read: the login is fine, but this user may not use the resource (pinpong: "permission denied").
+      return `${who} erlaubt diesem Benutzer den Zugriff nicht (HTTP 405). Bitte seine Rechte am myGEKKO prüfen.`;
     case 'config':
       return mode === 'cloud' ? 'Die myGEKKO-ID fehlt.' : 'Die Adresse des myGEKKO fehlt oder ist ungültig.';
     case 'aborted':
       return 'Die Anfrage wurde abgebrochen.';
     default:
+      // 470/471: "service not registered or expired" (error list of the pinpong client) — the paid remote access.
+      if (err.status === 470 || err.status === 471) {
+        return 'Der Fernzugriff (myGEKKO Plus) ist für diesen myGEKKO nicht freigeschaltet oder abgelaufen.';
+      }
       return `${who} antwortet mit einem Fehler${err.status ? ` (HTTP ${err.status})` : ''}.`;
   }
 }
