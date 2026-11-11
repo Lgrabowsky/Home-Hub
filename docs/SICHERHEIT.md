@@ -96,7 +96,9 @@ Alle Verschlüsselung auf dem Hub hängt an einem Hauptschlüssel:
 - Kein Inhalt in der „Zuletzt verwendet“-Übersicht und keine Bildschirmfotos (Schutz vor neugierigen
   Blicken und anderen Apps).
 - Vom Cloud-Backup und von der Geräteübertragung ausgeschlossen.
-- Keine unverschlüsselten Verbindungen.
+- Unverschlüsselt (http) verbindet sich die App nur mit Adressen, die es ausschließlich im Heimnetz
+  gibt (z. B. `192.168.…`), und weist dabei darauf hin; alles andere nur über https. Wer im eigenen
+  WLAN mitlesen kann, könnte eine solche Verbindung sehen – für den Dauerbetrieb daher https einrichten.
 - Berechtigungen: Mikrofon (nur beim Gegensprechen), Biometrie. Kein Standort, keine Kontakte,
   keine Werbe-ID, keine Google-Dienste.
 

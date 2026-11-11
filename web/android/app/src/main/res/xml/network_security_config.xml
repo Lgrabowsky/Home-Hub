@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Encrypted connections only. Besides the public certificate authorities the app also accepts
-  authorities the owner installed on the device, so a hub that uses a private CA (for example
-  inside a VPN) works too. Android shows a permanent notice when such a CA is installed.
+  Plain http is allowed at this level because Android cannot restrict it to address ranges; the app
+  itself only accepts http for addresses inside the home network (src/lib/hubUrl.ts) and https
+  everywhere else. Besides the public certificate authorities the app also accepts authorities the
+  owner installed on the device, so a hub that uses a private CA (for example inside a VPN) works too.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="user" />

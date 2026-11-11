@@ -22,6 +22,9 @@ Einen neuen Lauf startest du jederzeit über **Run workflow**; außerdem baut Gi
 
 1. Die App fragt nach der **Adresse deines Hubs**: `https://` gefolgt von deinem Namen aus
    [FERNZUGRIFF.md](FERNZUGRIFF.md), z. B. `https://rechner.mein-netz.ts.net`.
+   Im eigenen WLAN nimmt die App auch eine unverschlüsselte Adresse an (`http://192.168.…:8080`, wie
+   sie das Fenster des Windows-Pakets zeigt) – aber nur für Adressen, die es ausschließlich im
+   Heimnetz gibt, und mit einem Hinweis. Für den Dauerbetrieb und von unterwegs gehört https dazu.
 2. Anmelden mit Benutzername, Passwort und Code aus der Authenticator-App.
 3. Empfohlen: unter **Mehr › Konto & Sicherheit** die **App-Sperre** einschalten. Dann verlangt die
    App nach einer Minute im Hintergrund Fingerabdruck, Gesicht oder Geräte-PIN.

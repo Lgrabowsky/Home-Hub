@@ -13,6 +13,7 @@ import {
   type UserPrefs,
 } from '@home-hub/shared';
 import { ApiError, configureApi, get, post, put } from '../lib/api.ts';
+import { HubUrlError, normaliseHubUrl } from '../lib/hubUrl.ts';
 import { deviceName, deviceStore, isNative, onResume } from '../lib/platform.ts';
 import { startRealtime, stopRealtime } from '../lib/realtime.ts';
 import { useHub } from './hub.ts';
@@ -69,20 +70,13 @@ const BACKGROUND_LOCK_MS = 60_000;
 let hiddenAt = 0;
 let resumeHooked = false;
 
-function normaliseHubUrl(input: string): string {
-  let url = input.trim();
-  if (!url) throw new ApiError(0, 'invalid', 'Bitte die Adresse des Hubs eingeben.');
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  let parsed: URL;
+function normaliseHubUrlOrThrow(input: string): string {
   try {
-    parsed = new URL(url);
-  } catch {
-    throw new ApiError(0, 'invalid', 'Das ist keine gültige Adresse.');
+    return normaliseHubUrl(input).origin;
+  } catch (err) {
+    if (err instanceof HubUrlError) throw new ApiError(0, 'invalid', err.message);
+    throw err;
   }
-  if (parsed.protocol !== 'https:') {
-    throw new ApiError(0, 'invalid', 'Die App verbindet sich nur verschlüsselt. Die Adresse muss mit https:// beginnen.');
-  }
-  return parsed.origin;
 }
 
 export const useSession = create<SessionStore>((set, getState) => {
@@ -186,7 +180,7 @@ export const useSession = create<SessionStore>((set, getState) => {
     },
 
     async connectHub(input) {
-      const hubUrl = normaliseHubUrl(input);
+      const hubUrl = normaliseHubUrlOrThrow(input);
       configureApi({ baseUrl: hubUrl, token: null });
       let bootstrap: BootstrapInfo;
       try {

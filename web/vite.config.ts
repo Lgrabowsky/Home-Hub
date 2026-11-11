@@ -19,7 +19,8 @@ function nativeContentSecurityPolicy(): Plugin {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "media-src 'self' blob: mediastream:",
-    "connect-src 'self' https: wss:",
+    // http/ws only reach a hub in the home network: the app refuses other unencrypted addresses (src/lib/hubUrl.ts).
+    "connect-src 'self' https: wss: http: ws:",
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",

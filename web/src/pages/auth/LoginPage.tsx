@@ -44,7 +44,8 @@ export function LoginPage() {
       footer={
         isNative ? (
           <button type="button" className="underline-offset-4 hover:underline" onClick={() => void forgetHub()}>
-            Verbunden mit {hubUrl.replace(/^https:\/\//, '')} · ändern
+            Verbunden mit {hubUrl.replace(/^https?:\/\//, '')}
+            {hubUrl.startsWith('http://') ? ' (unverschlüsselt, nur im WLAN)' : ''} · ändern
           </button>
         ) : undefined
       }

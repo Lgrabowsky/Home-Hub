@@ -1,7 +1,8 @@
-import { Fingerprint, Link2, RefreshCw, WifiOff } from 'lucide-react';
+import { Fingerprint, Link2, RefreshCw, ShieldAlert, WifiOff } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Button, Field, Notice, Spinner, TextInput } from '../../components/ui.tsx';
 import { errorMessage } from '../../lib/api.ts';
+import { normaliseHubUrl } from '../../lib/hubUrl.ts';
 import { isNative } from '../../lib/platform.ts';
 import { useSession } from '../../store/session.ts';
 import { AuthLayout } from './AuthLayout.tsx';
@@ -18,6 +19,13 @@ export function LoadingPage() {
 export function ConnectPage() {
   const connectHub = useSession((state) => state.connectHub);
   const [url, setUrl] = useState('');
+  const unencrypted = (() => {
+    try {
+      return url.trim() !== '' && !normaliseHubUrl(url).encrypted;
+    } catch {
+      return false;
+    }
+  })();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +45,14 @@ export function ConnectPage() {
   return (
     <AuthLayout title="Mit deinem Hub verbinden" text="Gib die Adresse ein, unter der dein Home Hub erreichbar ist – dieselbe, die du im Browser verwendest.">
       <form onSubmit={submit} className="space-y-4" noValidate>
-        <Field label="Adresse des Hubs" hint="Die Verbindung ist immer verschlüsselt (https).">
+        <Field label="Adresse des Hubs" hint="Von unterwegs: die https-Adresse. Im eigenen WLAN geht auch die Adresse, die das Hub-Fenster am PC zeigt (http://…).">
           <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="zuhause.example.de" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} autoFocus required />
         </Field>
+        {unencrypted && (
+          <Notice tone="warn" icon={ShieldAlert}>
+            Unverschlüsselte Verbindung: Das funktioniert nur im eigenen WLAN, und wer dort mitliest, könnte deine Anmeldung sehen. Für die Nutzung von unterwegs und dauerhaft: https einrichten (z. B. mit Tailscale).
+          </Notice>
+        )}
         {error && <Notice tone="danger">{error}</Notice>}
         <Button type="submit" variant="primary" size="lg" block loading={busy} icon={Link2} disabled={!url.trim()}>
           Verbinden
@@ -66,7 +79,7 @@ export function UnreachablePage() {
       title="Hub nicht erreichbar"
       text={
         isNative
-          ? `Unter ${hubUrl.replace(/^https:\/\//, '')} antwortet gerade niemand. Prüfe deine Internetverbindung – die App versucht es automatisch weiter.`
+          ? `Unter ${hubUrl.replace(/^https?:\/\//, '')} antwortet gerade niemand. Prüfe deine Internetverbindung – die App versucht es automatisch weiter.`
           : 'Der Hub antwortet gerade nicht. Die Seite versucht es automatisch weiter.'
       }
       footer={

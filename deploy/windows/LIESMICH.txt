@@ -29,21 +29,28 @@ Das Fenster zeigt die Adressen für das Handy und – beim ersten Start – den
 EINRICHTUNGSCODE für das erste Konto. Solange das Fenster offen ist, läuft der Hub.
 
 
-2. VOM HANDY VERBINDEN – IM BROWSER (sofort)
---------------------------------------------
+2. VOM HANDY VERBINDEN – IM EIGENEN WLAN (sofort)
+-------------------------------------------------
 
-Handy im selben WLAN wie der PC. In Chrome die Adresse öffnen, die das Fenster zeigt,
-z. B. http://192.168.178.23:8080 – Einrichtungscode eingeben, Konto anlegen, fertig.
-Tipp: Im Chrome-Menü "Zum Startbildschirm hinzufügen" ergibt ein App-Symbol.
+Handy im selben WLAN wie der PC. Die Adresse eintragen, die das Fenster zeigt,
+z. B. http://192.168.178.23:8080 –
 
-Einschränkung ohne https: Mikrofon (Gegensprechen) und Spotify-Verknüpfung gehen nicht.
+  - in der Home-Hub-App (Android) als "Adresse des Hubs", oder
+  - in Chrome auf dem Handy (Tipp: Menü > "Zum Startbildschirm hinzufügen").
+
+Dann Einrichtungscode eingeben, Konto anlegen, fertig.
+
+Diese Verbindung ist NICHT verschlüsselt: Sie funktioniert nur im eigenen WLAN, und wer
+dort mitlesen kann, könnte die Anmeldung sehen. Die App erlaubt das deshalb nur für
+Adressen im Heimnetz. Im Browser gehen ohne https außerdem Mikrofon und Spotify nicht
+(in der App geht das Mikrofon).
 
 
-3. VOM HANDY VERBINDEN – MIT DER ANDROID-APP (und von unterwegs)
-----------------------------------------------------------------
+3. VERSCHLÜSSELT UND VON UNTERWEGS (empfohlen)
+---------------------------------------------
 
-Die Android-App verbindet sich nur verschlüsselt (https). Am einfachsten mit Tailscale
-(kostenlos, nichts am Router einzustellen):
+Für eine verschlüsselte Verbindung, auch außerhalb deines WLANs, braucht der Hub eine
+https-Adresse. Am einfachsten mit Tailscale (kostenlos, nichts am Router einzustellen):
 
   a) Tailscale auf dem PC installieren (https://tailscale.com/download/windows) und anmelden.
   b) In der Tailscale-Verwaltung (login.tailscale.com > DNS) "MagicDNS" und
