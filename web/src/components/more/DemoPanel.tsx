@@ -1,10 +1,10 @@
-import { BellRing, FlaskConical, Footprints } from 'lucide-react';
+import { BellRing, ChevronDown, FlaskConical, Footprints } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { DemoState, DemoTrigger } from '@home-hub/shared';
 import { get, post } from '../../lib/api.ts';
 import { useSession } from '../../store/session.ts';
 import { toast } from '../toast.tsx';
-import { Button, Notice, Row, RowGroup, Section, Toggle } from '../ui.tsx';
+import { Button, Notice, Row, Section, Toggle } from '../ui.tsx';
 
 /**
  * Demo mode only: lets you make the simulated house do something, so the parts
@@ -15,6 +15,7 @@ export function DemoPanel() {
   const client = useQueryClient();
   const query = useQuery({ queryKey: ['demo-state'], queryFn: () => get<DemoState>('/api/demo/state'), enabled: demo, refetchInterval: 5000 });
   if (!demo) return null;
+  const open = query.data?.contacts.filter((contact) => contact.open).length ?? 0;
 
   const trigger = (request: DemoTrigger, done?: string) =>
     post('/api/demo/trigger', request).then(
@@ -44,16 +45,26 @@ export function DemoPanel() {
               </Button>
             ))}
           </div>
-          <RowGroup>
-            {query.data.contacts.map((contact) => (
-              <Row
-                key={contact.name}
-                title={contact.name}
-                subtitle={contact.open ? 'Offen' : 'Geschlossen'}
-                trailing={<Toggle checked={contact.open} tone="warn" label={`${contact.name} öffnen`} onChange={(open) => void trigger({ action: 'contact', name: contact.name, open })} />}
-              />
-            ))}
-          </RowGroup>
+          {/* Folded away by default: thirteen switches would bury the rest of the page. */}
+          <details className="group rounded-tile bg-surface shadow-tile">
+            <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 font-medium">
+              <span>
+                Fenster und Türen öffnen
+                {open > 0 && <span className="ml-2 text-sm font-normal text-warn">{open} offen</span>}
+              </span>
+              <ChevronDown className="size-4.5 text-faint transition group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="divide-y divide-line border-t border-line">
+              {query.data.contacts.map((contact) => (
+                <Row
+                  key={contact.name}
+                  title={contact.name}
+                  subtitle={contact.open ? 'Offen' : 'Geschlossen'}
+                  trailing={<Toggle checked={contact.open} tone="warn" label={`${contact.name} öffnen`} onChange={(next) => void trigger({ action: 'contact', name: contact.name, open: next })} />}
+                />
+              ))}
+            </div>
+          </details>
         </>
       )}
     </Section>
