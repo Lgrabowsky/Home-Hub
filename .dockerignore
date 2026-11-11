@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/dist-native
+.git
+.github
+data
+hub/data
+docs
+web/android
+web/e2e
+web/test-results
+web/playwright-report
+*.md

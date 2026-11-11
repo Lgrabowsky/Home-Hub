@@ -1,0 +1,17 @@
+# HTTPS for the hub. Caddy obtains and renews the certificate by itself:
+#   - for a public domain (zuhause.example.de) from Let's Encrypt — ports 80 and 443
+#     must reach this machine;
+#   - for a Tailscale name (rechner.tailnet-name.ts.net) from the Tailscale daemon on
+#     this machine — nothing has to be opened to the internet (see docs/FERNZUGRIFF.md).
+
+{$HUB_DOMAIN} {
+	encode zstd gzip
+
+	# The hub sets its own security headers; do not advertise the proxy.
+	header -Server
+
+	reverse_proxy 127.0.0.1:8080 {
+		# Long-lived connections: live state and video relay.
+		flush_interval -1
+	}
+}

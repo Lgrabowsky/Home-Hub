@@ -1,0 +1,64 @@
+# Home Hub — standard installation: the hub plus Caddy as HTTPS proxy.
+#
+#   cp .env.example .env    # then edit .env
+#   docker compose up -d
+#   docker compose logs hub # shows the one-time set-up code on first start
+#
+# Both containers use the host's network: the hub has to see the devices in your home
+# network (speaker discovery, cameras, door stations), and live video needs its media
+# port (8555) without address translation in between.
+
+services:
+  hub:
+    # Ready-made image:  docker compose pull   ·   or build it yourself:  docker compose build
+    image: ghcr.io/lgrabowsky/home-hub:latest
+    build:
+      context: ..
+    container_name: home-hub
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      # Only the proxy on this machine may talk to the hub directly.
+      HUB_HOST: 127.0.0.1
+      HUB_PORT: "8080"
+      HUB_PUBLIC_URL: https://${HUB_DOMAIN:?Bitte HUB_DOMAIN in der Datei .env setzen}
+      # Exactly one proxy (Caddy) sits in front of the hub.
+      HUB_TRUST_PROXY: "1"
+      # Addresses under which the media port 8555 is reachable from outside, e.g. "zuhause.example.de:8555".
+      HUB_WEBRTC_CANDIDATES: ${HUB_WEBRTC_CANDIDATES:-}
+      # Optional: keep the encryption key outside the data directory (see docs/SICHERHEIT.md).
+      HUB_MASTER_KEY: ${HUB_MASTER_KEY:-}
+    volumes:
+      # Database, encryption key and door history. Back this volume up (see docs/INSTALLATION.md).
+      - hub_data:/data
+    # Hardening: no extra privileges, read-only root file system, temporary files in memory.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    image: caddy:2
+    container_name: home-hub-proxy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      HUB_DOMAIN: ${HUB_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  hub_data:
+  caddy_data:
+  caddy_config:

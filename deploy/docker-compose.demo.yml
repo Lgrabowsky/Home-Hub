@@ -1,0 +1,22 @@
+# Try Home Hub without any hardware: all devices are simulated.
+#
+#   docker compose -f docker-compose.demo.yml up
+#   → open http://localhost:8080 and use the set-up code DEMO-DEMO-DEMO
+#
+# (Microphone features need HTTPS and are therefore not available in this quick demo.)
+
+services:
+  hub:
+    image: ghcr.io/lgrabowsky/home-hub:latest
+    build:
+      context: ..
+    environment:
+      HUB_DEMO: "1"
+      HUB_SETUP_TOKEN: DEMO-DEMO-DEMO
+      HUB_WEBRTC_CANDIDATES: 127.0.0.1:8555
+    ports:
+      - "8080:8080"
+      - "8555:8555/tcp"
+      - "8555:8555/udp"
+    tmpfs:
+      - /data:uid=1000,gid=1000
