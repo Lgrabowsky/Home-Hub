@@ -3,6 +3,21 @@
 Diese Anleitung bringt den Hub auf einem Rechner in deinem Heimnetz zum Laufen. Plane etwa eine
 halbe Stunde ein.
 
+## Schnellstart auf einem Windows-PC
+
+Zum Ausprobieren – und für den Anfang auch mit deinen echten Geräten – gibt es ein fertiges
+Windows-Paket: GitHub › Actions › „CI“ › neuester Lauf › Artifacts › `HomeHub-Windows`.
+Entpacken, dann Doppelklick auf **„Demo starten.cmd“** (alle Geräte simuliert) oder
+**„Home Hub starten.cmd“** (echte Geräte). Node.js und ffmpeg werden beim ersten Start per winget
+installiert. Das Fenster zeigt die Adresse fürs Handy und den Einrichtungscode; alles Weitere steht in
+`LIESMICH.txt` im Paket.
+
+Vom Handy im selben WLAN geht es sofort im Browser (`http://<IP des PCs>:8080`). Die Android-App
+braucht https – dafür Tailscale auf PC und Handy installieren (siehe [FERNZUGRIFF.md](FERNZUGRIFF.md));
+das Startskript richtet `tailscale serve` dann selbst ein.
+
+Für den Dauerbetrieb ist ein Rechner, der immer läuft, die bessere Wahl – weiter mit der Anleitung unten.
+
 ## 1. Was du brauchst
 
 - **Einen Rechner, der immer an ist** und per Kabel oder stabilem WLAN im selben Netz wie deine

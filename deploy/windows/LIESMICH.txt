@@ -1,0 +1,64 @@
+HOME HUB FÜR WINDOWS
+====================
+
+Zum Ausprobieren und für den Anfang. Für den Dauerbetrieb ist ein kleiner Rechner,
+der immer läuft (Raspberry Pi, NAS mit Docker), die bessere Wahl – siehe
+docs/INSTALLATION.md im Projekt.
+
+
+1. STARTEN
+----------
+
+Doppelklick auf eine der beiden Dateien:
+
+  "Demo starten.cmd"       Alle Geräte sind simuliert (Licht, Jalousien, Türstationen,
+                           Kameras, Lautsprecher, Spotify). Zum Kennenlernen.
+
+  "Home Hub starten.cmd"   Für deine echten Geräte. Du richtest sie danach in der App
+                           unter "Mehr > Geräte & Dienste" ein. Der PC muss dafür im
+                           selben Netz wie die Geräte hängen.
+
+Beim allerersten Start werden Node.js und ffmpeg automatisch installiert (winget).
+Windows fragt dabei eventuell nach Bestätigung.
+
+Fragt Windows "Trotzdem ausführen?" (SmartScreen): "Weitere Informationen" > "Trotzdem
+ausführen". Fragt die Firewall nach Node.js bzw. go2rtc: "Private Netzwerke" zulassen –
+sonst erreicht das Handy den PC nicht.
+
+Das Fenster zeigt die Adressen für das Handy und – beim ersten Start – den
+EINRICHTUNGSCODE für das erste Konto. Solange das Fenster offen ist, läuft der Hub.
+
+
+2. VOM HANDY VERBINDEN – IM BROWSER (sofort)
+--------------------------------------------
+
+Handy im selben WLAN wie der PC. In Chrome die Adresse öffnen, die das Fenster zeigt,
+z. B. http://192.168.178.23:8080 – Einrichtungscode eingeben, Konto anlegen, fertig.
+Tipp: Im Chrome-Menü "Zum Startbildschirm hinzufügen" ergibt ein App-Symbol.
+
+Einschränkung ohne https: Mikrofon (Gegensprechen) und Spotify-Verknüpfung gehen nicht.
+
+
+3. VOM HANDY VERBINDEN – MIT DER ANDROID-APP (und von unterwegs)
+----------------------------------------------------------------
+
+Die Android-App verbindet sich nur verschlüsselt (https). Am einfachsten mit Tailscale
+(kostenlos, nichts am Router einzustellen):
+
+  a) Tailscale auf dem PC installieren (https://tailscale.com/download/windows) und anmelden.
+  b) In der Tailscale-Verwaltung (login.tailscale.com > DNS) "MagicDNS" und
+     "HTTPS Certificates" einschalten.
+  c) Tailscale-App auf dem Handy installieren und mit demselben Konto anmelden.
+  d) Home Hub hier neu starten. Das Fenster zeigt dann eine Adresse wie
+     https://mein-pc.tailXXXX.ts.net – die in der Home-Hub-App eintragen.
+
+Damit funktioniert alles, auch Mikrofon und Spotify, zu Hause und unterwegs.
+
+
+4. DATEN
+--------
+
+Konten und Einstellungen liegen verschlüsselt unter
+  %LOCALAPPDATA%\HomeHub\daten   (echte Geräte)
+  %LOCALAPPDATA%\HomeHub\demo    (Demo)
+Zum Zurücksetzen den jeweiligen Ordner löschen (bei geschlossenem Fenster).

@@ -86,6 +86,43 @@ jobs:
             web/test-results
           retention-days: 7
 
+  windows-package:
+    # Home Hub for a Windows PC: unzip and double-click (see deploy/windows/LIESMICH.txt).
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Build go2rtc for Windows
+        run: |
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go install -trimpath -ldflags "-s -w" github.com/AlexxIT/go2rtc@v1.9.15
+          echo "GO2RTC_WINDOWS_BIN=$(go env GOPATH)/bin/windows_amd64/go2rtc.exe" >> "$GITHUB_ENV"
+
+      - name: Package
+        run: node scripts/package-windows.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HomeHub-Windows
+          path: dist-windows/HomeHub
+          retention-days: 30
+
   image:
     needs: test
     runs-on: ubuntu-latest
