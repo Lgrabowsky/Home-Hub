@@ -43,6 +43,7 @@ HUB_DEMO=1 npm run dev # dasselbe mit simulierten Geräten; Einrichtungscode DEM
 npm run typecheck      # Typprüfung aller Teile
 npm test               # Tests des Hubs (Anmeldung/Sicherheit und jede Anbindung gegen ihren Simulator)
 npm run build          # App und Hub bauen (hub/dist, web/dist)
+npm run e2e            # Browser-Tests gegen den gebauten Hub im Demo-Modus (vorher: npm run build)
 npm run demo           # bauen und im Demo-Modus starten
 ```
 
@@ -71,7 +72,12 @@ erscheinen nie in Protokoll, Diagnose oder Fehlermeldung.
 ## Sicherheit beim Entwickeln
 
 - Neue Routen sind automatisch geschützt (Anmeldung nötig). Öffentliche Routen müssen ausdrücklich
-  `config: { access: 'public' }` tragen – davon gibt es bewusst nur eine Handvoll.
+  `config: { access: 'public' }` tragen – davon gibt es bewusst nur eine Handvoll. Der Test
+  `hub/test/route-guard.test.ts` läuft über **alle** Routen und schlägt fehl, sobald eine ohne
+  Anmeldung antwortet, die nicht in seiner Liste der öffentlichen Routen steht.
+- Ob eine Anfrage geschützt wird, entscheidet die vom Router getroffene Route (`request.routeOptions.url`),
+  nie der rohe Anfragepfad: Der Router dekodiert `%61` zu `a` – eine Prüfung auf den Text „/api/“
+  ließe sich so umgehen.
 - Rechte je Route über `config: { permission: '…' }`.
 - Einstellungen mit Geheimnissen laufen über `SettingsStore` (verschlüsselt, maskiert beim Lesen).
 

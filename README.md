@@ -7,8 +7,9 @@ Du schaltest Licht und Jalousien, siehst, welches Fenster offen ist, sprichst mi
 Haustür, öffnest die Tür, schwenkst die Kamera im Garten und startest Musik im Wohnzimmer – ohne je
 zu merken, dass dahinter fünf verschiedene Hersteller stecken.
 
-> **Stand:** Die App ist vollständig gebaut und gegen originalgetreue Simulatoren aller Geräte
-> getestet. An echter Hardware wurde sie noch **nicht** erprobt – siehe
+> **Stand:** Die App ist vollständig gebaut und gegen Simulatoren aller Geräte getestet, die deren
+> dokumentiertes Verhalten nachbilden (über 200 automatische Tests, dazu Browser-Tests der ganzen
+> App). An echter Hardware wurde sie noch **nicht** erprobt – siehe
 > [Was du beim ersten Einsatz prüfen solltest](docs/GERAETE.md#checkliste-für-den-ersten-einsatz-an-echten-geräten).
 
 ## Was die App kann

@@ -28,6 +28,19 @@ der Zahl der Abfragen begrenzt – nimm sie nur, wenn die lokale Abfrage nicht m
 Szenen), Zeitschaltuhren, Wetterwerte, der Zustand der Alarmanlage – jeweils mit den Namen und
 Seiten/Räumen, die am myGEKKO vergeben sind. Benennst du am myGEKKO etwas um, übernimmt die App das.
 
+Gut zu wissen:
+
+- **Falsches Passwort = elf Minuten Pause.** Der myGEKKO sperrt ein Konto nach mehreren falschen
+  Anmeldungen. Damit das nie passiert, wartet der Hub nach einer abgelehnten Anmeldung elf Minuten,
+  bevor er es wieder versucht – auch der Knopf „Verbindung testen“ hält sich daran. Die App zeigt an,
+  wann der nächste Versuch stattfindet.
+- **Verschlüsselung im Heimnetz.** Der Hub spricht verschlüsselt (https) mit dem myGEKKO, wenn dieser
+  das anbietet, sonst unverschlüsselt (http). Im zweiten Fall gehen die Zugangsdaten innerhalb deines
+  Heimnetzes im Klartext über die Leitung; der Verbindungstest sagt, welcher Weg benutzt wird.
+- **Lasten werden dauerhaft eingeschaltet.** Was nur einen kurzen Impuls bekommen darf (Türöffner,
+  Garagentor-Taster), legst du am myGEKKO besser als Aktion an und startest diese aus der App.
+- **Gesperrte Jalousien** (z. B. Windalarm) zeigt die App als gesperrt; Befehle lehnt der myGEKKO dann ab.
+
 ### Fenster- und Türkontakte
 
 Das ist der eine Punkt, an dem der myGEKKO Grenzen setzt – deshalb ausführlich:
@@ -203,8 +216,48 @@ Hub sieht:
 - [ ] Alle Lautsprecher erscheinen; Lautstärke und Play/Pause wirken.
 - [ ] Zwei Räume gruppieren und wieder trennen.
 - [ ] Einen Sonos-Favoriten starten.
-- [ ] Einen Titel, ein Album und eine Playlist aus Spotify starten. Startet nichts: in den
-      Lautsprecher-Einstellungen die „Spotify-Region“ umstellen und erneut versuchen.
+- [ ] Einen Titel, ein Album und eine Playlist aus Spotify starten. (Der Hub probiert selbst aus,
+      unter welcher Region dein Spotify-Konto bei Sonos geführt wird, und merkt sich das.) Startet
+      trotzdem nichts: Ist Spotify in der Sonos-App als Musikdienst verbunden?
 
 **Von unterwegs** (Mobilfunk statt WLAN)
 - [ ] Anmelden, Licht schalten, Live-Bild, Gegensprechen.
+
+### Was nur echte Geräte beantworten können
+
+Diese Punkte ließen sich aus Dokumentation und Fremdsoftware nicht sicher ableiten. Der Hub ist so
+gebaut, dass er mit den plausiblen Varianten zurechtkommt – ob es bei dir stimmt, zeigt der Test.
+
+**myGEKKO**
+- Ob dein myGEKKO https anbietet oder nur http (der Hub erkennt es selbst).
+- Kontakte über Logiken: Angenommen wird „Ausgang ≠ 0 = offen“. Ist ein Kontakt verkehrt herum,
+  stellst du ihn um (siehe oben).
+- Raumregler melden ihren Fensterkontakt erst sinnvoll, wenn wirklich einer angeschlossen ist; der
+  Hub zeigt „Fenster ‹Raum›“ deshalb erst, nachdem es einmal offen war.
+- Über myGEKKO Plus (Cloud): wie viele Abfragen pro Minute erlaubt sind. Bremst der Dienst, pausiert
+  der Hub jeweils einige Minuten.
+- Sehr alte Firmware: Die Solltemperatur lässt sich dort nicht verstellen.
+
+**DoorBird**
+- Anmeldeverfahren: Der Hub versucht das sicherere Verfahren (Digest) und weicht einmalig auf das
+  einfache (Basic) aus, wenn die Türstation das erste ablehnt. Welches benutzt wird, steht in der Diagnose.
+- Ab wie vielen Fehlversuchen die Türstation ein Konto sperrt, ist nicht dokumentiert; der Hub macht
+  nach einer Ablehnung fünf bis dreißig Minuten Pause.
+- Die Uhr der Türstation sollte stimmen (Internetzeit), sonst erscheint ein Klingeln im Verlauf doppelt.
+- Sonderzeichen im Passwort können beim Gegensprechen Probleme machen; mit Buchstaben und Ziffern
+  bist du auf der sicheren Seite.
+
+**Reolink**
+- Manche neuere Firmware verlangt eine verschlüsselte Anmeldung, die der Hub nicht beherrscht. Der
+  Verbindungstest meldet das als abgelehnte Anmeldung trotz richtigem Passwort.
+- Gegensprechen hängt vom Modell ab (siehe oben).
+- Nach einer abgelehnten Anmeldung wartet der Hub fünf Minuten, damit die Kamera das Konto nicht sperrt.
+
+**Sonos**
+- Heimkino-Sets, Stereopaare und Geräte der älteren S1-Generation sollten wie ein Raum erscheinen –
+  bitte prüfen, ob jeder Raum genau einmal auftaucht.
+- Fernseher-Ton, Line-In und AirPlay werden angezeigt; steuern lässt sich dort nur Lautstärke und Stopp.
+
+**Spotify**
+- Titellisten fremder Playlists gibt Spotify neuen Apps nicht mehr preis; abspielen lassen sie sich
+  trotzdem als Ganzes.
