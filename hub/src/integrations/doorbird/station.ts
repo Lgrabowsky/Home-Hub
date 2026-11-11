@@ -258,6 +258,7 @@ export class DoorStation {
       reachable: this.reach === 'up',
       available: this.available,
       login: this.client.gate.state,
+      authentication: this.client.authentication,
       model: this.info?.model ?? null,
       firmware: this.info?.firmware ?? null,
       build: this.info?.build ?? null,
@@ -374,7 +375,7 @@ export class DoorStation {
       this.lastInfoAt = Date.now();
       if (changed) {
         this.log.info(
-          { door: this.id, model: info.model, firmware: info.firmware, relays: info.relays },
+          { door: this.id, model: info.model, firmware: info.firmware, relays: info.relays, authentication: this.client.authentication },
           first ? 'door station connected' : 'door station reports new information',
         );
       }

@@ -132,23 +132,25 @@ export class DeviceHttp {
     return null;
   }
 
-  /** Learns from a 401 how to authenticate. Returns true when a retry makes sense. */
-  private acceptChallenge(headers: IncomingHttpHeaders, hadAuthorization: boolean): boolean {
+  /**
+   * Learns from a 401 how to authenticate. Returns true when a retry makes sense.
+   * `answeredFresh`: the refused request already carried a Digest answer to a
+   * challenge obtained within this very call.
+   */
+  private acceptChallenge(headers: IncomingHttpHeaders, hadAuthorization: boolean, answeredFresh = false): boolean {
     const { auth, authMode = 'auto' } = this.options;
     if (!auth || authMode === 'none') return false;
     const { digest, basic } = parseChallenges(headers['www-authenticate']);
     if (digest && authMode !== 'basic') {
       const stale = /^true$/i.test(digest.stale ?? '');
       const sameNonce = this.digest?.nonce === digest.nonce;
-      // Wrong credentials: the device re-issues a challenge although ours was fresh.
-      if (hadAuthorization && this.digest && !stale && sameNonce) return false;
+      const hadDigest = this.digest !== null;
       const qop = digest.qop
         ?.split(',')
         .map((q) => q.trim())
         .includes('auth')
         ? 'auth'
         : null;
-      const retry = !hadAuthorization || stale || !sameNonce || !this.digest;
       this.digest = {
         realm: digest.realm ?? '',
         nonce: digest.nonce!,
@@ -157,7 +159,11 @@ export class DeviceHttp {
         algorithm: digest.algorithm ?? 'MD5',
         nc: 0,
       };
-      return retry;
+      // Wrong credentials: our answer was to a fresh challenge and is refused all the same. Many servers
+      // (lighttpd, Apache) hand out a new nonce with every 401, so a different nonce alone must not
+      // trigger another try — every try with a wrong password counts towards the device's lockout.
+      if (hadAuthorization && hadDigest && !stale && (sameNonce || answeredFresh)) return false;
+      return true;
     }
     if ((basic || authMode === 'basic') && !this.useBasic) {
       this.useBasic = true;
@@ -226,7 +232,8 @@ export class DeviceHttp {
       });
 
       req.on('response', (response) => {
-        if (response.statusCode === 401 && attempt < 2 && this.acceptChallenge(response.headers, Boolean(authorization))) {
+        const answeredFresh = attempt >= 1 && Boolean(authorization?.startsWith('Digest '));
+        if (response.statusCode === 401 && attempt < 2 && this.acceptChallenge(response.headers, Boolean(authorization), answeredFresh)) {
           response.resume();
           settled = true;
           clearTimeout(timer);

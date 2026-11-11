@@ -69,6 +69,11 @@ export class DoorBirdClient {
   private lastRequestAt = 0;
   private closed = false;
   private readonly deniedUntil = new Map<Endpoint, number>();
+  /** `basic` once the device refused the answer to its Digest challenge but accepted Basic (see `shouldTryBasic`). */
+  private authMode: 'auto' | 'basic' = 'auto';
+  private basicTried = false;
+  /** Basic was switched to, but no answer has confirmed it yet. */
+  private basicUnconfirmed = false;
 
   constructor(
     private readonly device: Pick<DoorBirdDeviceSettings, 'host' | 'username' | 'password'>,
@@ -85,12 +90,17 @@ export class DoorBirdClient {
       baseUrl: this.baseUrl,
       auth: { username: this.device.username, password: this.device.password },
       // The device asks for Basic (realm "DoorBird") or Digest; answer whatever it asks for.
-      authMode: 'auto',
+      authMode: this.authMode,
       timeoutMs: this.timings.requestTimeoutMs,
       // One connection only: the answer to the device's login challenge must travel
       // over the same connection instead of opening a second one right away.
       maxSockets: 1,
     });
+  }
+
+  /** How the client logs in: by answering the device's challenge (`auto`) or with Basic sent along at once. */
+  get authentication(): 'auto' | 'basic' {
+    return this.authMode;
   }
 
   // --- Calls -------------------------------------------------------------------------
@@ -264,7 +274,7 @@ export class DoorBirdClient {
   }
 
   private async send(endpoint: Endpoint, path: string, options: CallOptions): Promise<DeviceResponse> {
-    const http = options.fresh ? this.connect() : this.api;
+    let http = options.fresh ? this.connect() : this.api;
     let repeated = false;
     let busyRetried = false;
     try {
@@ -292,12 +302,50 @@ export class DoorBirdClient {
           if (options.signal?.aborted) throw cancelled();
           continue;
         }
+        if (this.shouldTryBasic(endpoint, response)) {
+          this.basicTried = true;
+          this.basicUnconfirmed = true;
+          this.useAuthentication('basic');
+          http = this.api;
+          continue;
+        }
+        if (this.basicUnconfirmed) {
+          this.basicUnconfirmed = false;
+          // Refused with Basic as well: the credentials are wrong. Back to answering the device's challenge.
+          if (response.status === 401) this.useAuthentication('auto');
+        }
         this.settle(endpoint, response.status);
         return response;
       }
     } finally {
       if (options.fresh) http.destroy();
     }
+  }
+
+  /**
+   * Whether a refused login is worth one more try with Basic.
+   *
+   * Every client known to work with these devices (Home Assistant's doorbirdpy,
+   * openHAB, node-doorbird, go2rtc) sends Basic credentials along with the
+   * request; none relies on the Digest challenge. Should the device's Digest
+   * and ours not understand each other, a correct password would look wrong —
+   * and nothing would work. So the very first refusal of a Digest answer is
+   * double-checked with Basic: once per client, at the price of one more
+   * failed login when the password really is wrong.
+   */
+  private shouldTryBasic(endpoint: Endpoint, response: DeviceResponse): boolean {
+    if (endpoint !== 'info' || response.status !== 401) return false;
+    if (this.authMode !== 'auto' || this.basicTried || this.gate.state !== 'unverified') return false;
+    const offered = response.headers['www-authenticate'];
+    return /\bdigest\b/i.test(Array.isArray(offered) ? offered.join(', ') : (offered ?? ''));
+  }
+
+  private useAuthentication(mode: 'auto' | 'basic'): void {
+    this.authMode = mode;
+    // Replace the shared connection. The door opener and the event stream open a
+    // connection of their own each time and pick the mode up from there.
+    this.api.destroy();
+    this.api = this.connect();
   }
 
   /** Feeds the login outcome of an answer to the gate; throws for refused logins. */

@@ -27,7 +27,10 @@ export interface DoorBirdTimings {
   /** Wait after the device refused the login (401/423). Doubles with every further refusal up to the maximum. */
   authRetryMinMs: number;
   authRetryMaxMs: number;
-  /** A single function that was refused although the login works is not asked again for this long. */
+  /**
+   * A single function that was refused with 401 although the login works is not asked again for this long.
+   * Repeated 401s can end in a locked account whatever their cause, so this is as long as the wait after a refused login.
+   */
   deniedCooldownMs: number;
 
   /** Reconnect delay of the event stream: starts at the minimum and doubles up to the maximum. */
@@ -93,7 +96,7 @@ export const DOORBIRD_DEFAULTS: Readonly<DoorBirdTimings> = Object.freeze({
 
   authRetryMinMs: 5 * 60_000,
   authRetryMaxMs: 30 * 60_000,
-  deniedCooldownMs: 60_000,
+  deniedCooldownMs: 5 * 60_000,
 
   monitorBackoffMinMs: 2_000,
   monitorBackoffMaxMs: 30_000,
