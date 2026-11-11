@@ -93,9 +93,21 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
 
   // --- myGEKKO -----------------------------------------------------------------------------------
 
-  const gekko: MyGekkoSim = await startMyGekkoSim();
+  const gekko: MyGekkoSim = await startMyGekkoSim({ blindTravelMs: 12_000 });
   closers.push(() => gekko.close());
-  settings.override('mygekko', { enabled: true, mode: 'local', host: gekko.host, username: gekko.username, password: gekko.password });
+  settings.override('mygekko', {
+    enabled: true,
+    mode: 'local',
+    host: gekko.host,
+    username: gekko.username,
+    password: gekko.password,
+    // Window contacts on room controllers only show up by themselves after they were seen open once;
+    // mapped explicitly they are there from the first second (and the settings page has something to show).
+    contacts: [
+      { id: 'fenster-schlafzimmer', source: 'roomtemps/item3', field: 12, openWhen: 'nonzero', name: 'Fenster Schlafzimmer', contactType: 'window', room: 'Schlafzimmer', zone: 'Hülle' },
+      { id: 'fenster-kinderzimmer', source: 'roomtemps/item4', field: 12, openWhen: 'nonzero', name: 'Fenster Kinderzimmer', contactType: 'window', room: 'Kinderzimmer', zone: 'Hülle' },
+    ],
+  });
 
   // --- DoorBird ----------------------------------------------------------------------------------
 

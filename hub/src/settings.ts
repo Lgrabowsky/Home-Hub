@@ -55,8 +55,8 @@ const schemas = {
       password: secret,
       gekkoId: z.string().trim().max(100).default(''),
       autoContacts: z.boolean().default(true),
-      contactKeywords: z.string().trim().max(300).default('fenster, tür, tuer, tor, kontakt, magnet, terrasse, balkon, hülle, huelle'),
-      doorKeywords: z.string().trim().max(300).default('tür, tuer, tor, eingang, door'),
+      contactKeywords: z.string().trim().max(300).default('fenster, tür, tuer, garagentor, gartentor, hoftor, einfahrt, kontakt, magnet, terrasse, balkon, hülle, huelle'),
+      doorKeywords: z.string().trim().max(300).default('tür, tuer, garagentor, gartentor, hoftor, einfahrt, eingang, door'),
       contactZone: z.string().trim().max(60).default('Hülle'),
       contacts: z
         .array(
