@@ -170,6 +170,8 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: HubContext): void 
     const { session } = auth(request);
     sessions.revoke(session.id);
     clearSessionCookie(request, reply);
+    // Door pictures and covers are cached by the browser; after signing out they must not be viewable.
+    reply.header('Clear-Site-Data', '"cache"');
     audit.record('logout', actor(request));
     return { ok: true };
   });

@@ -54,7 +54,7 @@ export function registerDoorRoutes(app: FastifyInstance, ctx: HubContext): void 
   app.get<{ Params: { eventId: string } }>('/api/doors/events/:eventId/image', view, async (request, reply) => {
     const image = ctx.integrations.need('doorbird').historyImage(request.params.eventId);
     if (!image) throw notFound('Zu diesem Ereignis gibt es kein Bild (mehr).');
-    // History images never change: let the app keep them (privately) for a while.
-    return reply.header('Cache-Control', 'private, max-age=86400, immutable').type(sniffImageType(image)).send(image);
+    // Pictures of who was at the door must not stay in a browser cache after signing out.
+    return reply.header('Cache-Control', 'private, no-store').type(sniffImageType(image)).send(image);
   });
 }

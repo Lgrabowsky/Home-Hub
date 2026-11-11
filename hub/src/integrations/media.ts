@@ -91,6 +91,10 @@ export class MediaManager {
   private binaryMissing = false;
   /** Sessions that negotiated a WebRTC connection with the current go2rtc process. */
   private readonly rtcSessions = new Set<string>();
+  /** Re-checks of the open stream relays (see `recheckRelays`). */
+  private readonly relays = new Set<() => void>();
+  /** The process that is about to exit because the hub asked it to (new configuration, ended session). */
+  private expectedExit: ChildProcess | null = null;
 
   constructor(
     private readonly config: HubConfig,
@@ -135,6 +139,22 @@ export class MediaManager {
       this.log.info('a session with live video ended: restarting the video service to cut its streams');
       this.killChild();
     }
+  }
+
+  /** A stream relay registers how it re-checks its viewer; returns the function that unregisters it. */
+  registerRelay(check: () => void): () => void {
+    this.relays.add(check);
+    return () => this.relays.delete(check);
+  }
+
+  /**
+   * Called when users or their permissions change: open relays close at once
+   * if their viewer may no longer watch. WebRTC media flows outside the relay,
+   * so the user's sessions are also ended for the video service.
+   */
+  revokeUser(sessionIds: string[]): void {
+    for (const check of [...this.relays]) check();
+    for (const sessionId of sessionIds) this.endSession(sessionId);
   }
 
   hasStream(name: string): boolean {
@@ -305,8 +325,9 @@ export class MediaManager {
         this.state.setService('media', 'unconfigured');
         return;
       }
-      if (signal === 'SIGTERM' || signal === 'SIGKILL') {
-        // We asked for it (new configuration): start again right away.
+      // go2rtc catches SIGTERM and exits with code 0, so the signal alone does not tell whether we asked for it.
+      if (this.expectedExit === child || signal === 'SIGTERM' || signal === 'SIGKILL') {
+        this.expectedExit = null;
         this.spawnChild();
         return;
       }
@@ -387,6 +408,7 @@ export class MediaManager {
   private killChild(): void {
     const child = this.child;
     if (!child) return;
+    this.expectedExit = child;
     this.stopHealth();
     child.kill('SIGTERM');
     const timer = setTimeout(() => {

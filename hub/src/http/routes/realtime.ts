@@ -21,9 +21,65 @@ const CLOSE_FORBIDDEN = 4403;
 const CLOSE_UNAVAILABLE = 4503;
 
 const MAX_MEDIA_SOCKETS_PER_SESSION = 24;
-const MAX_CLIENT_MESSAGES = 2000;
+const MAX_CLIENT_MESSAGES = 300;
 const MAX_CLIENT_MESSAGE_BYTES = 64 * 1024;
+const MAX_OFFER_BYTES = 32 * 1024;
+const MAX_CANDIDATE_BYTES = 512;
+const MAX_CANDIDATES = 100;
+const MAX_MSE_BYTES = 300;
+/** How often an open stream re-checks that its viewer may still see it. */
+const GUARD_INTERVAL_MS = 5000;
 const ALLOWED_CLIENT_TYPES = new Set(['webrtc/offer', 'webrtc/candidate', 'mse']);
+
+/**
+ * Checks what a client wants to hand to go2rtc. go2rtc trusts its API (it is
+ * meant for the owner only); here it hears from every viewer, so anything it
+ * could choke on is refused first. Example: an `a=rtpmap:` line without a
+ * clock rate makes go2rtc 1.9.15 panic (pkg/core/codec.go) — the whole video
+ * service would go down for everybody.
+ */
+export function clientMessageProblem(type: string, value: string, state: { candidates: number }): string | null {
+  switch (type) {
+    case 'webrtc/offer': {
+      if (value.length > MAX_OFFER_BYTES) return 'offer too large';
+      if (!/^v=0\r?\n/.test(value)) return 'not an SDP offer';
+      for (const line of value.split(/\r?\n/)) {
+        if (line.startsWith('a=rtpmap:') && !/^a=rtpmap:\d{1,3} [A-Za-z0-9._-]{1,32}\/\d{1,6}(\/\d{1,2})?\s*$/.test(line)) return 'malformed rtpmap';
+      }
+      return null;
+    }
+    case 'webrtc/candidate':
+      if (++state.candidates > MAX_CANDIDATES) return 'too many candidates';
+      if (value.length > MAX_CANDIDATE_BYTES) return 'candidate too large';
+      if (value !== '' && !/^candidate:[\x20-\x7e]+$/.test(value)) return 'not a candidate';
+      return null;
+    case 'mse':
+      return value.length > MAX_MSE_BYTES ? 'codec list too large' : null;
+    default:
+      return 'unknown type';
+  }
+}
+
+/**
+ * go2rtc's error texts can contain the source URL of a stream — with the
+ * camera's user name and password when they are part of its query string.
+ * Viewers only get the prefix the app needs ("mse", "webrtc/offer" …) and a
+ * neutral sentence.
+ */
+export function sanitizeUpstreamText(text: string): { text: string; type: string | null; error: string | null } {
+  let message: { type?: unknown; value?: unknown };
+  try {
+    message = JSON.parse(text) as { type?: unknown; value?: unknown };
+  } catch {
+    return { text, type: null, error: null };
+  }
+  const type = typeof message.type === 'string' ? message.type : null;
+  if (type !== 'error') return { text, type, error: null };
+  const original = typeof message.value === 'string' ? message.value : '';
+  const prefix = /^([a-z]+(?:\/[a-z]+)?):/.exec(original)?.[1];
+  const value = `${prefix ? `${prefix}: ` : ''}Der Stream ist gerade nicht verfügbar.`;
+  return { text: JSON.stringify({ type: 'error', value }), type, error: original };
+}
 
 function originAllowed(ctx: HubContext, request: FastifyRequest): boolean {
   const origin = request.headers.origin;
@@ -82,8 +138,10 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
     const quality = query.q === 'sub' || query.q === 'talk' ? query.q : 'main';
     if (!match) return sendError('Unbekannter Stream.', CLOSE_FORBIDDEN);
     const kind = match[1] as 'cam' | 'door';
-    const needed: Permission = kind === 'door' ? 'doors.view' : quality === 'talk' ? 'cameras.control' : 'cameras.view';
-    if (!hasPermission(who.user, needed)) return sendError('Dafür fehlt dir die Berechtigung.', CLOSE_FORBIDDEN);
+    // The talk stream of a camera carries its picture as well: talking needs "view" too.
+    const needed: Permission[] = kind === 'door' ? ['doors.view'] : quality === 'talk' ? ['cameras.view', 'cameras.control'] : ['cameras.view'];
+    const allowed = (user: UserRecord | null | undefined) => Boolean(user && !user.disabled && needed.every((permission) => hasPermission(user, permission)));
+    if (!allowed(who.user)) return sendError('Dafür fehlt dir die Berechtigung.', CLOSE_FORBIDDEN);
 
     const media = ctx.integrations.media;
     // Door stations have a single video stream: "sub" falls back to it.
@@ -101,11 +159,13 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
     const pending: string[] = [];
     let received = 0;
     let closed = false;
+    const traffic = { offerSeen: false, candidates: 0 };
 
     const cleanup = () => {
       if (closed) return;
       closed = true;
       clearInterval(guard);
+      unregister();
       const count = (mediaSockets.get(who.sessionId) ?? 1) - 1;
       if (count <= 0) mediaSockets.delete(who.sessionId);
       else mediaSockets.set(who.sessionId, count);
@@ -113,12 +173,18 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
       if (socket.readyState === socket.OPEN) socket.close(1000);
     };
 
-    // The stream ends as soon as the session behind it does.
-    const guard = setInterval(() => {
-      if (!ctx.sessions.isAlive(who.sessionId)) cleanup();
+    // The stream ends as soon as the session behind it does, or the viewer loses the permission.
+    const stillAllowed = () => ctx.sessions.isAlive(who.sessionId) && allowed(ctx.users.get(who.user.id));
+    const check = () => {
+      if (!stillAllowed()) cleanup();
       else if (socket.readyState === socket.OPEN) socket.ping();
-    }, 20_000);
+    };
+    const guard = setInterval(check, GUARD_INTERVAL_MS);
     guard.unref();
+    // … and at once when an administrator changes the user.
+    const unregister = media.registerRelay(() => {
+      if (!stillAllowed()) cleanup();
+    });
 
     socket.on('message', (data, isBinary) => {
       if (isBinary) return;
@@ -132,12 +198,22 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
       }
       if (typeof message.type !== 'string' || !ALLOWED_CLIENT_TYPES.has(message.type)) return;
       if (message.value !== undefined && typeof message.value !== 'string') return;
-      if (message.type === 'webrtc/offer' && quality !== 'talk' && offerSendsMedia(String(message.value ?? ''))) {
-        // Viewing streams are strictly one-way; talking needs the dedicated talk stream.
-        return sendError('Senden ist auf diesem Stream nicht erlaubt.', CLOSE_FORBIDDEN);
+      const value = String(message.value ?? '');
+      // Candidates are only meaningful after an offer (go2rtc would keep early ones in memory).
+      if (message.type === 'webrtc/candidate' && !traffic.offerSeen) return;
+      const problem = clientMessageProblem(message.type, value, traffic);
+      if (problem) {
+        ctx.log.info({ user: who.user.username, stream: name, problem }, 'refused a media message');
+        return sendError('Diese Anfrage wurde abgelehnt.', CLOSE_FORBIDDEN);
       }
-      if (message.type === 'webrtc/offer') media.noteRtcSession(who.sessionId);
-      const payload = JSON.stringify({ type: message.type, value: message.value ?? '' });
+      if (message.type === 'webrtc/offer') {
+        if (quality !== 'talk' && offerSendsMedia(value)) {
+          // Viewing streams are strictly one-way; talking needs the dedicated talk stream.
+          return sendError('Senden ist auf diesem Stream nicht erlaubt.', CLOSE_FORBIDDEN);
+        }
+        traffic.offerSeen = true;
+      }
+      const payload = JSON.stringify({ type: message.type, value });
       if (upstream.readyState === upstream.OPEN) upstream.send(payload);
       else pending.push(payload);
     });
@@ -148,7 +224,12 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
     upstream.on('message', (data, isBinary) => {
       if (socket.readyState !== socket.OPEN) return;
       if (socket.bufferedAmount > 32 * 1024 * 1024) return cleanup(); // the viewer cannot keep up
-      socket.send(data, { binary: isBinary });
+      if (isBinary) return socket.send(data, { binary: true });
+      const { text, type, error } = sanitizeUpstreamText(data.toString());
+      if (error) ctx.log.debug({ stream: name, error }, 'media upstream reported an error');
+      // Only a session go2rtc really answered has media flowing outside this socket (see MediaManager.endSession).
+      if (type === 'webrtc/answer') media.noteRtcSession(who.sessionId);
+      socket.send(text);
     });
     upstream.on('error', (err) => {
       ctx.log.debug({ err, stream: name }, 'media upstream error');

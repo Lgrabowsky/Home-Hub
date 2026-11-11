@@ -48,7 +48,12 @@ export function registerUserRoutes(app: FastifyInstance, ctx: HubContext): void 
     }
     const user = users.update(before.id, body);
     if (user.disabled) sessions.revokeAllForUser(user.id);
-    else realtime.refreshUser(user.id);
+    else {
+      realtime.refreshUser(user.id);
+      // Streams that are already open must not outlive a permission that was taken away.
+      const lost = before.role === 'admin' && user.role !== 'admin' ? true : before.permissions.some((permission) => !user.permissions.includes(permission));
+      if (lost) ctx.integrations.media.revokeUser(sessions.list(user.id).map((session) => session.id));
+    }
     audit.record('user.updated', actor(request), {
       username: user.username,
       role: user.role,
