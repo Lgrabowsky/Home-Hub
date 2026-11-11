@@ -19,6 +19,10 @@ import { registerMusicRoutes } from './routes/music.ts';
 import { registerRealtimeRoutes } from './routes/realtime.ts';
 
 declare module 'fastify' {
+  interface FastifyInstance {
+    /** Every registered route with the access it declares. */
+    routeTable: RouteInfo[];
+  }
   interface FastifyRequest {
     auth: AuthContext | null;
     authVia: 'cookie' | 'bearer' | null;
@@ -101,6 +105,35 @@ export function actor(request: FastifyRequest): { userId: string | null; usernam
   return { userId: request.auth?.user.id ?? null, username: request.auth?.user.username ?? null, ip: request.ip };
 }
 
+export interface RouteInfo {
+  method: string;
+  url: string;
+  access: 'public' | 'enroll' | 'user' | 'admin';
+}
+
+/** Routes that serve the app itself (HTML, scripts, icons) — the only ones that need no session. */
+const APP_SHELL_ROUTES = new Set(['/', '/*']);
+
+/**
+ * Whether the request must pass the authentication, CSRF and permission checks.
+ *
+ * Decided from the route the router matched — never from the raw request
+ * target. The router percent-decodes paths and accepts absolute-form targets,
+ * so "/%61pi/users" or "http://x/api/users" reach the same handler as
+ * "/api/users"; a check on the raw text would wave them through.
+ *
+ * Every matched route is protected unless it is the app shell (static
+ * files). A route added later is therefore private by default, wherever it
+ * is mounted.
+ */
+function isProtectedRoute(request: FastifyRequest): boolean {
+  const route = request.routeOptions.url;
+  if (typeof route === 'string') return !APP_SHELL_ROUTES.has(route);
+  // No route matched. Nothing can leak here, but an outsider should not be able to map the API by
+  // telling "404" from "401" either — so unknown paths under /api/ ask for a session like known ones.
+  return request.url.startsWith('/api/');
+}
+
 function securityHeaders(request: FastifyRequest, reply: FastifyReply): void {
   reply.header(
     'Content-Security-Policy',
@@ -151,10 +184,17 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   app.decorateRequest('auth', null);
   app.decorateRequest('authVia', null);
 
+  // Every route with the access it declares — for the test that proves "private by default".
+  const routeTable: RouteInfo[] = [];
+  app.decorate('routeTable', routeTable);
+  app.addHook('onRoute', (route) => {
+    const access = (route.config as { access?: RouteInfo['access'] } | undefined)?.access ?? 'user';
+    for (const method of [route.method].flat()) routeTable.push({ method, url: route.url, access });
+  });
+
   app.addHook('onRequest', async (request, reply) => {
     securityHeaders(request, reply);
-    const path = request.url.split('?', 1)[0]!;
-    if (!path.startsWith('/api/')) return;
+    if (!isProtectedRoute(request)) return;
 
     reply.header('Cache-Control', 'no-store');
 
@@ -214,11 +254,11 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   });
 
   app.addHook('onResponse', async (request, reply) => {
-    const path = request.url.split('?', 1)[0]!;
-    if (!path.startsWith('/api/')) return;
+    if (!isProtectedRoute(request)) return;
     const record = {
       method: request.method,
-      path,
+      // The route pattern, not the raw target: no ids, tickets or tricks in the log.
+      path: request.routeOptions.url ?? '',
       status: reply.statusCode,
       ms: Math.round(reply.elapsedTime),
       user: request.auth?.user.username,
