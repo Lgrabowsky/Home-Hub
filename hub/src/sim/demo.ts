@@ -54,10 +54,15 @@ const SPOTIFY_REDIRECT = 'http://127.0.0.1/api/spotify/callback';
  * with a quiet ambient sound, so that "listening in" has something to play.
  * `{output}` is go2rtc's own RTSP address; ffmpeg publishes there.
  */
+/** go2rtc splits exec command lines at spaces but honours double quotes (no escapes): quote paths. */
+function quoted(path: string): string {
+  return `"${path.replace(/\\/g, '/')}"`;
+}
+
 function videoSource(ffmpeg: string, file: string, width: number, height: number): string {
   return [
-    `exec:${ffmpeg} -hide_banner -loglevel error`,
-    `-re -f image2 -loop 1 -framerate 5 -i ${file}`,
+    `exec:${quoted(ffmpeg)} -hide_banner -loglevel error`,
+    `-re -f image2 -loop 1 -framerate 5 -i ${quoted(file)}`,
     '-f lavfi -i anoisesrc=color=brown:amplitude=0.02:sample_rate=48000',
     `-vf scale=${width}:${height}`,
     '-c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -profile:v baseline -g 10 -bf 0',
@@ -69,7 +74,7 @@ function videoSource(ffmpeg: string, file: string, width: number, height: number
 /** go2rtc source that accepts the app's microphone audio and throws it away (a camera's speaker). */
 export function talkSink(ffmpeg: string): string {
   // Without `#audio=` go2rtc would offer 16 kHz PCM, which browsers cannot send; G.711 A-law they can.
-  return `exec:${ffmpeg} -hide_banner -loglevel error -f alaw -ar 8000 -i - -f null -#backchannel=1#audio=alaw/8000`;
+  return `exec:${quoted(ffmpeg)} -hide_banner -loglevel error -f alaw -ar 8000 -i - -f null -#backchannel=1#audio=alaw/8000`;
 }
 
 export async function startDemo(ctx: HubContext): Promise<DemoHandle> {

@@ -34,6 +34,12 @@ export interface HubConfig {
     /** ICE servers for go2rtc and the browsers. Empty by default: no third party is contacted. */
     iceServers: IceServer[];
     rtspPort: number;
+    /**
+     * How the hub reaches go2rtc's API. `unix`: a socket in a private directory (nobody else can
+     * connect). `tcp`: the loopback interface with a random port and random credentials — for
+     * Windows, where Node.js cannot open Unix sockets.
+     */
+    apiTransport: 'unix' | 'tcp';
   };
 }
 
@@ -130,6 +136,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
       candidates: list(env.HUB_WEBRTC_CANDIDATES),
       iceServers: parseIceServers(env.HUB_WEBRTC_ICE_SERVERS),
       rtspPort: int(env.HUB_RTSP_PORT, 8554, 'HUB_RTSP_PORT'),
+      apiTransport: env.HUB_MEDIA_API === 'tcp' || (env.HUB_MEDIA_API !== 'unix' && process.platform === 'win32') ? 'tcp' : 'unix',
     },
   };
 }
