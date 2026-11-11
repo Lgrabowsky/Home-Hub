@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # --- go2rtc (live video engine), cross-compiled for the target platform -------------------
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS go2rtc
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS go2rtc
 ARG TARGETOS TARGETARCH
 ARG GO2RTC_VERSION=v1.9.15
 ENV CGO_ENABLED=0
