@@ -42,6 +42,52 @@ interface HubStore {
 
 const EMPTY_MUSIC: MusicState = { players: [], groups: [], spotify: { linked: false, account: null } };
 
+/** A ring this recent still counts as "ringing" for somebody who opens the app or was just reconnecting. */
+const RING_FRESH_MS = 45_000;
+/**
+ * Rings already shown, by door — so dismissing one does not bring it back with the next state update.
+ * Kept for the browser session, so that a reload does not ring again either.
+ */
+const SHOWN_KEY = 'hh.rings';
+const shownRings = new Map<string, number>();
+try {
+  for (const [doorId, ts] of Object.entries(JSON.parse(sessionStorage.getItem(SHOWN_KEY) ?? '{}') as Record<string, unknown>)) {
+    if (typeof ts === 'number') shownRings.set(doorId, ts);
+  }
+} catch {
+  /* no session storage (private mode): the memory lasts until the page is closed */
+}
+
+function rememberRing(doorId: string, ts: number): void {
+  shownRings.set(doorId, Math.max(ts, shownRings.get(doorId) ?? 0));
+  try {
+    sessionStorage.setItem(SHOWN_KEY, JSON.stringify(Object.fromEntries(shownRings)));
+  } catch {
+    /* see above */
+  }
+}
+
+/**
+ * The doorbell must not depend on a single message arriving: besides the live
+ * event, a ring is also recognised from the door's state. That covers the
+ * moments when the event cannot arrive — the app is opened because the bell
+ * was heard, or the connection was being re-established.
+ */
+function freshRing(entities: Iterable<Entity>, serverNow: number, current: ActiveRing | null): ActiveRing | null {
+  let newest: ActiveRing | null = null;
+  for (const entity of entities) {
+    if (entity.kind !== 'door' || entity.lastRingAt === null) continue;
+    const doorId = entity.id.slice('door:'.length);
+    if (serverNow - entity.lastRingAt > RING_FRESH_MS) continue;
+    // The live event and the state update describe the same ring with slightly different time stamps.
+    if (entity.lastRingAt - (shownRings.get(doorId) ?? 0) < 5000) continue;
+    if (current?.doorId === doorId) continue;
+    if (!newest || entity.lastRingAt > newest.ts) newest = { doorId, doorName: entity.name, ts: entity.lastRingAt };
+  }
+  if (newest) rememberRing(newest.doorId, newest.ts);
+  return newest;
+}
+
 export const useHub = create<HubStore>((set) => ({
   link: 'connecting',
   loaded: false,
@@ -55,13 +101,17 @@ export const useHub = create<HubStore>((set) => ({
   setLink: (link) => set({ link }),
 
   applySnapshot: (state) =>
-    set({
-      loaded: true,
-      hubName: state.hubName,
-      clockOffset: state.serverTime - Date.now(),
-      entities: state.entities,
-      services: state.services,
-      music: state.music,
+    set((store) => {
+      const ring = freshRing(Object.values(state.entities), state.serverTime, store.ring);
+      return {
+        loaded: true,
+        hubName: state.hubName,
+        clockOffset: state.serverTime - Date.now(),
+        entities: state.entities,
+        services: state.services,
+        music: state.music,
+        ...(ring ? { ring } : {}),
+      };
     }),
 
   applyEntities: (changed, removed) =>
@@ -69,7 +119,8 @@ export const useHub = create<HubStore>((set) => ({
       const entities = { ...store.entities };
       for (const entity of changed) entities[entity.id] = entity;
       for (const id of removed) delete entities[id];
-      return { entities };
+      const ring = freshRing(changed, Date.now() + store.clockOffset, store.ring);
+      return ring ? { entities, ring } : { entities };
     }),
 
   setMusic: (music) => set({ music }),
@@ -90,7 +141,10 @@ export const useHub = create<HubStore>((set) => ({
 
   patchMusic: (update) => set((store) => ({ music: update(store.music) })),
 
-  setRing: (ring) => set({ ring }),
+  setRing: (ring) => {
+    if (ring) rememberRing(ring.doorId, ring.ts);
+    set({ ring });
+  },
 
   reset: () => set({ link: 'connecting', loaded: false, entities: {}, services: {}, music: EMPTY_MUSIC, ring: null }),
 }));

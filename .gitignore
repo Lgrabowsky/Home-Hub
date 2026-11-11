@@ -36,3 +36,4 @@ web/android/*.iml
 web/android/app/*.jks
 web/android/app/*.keystore
 web/android/keystore.properties
+web/e2e/.auth/
