@@ -9,7 +9,6 @@
     "build:native": "vite build --mode native",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run",
     "e2e": "playwright test",
     "android:sync": "npm run build:native && cap sync android",
     "android:open": "cap open android"

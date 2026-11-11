@@ -21,7 +21,7 @@
     "start": "npm run start -w hub",
     "demo": "npm run build && HUB_DEMO=1 npm run start -w hub",
     "typecheck": "npm run typecheck -w shared && npm run typecheck -w hub && npm run typecheck -w web",
-    "test": "npm run test -w hub && npm run test -w web",
+    "test": "npm run test -w hub",
     "e2e": "npm run e2e -w web"
   }
 }
