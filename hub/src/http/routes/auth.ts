@@ -14,7 +14,7 @@ import type { HubContext } from '../../context.ts';
 import { publicSession } from '../../auth/sessions.ts';
 import { publicUser, type UserRecord } from '../../auth/users.ts';
 import { dummyVerify, hashPassword, needsRehash, verifyPassword } from '../../security/password.ts';
-import { LOGIN_RULES } from '../../security/throttle.ts';
+import { KeyedQueue, LOGIN_RULES } from '../../security/throttle.ts';
 import {
   generateRecoveryCodes,
   generateTotpSecret,
@@ -126,11 +126,22 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: HubContext): void 
     return startSession(request, reply, user, body.client, body.deviceName);
   });
 
+  const loginQueue = new KeyedQueue();
+
   app.post('/api/auth/login', { config: { access: 'public', sensitive: true } }, async (request, reply): Promise<LoginResponse> => {
     const body = parseBody(loginSchema, request.body);
     const username = body.username.toLowerCase();
     const keys = { pair: `pair:${username}|${request.ip}`, ip: `ip:${request.ip}`, user: `user:${username}` };
+    // One attempt at a time per address and per account, so that every attempt sees the failures before it.
+    return loginQueue.run([keys.ip, keys.user], () => attemptLogin(request, reply, body, keys));
+  });
 
+  async function attemptLogin(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    body: z.infer<typeof loginSchema>,
+    keys: { pair: string; ip: string; user: string },
+  ): Promise<LoginResponse> {
     const wait = throttle.retryAfter(Object.values(keys));
     if (wait > 0) {
       throw new HttpError(429, 'too_many_attempts', `Zu viele Fehlversuche. Bitte in ${formatWait(wait)} erneut versuchen.`, wait);
@@ -152,9 +163,17 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: HubContext): void 
 
     if (user.totpEnabled) {
       if (!body.code) return { status: 'totp_required' };
+      const factorKey = `2fa:${user.id}`;
+      const factorWait = throttle.retryAfter([factorKey]);
+      if (factorWait > 0) {
+        audit.record('login.failed', { username: user.username, ip: request.ip }, { reason: 'second_factor_locked' });
+        throw new HttpError(429, 'too_many_attempts', `Zu viele falsche Codes. Bitte in ${formatWait(factorWait)} erneut versuchen.`, factorWait);
+      }
       if (!verifySecondFactor(user, body.code)) {
+        throttle.fail(factorKey, LOGIN_RULES.secondFactor);
         return fail('second_factor', 401, 'invalid_code', 'Der Code ist falsch oder abgelaufen.');
       }
+      throttle.reset(factorKey);
     }
 
     throttle.reset(keys.pair);
@@ -162,7 +181,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: HubContext): void 
     if (needsRehash(user.passwordHash)) users.setPasswordHash(user.id, await hashPassword(body.password));
     audit.record('login.success', { userId: user.id, username: user.username, ip: request.ip }, { client: body.client });
     return startSession(request, reply, user, body.client, body.deviceName);
-  });
+  }
 
   // --- Signed in (also during 2FA enrolment) -----------------------------------------
 

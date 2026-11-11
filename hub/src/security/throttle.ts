@@ -28,6 +28,12 @@ export const LOGIN_RULES = {
   ip: { threshold: 20, windowMs: 15 * 60_000, baseLockMs: 5 * 60_000, maxLockMs: 60 * 60_000 },
   /** Distributed guessing against one account (kept high so outsiders cannot lock a user out cheaply). */
   user: { threshold: 50, windowMs: 60 * 60_000, baseLockMs: 5 * 60_000, maxLockMs: 30 * 60_000 },
+  /**
+   * Wrong codes after a CORRECT password. Only somebody who knows the password gets here, so this
+   * can be strict: without it, slow guessing (a few codes per hour from changing addresses) finds a
+   * valid six-digit code within weeks.
+   */
+  secondFactor: { threshold: 8, windowMs: 60 * 60_000, baseLockMs: 30 * 60_000, maxLockMs: 24 * 60 * 60_000 },
 } satisfies Record<string, ThrottleRule>;
 
 export class Throttle {
@@ -89,6 +95,38 @@ export class Throttle {
         if (i++ >= excess) break;
         this.entries.delete(key);
       }
+    }
+  }
+}
+
+/**
+ * Runs credential checks one after the other per key (address, account).
+ * Without it, requests sent in parallel would all pass the "locked?" check
+ * before the first failure is recorded — the password hash takes a moment.
+ */
+export class KeyedQueue {
+  private readonly tails = new Map<string, Promise<unknown>>();
+
+  async run<T>(keys: string[], fn: () => Promise<T>): Promise<T> {
+    // A fixed order of acquisition: two requests can never wait for each other in a circle.
+    const ordered = [...new Set(keys)].sort();
+    const releases: (() => void)[] = [];
+    try {
+      for (const key of ordered) {
+        const previous = this.tails.get(key) ?? Promise.resolve();
+        let release!: () => void;
+        const current = new Promise<void>((resolve) => (release = resolve));
+        const tail = previous.then(() => current);
+        this.tails.set(key, tail);
+        releases.push(() => {
+          release();
+          if (this.tails.get(key) === tail) this.tails.delete(key);
+        });
+        await previous;
+      }
+      return await fn();
+    } finally {
+      for (const release of releases.reverse()) release();
     }
   }
 }

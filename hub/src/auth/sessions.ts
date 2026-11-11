@@ -132,7 +132,8 @@ export class SessionStore extends EventEmitter<SessionEvents> {
     const row = this.db.get<SessionRow>('SELECT * FROM sessions WHERE token_hash = ?', sha256Hex(token));
     if (!row) return null;
     const now = Date.now();
-    if (row.expires_at <= now) {
+    // The absolute cap counts even when the stored expiry (set at the last use) lies beyond it.
+    if (row.expires_at <= now || now >= row.created_at + ABSOLUTE_MAX_MS) {
       this.remove(row.id, 'expired');
       return null;
     }
