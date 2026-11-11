@@ -22,11 +22,11 @@ function summary(area: Area, settings: IntegrationSettingsMap, counts: { contact
     case 'general':
       return `${settings.general.hubName} · Zwei-Faktor ${settings.general.requireTotp ? 'Pflicht' : 'freiwillig'}`;
     case 'mygekko':
-      return settings.mygekko.enabled ? `${settings.mygekko.mode === 'local' ? settings.mygekko.host : 'myGEKKO Plus'} · ${counts.contacts} ${plural(counts.contacts, 'Kontakt', 'Kontakte')}` : null;
+      return settings.mygekko.enabled ? `${settings.mygekko.mode === 'local' ? settings.mygekko.host : 'myGEKKO Plus'} · ${plural(counts.contacts, 'Kontakt', 'Kontakte')}` : null;
     case 'doorbird':
-      return settings.doorbird.enabled ? `${settings.doorbird.devices.length} ${plural(settings.doorbird.devices.length, 'Türstation', 'Türstationen')}` : null;
+      return settings.doorbird.enabled ? `${plural(settings.doorbird.devices.length, 'Türstation', 'Türstationen')}` : null;
     case 'reolink':
-      return settings.reolink.enabled ? `${settings.reolink.devices.length} ${plural(settings.reolink.devices.length, 'Kamera', 'Kameras')}` : null;
+      return settings.reolink.enabled ? `${plural(settings.reolink.devices.length, 'Kamera', 'Kameras')}` : null;
     case 'sonos':
       return settings.sonos.enabled ? `${counts.speakers} Lautsprecher` : null;
     case 'spotify':

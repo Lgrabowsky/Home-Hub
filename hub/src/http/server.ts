@@ -11,6 +11,7 @@ import { HttpError, forbidden, unauthorized } from './errors.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
 import { registerUserRoutes } from './routes/users.ts';
 import { registerAdminRoutes } from './routes/admin.ts';
+import { registerDemoRoutes } from './routes/demo.ts';
 import { registerHomeRoutes } from './routes/home.ts';
 import { registerDoorRoutes } from './routes/doors.ts';
 import { registerCameraRoutes } from './routes/cameras.ts';
@@ -256,6 +257,7 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   registerCameraRoutes(app, ctx);
   registerMusicRoutes(app, ctx);
   registerRealtimeRoutes(app, ctx);
+  registerDemoRoutes(app, ctx);
 
   // --- Web app (static files + SPA fallback) ---------------------------------------
   if (ctx.config.webDir) {

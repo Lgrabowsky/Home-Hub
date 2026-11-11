@@ -72,6 +72,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     integrations,
     images,
     startedAt: Date.now(),
+    demo: null,
   };
 
   const app = await buildServer(ctx);
@@ -89,6 +90,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     async start() {
       if (config.demo) demo = await startDemo(ctx);
       await integrations.start();
+      await demo?.ready();
       const address = await app.listen({ host: config.host, port: config.port });
       maintenance = setInterval(
         () => {

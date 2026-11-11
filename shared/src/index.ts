@@ -784,6 +784,14 @@ export interface SpotifyStatus {
   redirectUri: string;
 }
 
+/** Demo mode: what the simulated house offers to play with. */
+export interface DemoState {
+  doors: { id: string; name: string }[];
+  contacts: { name: string; open: boolean }[];
+}
+
+export type DemoTrigger = { action: 'ring'; door: string } | { action: 'motion'; door: string } | { action: 'contact'; name: string; open: boolean };
+
 export interface DiagnosticsReport {
   version: string;
   uptimeSec: number;

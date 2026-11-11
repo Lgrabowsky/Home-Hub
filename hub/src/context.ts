@@ -13,6 +13,7 @@ import type { SetupGuard } from './auth/setup.ts';
 import type { TicketStore } from './auth/tickets.ts';
 import type { IntegrationManager } from './integrations/manager.ts';
 import type { ImageProxy } from './util/images.ts';
+import type { DemoControl } from './sim/demo.ts';
 
 /** Everything the HTTP layer and the integrations share. */
 export interface HubContext {
@@ -34,4 +35,6 @@ export interface HubContext {
   integrations: IntegrationManager;
   images: ImageProxy;
   startedAt: number;
+  /** Set while the demo mode (HUB_DEMO=1) is running. */
+  demo: DemoControl | null;
 }

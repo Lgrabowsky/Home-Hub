@@ -1,5 +1,6 @@
 import { ChevronRight, Thermometer, Workflow } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { DemoPanel } from '../../components/more/DemoPanel.tsx';
 import { ProfileCard, SettingsList } from '../../components/more/SettingsList.tsx';
 import { PageHeader, Row, RowGroup, Section } from '../../components/ui.tsx';
 import { useEntities } from '../../hooks/entities.ts';
@@ -15,6 +16,7 @@ export function MorePage() {
     <>
       <PageHeader title="Mehr" />
       <ProfileCard />
+      <DemoPanel />
       <Section title="Zuhause">
         <RowGroup>
           <Row
