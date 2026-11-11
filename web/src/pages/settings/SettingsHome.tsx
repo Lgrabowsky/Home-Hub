@@ -1,6 +1,12 @@
+import { ProfileCard, SettingsList } from '../../components/more/SettingsList.tsx';
 import { PageHeader } from '../../components/ui.tsx';
 
-/** Placeholder — replaced by the real page. */
 export function SettingsHome() {
-  return <PageHeader title="Einstellungen" back />;
+  return (
+    <>
+      <PageHeader title="Einstellungen" back="/mehr" />
+      <ProfileCard />
+      <SettingsList />
+    </>
+  );
 }

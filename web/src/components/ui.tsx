@@ -340,7 +340,18 @@ export function Slider({ value, onChange, onCommit, min = 0, max = 100, step = 1
   );
 }
 
-export function Segmented<T extends string>({ options, value, onChange, className }: { options: { value: T; label: ReactNode }[]; value: T; onChange(value: T): void; className?: string }) {
+// `T` is inferred from `value` alone, so `onChange={setState}` and literal options type-check without annotations.
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  className,
+}: {
+  options: { value: NoInfer<T>; label: ReactNode }[];
+  value: T;
+  onChange: (value: NoInfer<T>) => void;
+  className?: string;
+}) {
   return (
     <div role="tablist" className={cx('inline-flex max-w-full gap-1 overflow-x-auto rounded-control bg-sunken p-1 no-scrollbar', className)}>
       {options.map((option) => (
