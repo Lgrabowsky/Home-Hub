@@ -13,7 +13,8 @@ export function MiniPlayer() {
   const { group: target } = useTargetGroup();
   const hasTrack = target?.track && (target.state === 'playing' || target.state === 'paused' || target.state === 'transitioning');
   const group = hasTrack ? target : groups.find((entry) => entry.state === 'playing' && entry.track);
-  if (!group || pathname.startsWith('/musik')) return null;
+  // Hidden where it would sit on top of something more important: the music page itself and the settings' save bar.
+  if (!group || pathname.startsWith('/musik') || pathname.startsWith('/einstellungen/dienste/')) return null;
 
   return (
     <>

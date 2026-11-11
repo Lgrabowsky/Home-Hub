@@ -5,6 +5,9 @@ import type { Db } from './db.ts';
 import type { Vault } from './security/crypto.ts';
 import { HttpError } from './http/errors.ts';
 
+// Messages of the built-in checks ("too small", "invalid option" …) reach the administrator: speak German.
+z.config(z.locales.de());
+
 /**
  * Hub configuration that the administrator edits in the app.
  *
@@ -195,12 +198,59 @@ export function maskSecrets<K extends SettingsKey>(key: K, value: IntegrationSet
   return mapSecrets(key, value, (secretValue) => (secretValue ? SECRET_SET : ''));
 }
 
-function formatIssues(error: z.ZodError): string {
+/** How the administrator knows the fields (the labels of the settings forms). */
+const FIELD_LABELS: Record<string, string> = {
+  hubName: 'Name',
+  sessionDays: 'Angemeldet bleiben',
+  host: 'Adresse',
+  hosts: 'Adressen',
+  username: 'Benutzername',
+  password: 'Passwort',
+  gekkoId: 'myGEKKO-ID',
+  contactKeywords: 'Stichwörter für Kontakte',
+  doorKeywords: 'Stichwörter für Türen',
+  contactZone: 'Zone',
+  contacts: 'Kontakte',
+  devices: 'Geräte',
+  id: 'Kennung',
+  name: 'Name',
+  room: 'Raum',
+  zone: 'Zone',
+  source: 'Element am myGEKKO',
+  field: 'Wert Nr.',
+  retentionDays: 'Aufbewahren',
+  relayNames: 'Türöffner',
+  port: 'Port',
+  rtspPort: 'RTSP-Port',
+  channel: 'Kanal',
+  clientId: 'Client-ID',
+  clientSecret: 'Client-Secret',
+  market: 'Land',
+};
+
+/**
+ * Validation errors in the words of the form: "„Haustür“ › Adresse: …" rather
+ * than "devices.0.host: …". List entries are named after their `name`.
+ */
+function formatIssues(error: z.ZodError, input: unknown): string {
   return error.issues
     .slice(0, 4)
     .map((issue) => {
-      const where = issue.path.filter((p) => typeof p === 'string').join(' › ');
-      return where ? `${where}: ${issue.message}` : issue.message;
+      const parts: string[] = [];
+      let node: unknown = input;
+      for (const segment of issue.path) {
+        node = typeof node === 'object' && node !== null ? (node as Record<PropertyKey, unknown>)[segment as PropertyKey] : undefined;
+        if (typeof segment === 'number') {
+          const entryName = typeof node === 'object' && node !== null ? (node as { name?: unknown }).name : undefined;
+          const label = typeof entryName === 'string' && entryName.trim() !== '' ? `„${entryName.trim().slice(0, 60)}“` : `Nr. ${segment + 1}`;
+          // "Geräte › „Haustür“" says nothing more than "„Haustür“".
+          if (parts.length > 0) parts[parts.length - 1] = label;
+          else parts.push(label);
+        } else if (typeof segment === 'string') {
+          parts.push(FIELD_LABELS[segment] ?? segment);
+        }
+      }
+      return parts.length > 0 ? `${parts.join(' › ')}: ${issue.message}` : issue.message;
     })
     .join(' · ');
 }
@@ -276,7 +326,7 @@ export class SettingsStore extends EventEmitter<SettingsEvents> {
   /** Validates input from the admin UI; SECRET_SET placeholders are resolved against the stored values. */
   prepare<K extends SettingsKey>(key: K, input: unknown): IntegrationSettingsMap[K] {
     const parsed = schemas[key].safeParse(input);
-    if (!parsed.success) throw new HttpError(400, 'invalid_settings', formatIssues(parsed.error));
+    if (!parsed.success) throw new HttpError(400, 'invalid_settings', formatIssues(parsed.error, input));
     const current = this.get(key);
     const currentSecrets = new Map<string, string>();
     mapSecrets(key, current, (secretValue, path, id) => {

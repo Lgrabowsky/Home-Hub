@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
-  type InputHTMLAttributes,
+  type ComponentProps,
   type ReactNode,
   type SelectHTMLAttributes,
 } from 'react';
@@ -405,7 +405,7 @@ export function Field({ label, hint, error, children }: { label: string; hint?: 
 const inputClass =
   'h-12 w-full rounded-control border border-line bg-sunken px-3.5 text-base outline-none transition placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-60';
 
-export function TextInput({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
+export function TextInput({ className, ...rest }: ComponentProps<'input'>) {
   return <input {...rest} className={cx(inputClass, className)} />;
 }
 

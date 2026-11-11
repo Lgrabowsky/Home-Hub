@@ -78,6 +78,8 @@ export function clearSessionCookie(request: FastifyRequest, reply: FastifyReply)
   }
 }
 
+z.config(z.locales.de());
+
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   const result = schema.safeParse(body ?? {});
   if (!result.success) {
