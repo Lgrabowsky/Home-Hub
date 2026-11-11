@@ -32,18 +32,20 @@ test.describe('rooms and devices', () => {
   });
 
   test('a blind can be sent down and stopped', async ({ page, request }) => {
+    // A blind of the living room that is not already all the way down (it would not move).
+    const blind = Object.values((await hubState(request)).entities).find(
+      (entity) => entity.kind === 'blind' && entity.room === 'Wohnzimmer' && !entity.isGroup && entity.available && (entity.position ?? 0) < 80,
+    );
+    expect(blind).toBeTruthy();
+    const name = blind!.name;
+    const current = async () => Object.values((await hubState(request)).entities).find((entity) => entity.id === blind!.id);
+
     await page.goto('/raeume');
     await page.getByRole('link', { name: /Wohnzimmer/ }).first().click();
-    const down = page.getByRole('button', { name: /: Herunterfahren$/ }).first();
-    await expect(down).toBeVisible();
-    const name = (await down.getAttribute('aria-label'))!.replace(': Herunterfahren', '');
-    await down.click();
-    await expect
-      .poll(async () => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'blind' && entity.name === name && entity.room === 'Wohnzimmer'))
-      .toMatchObject({ motion: 'down' });
+    await page.getByRole('button', { name: `${name}: Herunterfahren` }).click();
+    // The controller is polled every few seconds; give it time to report the movement.
+    await expect.poll(current, { timeout: 20_000 }).toMatchObject({ motion: 'down' });
     await page.getByRole('button', { name: `${name}: Anhalten` }).click();
-    await expect
-      .poll(async () => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'blind' && entity.name === name && entity.room === 'Wohnzimmer'))
-      .toMatchObject({ motion: 'stopped' });
+    await expect.poll(current, { timeout: 20_000 }).toMatchObject({ motion: 'stopped' });
   });
 });
