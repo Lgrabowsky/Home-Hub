@@ -167,6 +167,12 @@ export class SonosIntegration implements Integration {
   /** Which Spotify service number the household accepted last (see `SPOTIFY_SERVICE_NUMBER`). */
   private spotifyRegion: keyof typeof SPOTIFY_SERVICE_NUMBER;
   private favoriteCache: { at: number; list: Favorite[] } | null = null;
+  /**
+   * Counts commands. A poll that was already under way when a command changed
+   * something would overwrite the new value with what it read before — such a
+   * poll notices the changed number and throws its readings away.
+   */
+  private epoch = 0;
 
   constructor(
     protected readonly deps: IntegrationDeps,
@@ -322,9 +328,12 @@ export class SonosIntegration implements Integration {
     if (this.topologyDue || this.players.size === 0 || Date.now() - this.topologyAt >= maxAge) await this.readTopology(signal);
     if (this.stopped) return;
 
-    await Promise.all([...this.players.values()].map((player) => this.readPlayer(player, signal)));
-    const groups = await Promise.all(this.topology.groups.map((group) => this.readGroup(group, signal)));
+    const epoch = this.epoch;
+    await Promise.all([...this.players.values()].map((player) => this.readPlayer(player, signal, epoch)));
+    const groups = await Promise.all(this.topology.groups.map((group) => this.readGroup(group, signal, epoch)));
     if (this.stopped || signal.aborted) return;
+    // A command got in between: its follow-up poll brings the truth.
+    if (epoch !== this.epoch) return;
 
     this.groups = groups.filter((group): group is MusicGroup => group !== null);
     this.lastPollAt = Date.now();
@@ -351,16 +360,18 @@ export class SonosIntegration implements Integration {
     }
   }
 
-  private async readPlayer(player: Player, signal: AbortSignal): Promise<void> {
+  private async readPlayer(player: Player, signal: AbortSignal, epoch: number): Promise<void> {
     try {
       const [volume, mute] = await Promise.all([
         player.device.call('RenderingControl', 'GetVolume', { InstanceID: 0, Channel: 'Master' }, signal),
         player.device.call('RenderingControl', 'GetMute', { InstanceID: 0, Channel: 'Master' }, signal),
       ]);
-      const level = Number(volume.CurrentVolume);
-      if (Number.isFinite(level)) player.volume = Math.min(100, Math.max(0, Math.round(level)));
-      player.muted = mute.CurrentMute === '1';
       player.available = true;
+      if (epoch === this.epoch) {
+        const level = Number(volume.CurrentVolume);
+        if (Number.isFinite(level)) player.volume = Math.min(100, Math.max(0, Math.round(level)));
+        player.muted = mute.CurrentMute === '1';
+      }
       player.failures = 0;
       if (!player.modelAsked) {
         player.modelAsked = true;
@@ -377,7 +388,7 @@ export class SonosIntegration implements Integration {
     }
   }
 
-  private async readGroup(group: Topology['groups'][number], signal: AbortSignal): Promise<MusicGroup | null> {
+  private async readGroup(group: Topology['groups'][number], signal: AbortSignal, epoch: number): Promise<MusicGroup | null> {
     const coordinator = this.players.get(group.coordinator);
     if (!coordinator) return null;
     const members = group.members.map((uuid) => this.players.get(uuid)).filter((player): player is Player => player !== undefined);
@@ -402,8 +413,10 @@ export class SonosIntegration implements Integration {
       ]);
       if (Date.now() - cache.playModeAt >= this.timing.settingsMs) {
         const settings = await coordinator.device.call('AVTransport', 'GetTransportSettings', { InstanceID: 0 }, signal);
-        cache.playMode = settings.PlayMode ?? 'NORMAL';
-        cache.playModeAt = Date.now();
+        if (epoch === this.epoch) {
+          cache.playMode = settings.PlayMode ?? 'NORMAL';
+          cache.playModeAt = Date.now();
+        }
       }
 
       const uri = position.TrackURI ?? '';
@@ -484,6 +497,7 @@ export class SonosIntegration implements Integration {
 
   /** Shows a change at once and reads the truth shortly after. */
   private refreshSoon(topology = false): void {
+    this.epoch++;
     if (topology) this.topologyDue = true;
     this.publish();
     this.poller.kick(300);
@@ -524,23 +538,26 @@ export class SonosIntegration implements Integration {
   async groupCommand(groupId: string, command: MusicGroupCommand): Promise<void> {
     const { group, coordinator } = this.group(groupId);
     const members = group.memberIds.map((uuid) => this.players.get(uuid)).filter((player): player is Player => player !== undefined);
+    // What the app should show at once. Applied after the player confirmed, to whatever object
+    // describes the group by then (a poll may have replaced it while we were waiting).
+    const shown: Partial<MusicGroup> = {};
     try {
       switch (command.action) {
         case 'play':
           await this.send(coordinator, 'AVTransport', 'Play', { InstanceID: 0, Speed: 1 });
-          group.state = 'playing';
+          shown.state = 'playing';
           break;
         case 'pause':
           await this.pause(coordinator);
-          group.state = 'paused';
+          shown.state = 'paused';
           break;
         case 'toggle':
           if (group.state === 'playing' || group.state === 'transitioning') {
             await this.pause(coordinator);
-            group.state = 'paused';
+            shown.state = 'paused';
           } else {
             await this.send(coordinator, 'AVTransport', 'Play', { InstanceID: 0, Speed: 1 });
-            group.state = 'playing';
+            shown.state = 'playing';
           }
           break;
         case 'next':
@@ -551,8 +568,8 @@ export class SonosIntegration implements Integration {
           break;
         case 'seek':
           await this.send(coordinator, 'AVTransport', 'Seek', { InstanceID: 0, Unit: 'REL_TIME', Target: formatTime(command.value) });
-          group.position = Math.max(0, command.value);
-          group.positionAt = Date.now();
+          shown.position = Math.max(0, command.value);
+          shown.positionAt = Date.now();
           break;
         case 'set_volume': {
           const volume = Math.min(100, Math.max(0, Math.round(command.value)));
@@ -560,20 +577,20 @@ export class SonosIntegration implements Integration {
             // The snapshot makes the group volume keep the balance between the rooms.
             await this.send(coordinator, 'GroupRenderingControl', 'SnapshotGroupVolume', { InstanceID: 0 });
             await this.send(coordinator, 'GroupRenderingControl', 'SetGroupVolume', { InstanceID: 0, DesiredVolume: volume });
-            const delta = volume - group.volume;
-            for (const member of members) member.volume = Math.min(100, Math.max(0, member.volume + delta));
+            const average = Math.round(members.reduce((sum, member) => sum + member.volume, 0) / members.length);
+            for (const member of members) member.volume = Math.min(100, Math.max(0, member.volume + volume - average));
           } else {
             await this.send(coordinator, 'RenderingControl', 'SetVolume', { InstanceID: 0, Channel: 'Master', DesiredVolume: volume });
             coordinator.volume = volume;
           }
-          group.volume = volume;
+          shown.volume = volume;
           break;
         }
         case 'set_mute':
           if (members.length > 1) await this.send(coordinator, 'GroupRenderingControl', 'SetGroupMute', { InstanceID: 0, DesiredMute: command.value });
           else await this.send(coordinator, 'RenderingControl', 'SetMute', { InstanceID: 0, Channel: 'Master', DesiredMute: command.value });
           for (const member of members) member.muted = command.value;
-          group.muted = command.value;
+          shown.muted = command.value;
           break;
         case 'set_shuffle':
         case 'set_repeat': {
@@ -586,14 +603,16 @@ export class SonosIntegration implements Integration {
             cache.playMode = mode;
             cache.playModeAt = Date.now();
           }
-          group.shuffle = shuffle;
-          group.repeat = repeat;
+          shown.shuffle = shuffle;
+          shown.repeat = repeat;
           break;
         }
       }
     } catch (err) {
       this.fault(err);
     }
+    const current = this.groups.find((entry) => entry.id === groupId);
+    if (current) Object.assign(current, shown);
     this.refreshSoon();
   }
 
