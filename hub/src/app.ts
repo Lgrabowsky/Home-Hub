@@ -76,6 +76,8 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
 
   const app = await buildServer(ctx);
   realtime.on('activity', (active) => integrations.setActive(active));
+  // Live video must not outlive the session that started it.
+  sessions.on('ended', (sessionId) => integrations.media.endSession(sessionId));
 
   let demo: DemoHandle | null = null;
   let maintenance: NodeJS.Timeout | null = null;

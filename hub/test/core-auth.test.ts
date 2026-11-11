@@ -17,7 +17,7 @@ afterEach(async () => {
 describe('first-run setup', () => {
   it('requires the setup code and can only be done once', async () => {
     const client = new Client(hub);
-    expect((await client.get('/api/bootstrap')).json()).toMatchObject({ setupRequired: true, hubName: 'Home Hub' });
+    expect((await client.get('/api/bootstrap')).json()).toMatchObject({ setupRequired: true, hubName: 'Home Hub', session: 'none' });
 
     const wrong = await client.post('/api/setup', { setupCode: 'AAAA-BBBB-CCCC', ...ADMIN });
     expect(wrong.statusCode).toBe(403);
@@ -31,7 +31,7 @@ describe('first-run setup', () => {
 
     const again = await new Client(hub).post('/api/setup', { setupCode: SETUP_CODE, username: 'other', password: 'another long password' });
     expect(again.statusCode).toBe(409);
-    expect((await client.get('/api/bootstrap')).json()).toMatchObject({ setupRequired: false });
+    expect((await client.get('/api/bootstrap')).json()).toMatchObject({ setupRequired: false, session: 'enroll' });
   });
 });
 

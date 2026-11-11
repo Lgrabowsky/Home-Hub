@@ -67,6 +67,8 @@ export class MediaManager {
   private healthFailures = 0;
   private lastError: string | null = null;
   private binaryMissing = false;
+  /** Sessions that negotiated a WebRTC connection with the current go2rtc process. */
+  private readonly rtcSessions = new Set<string>();
 
   constructor(
     private readonly config: HubConfig,
@@ -83,6 +85,28 @@ export class MediaManager {
 
   get available(): boolean {
     return this.ready;
+  }
+
+  /** Remembers that a session set up WebRTC media (see `endSession`). */
+  noteRtcSession(sessionId: string): void {
+    this.rtcSessions.add(sessionId);
+  }
+
+  /**
+   * Called when a session is revoked or expires.
+   *
+   * WebRTC media flows directly between the app and go2rtc and survives the
+   * signalling socket, and go2rtc has no way to end a single viewer. A viewer
+   * whose session ended must not keep watching, so the video service is
+   * restarted — everyone else's player reconnects within a moment.
+   */
+  endSession(sessionId: string): void {
+    if (!this.rtcSessions.has(sessionId)) return;
+    this.rtcSessions.clear();
+    if (this.child) {
+      this.log.info('a session with live video ended: restarting the video service to cut its streams');
+      this.killChild();
+    }
   }
 
   hasStream(name: string): boolean {
@@ -187,6 +211,7 @@ export class MediaManager {
     }
 
     this.ready = false;
+    this.rtcSessions.clear();
     this.state.setService('media', 'starting');
     const child = spawn(this.config.media.go2rtcBin, ['-c', this.configPath], {
       cwd: this.runDir,

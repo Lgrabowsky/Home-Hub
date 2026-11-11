@@ -1,0 +1,301 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * Components only use the semantic colours below (bg-surface, text-muted,
+ * border-line …) — never raw palette colours — so the dark and the light
+ * theme stay consistent and a single place defines the look.
+ */
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --color-bg: var(--hh-bg);
+  --color-surface: var(--hh-surface);
+  --color-raised: var(--hh-raised);
+  --color-sunken: var(--hh-sunken);
+  --color-line: var(--hh-line);
+  --color-fg: var(--hh-fg);
+  --color-muted: var(--hh-muted);
+  --color-faint: var(--hh-faint);
+
+  --color-accent: var(--hh-accent);
+  --color-accent-fg: var(--hh-accent-fg);
+  /* State colours: warm = light is on, cool = shading/cooling, ok/warn/danger = security. */
+  --color-warm: var(--hh-warm);
+  --color-cool: var(--hh-cool);
+  --color-ok: var(--hh-ok);
+  --color-warn: var(--hh-warn);
+  --color-danger: var(--hh-danger);
+  --color-music: var(--hh-music);
+
+  --radius-tile: 1.25rem;
+  --radius-control: 0.875rem;
+
+  --shadow-tile: var(--hh-shadow-tile);
+  --shadow-float: var(--hh-shadow-float);
+
+  --animate-fade-in: fade-in 0.18s ease-out both;
+  --animate-sheet-up: sheet-up 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-ring: ring 1.6s ease-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0;
+    }
+  }
+  @keyframes pop {
+    from {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+  }
+  @keyframes ring {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--hh-accent) 55%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 22px transparent;
+    }
+  }
+}
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --hh-bg: #0a0d12;
+  --hh-surface: #131821;
+  --hh-raised: #1a212d;
+  --hh-sunken: #0e1219;
+  --hh-line: rgb(255 255 255 / 0.08);
+  --hh-fg: #eef1f6;
+  --hh-muted: #9aa5b8;
+  --hh-faint: #5d6880;
+  --hh-accent: #6d9bff;
+  --hh-accent-fg: #06101f;
+  --hh-warm: #ffbe5c;
+  --hh-cool: #5cc8ff;
+  --hh-ok: #3fd297;
+  --hh-warn: #ffb347;
+  --hh-danger: #ff6b6b;
+  --hh-music: #b48cff;
+  --hh-shadow-tile: 0 0 0 1px rgb(255 255 255 / 0.05);
+  --hh-shadow-float: 0 18px 50px -12px rgb(0 0 0 / 0.7), 0 0 0 1px rgb(255 255 255 / 0.07);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --hh-bg: #f2f4f8;
+  --hh-surface: #ffffff;
+  --hh-raised: #ffffff;
+  --hh-sunken: #e8ecf2;
+  --hh-line: rgb(15 23 42 / 0.09);
+  --hh-fg: #131a26;
+  --hh-muted: #5a6577;
+  --hh-faint: #8f9aac;
+  --hh-accent: #2f62e0;
+  --hh-accent-fg: #ffffff;
+  --hh-warm: #e08a00;
+  --hh-cool: #0a84c4;
+  --hh-ok: #0f9d68;
+  --hh-warn: #c97a00;
+  --hh-danger: #d93a3a;
+  --hh-music: #7a4ddb;
+  --hh-shadow-tile: 0 1px 2px rgb(15 23 42 / 0.05), 0 0 0 1px rgb(15 23 42 / 0.05);
+  --hh-shadow-float: 0 18px 50px -12px rgb(15 23 42 / 0.28), 0 0 0 1px rgb(15 23 42 / 0.06);
+}
+
+@layer base {
+  html {
+    height: 100%;
+    background: var(--hh-bg);
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    min-height: 100%;
+    margin: 0;
+    background: var(--hh-bg);
+    color: var(--hh-fg);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    min-height: 100dvh;
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--hh-accent);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--hh-accent) 35%, transparent);
+  }
+
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  img,
+  video {
+    display: block;
+    max-width: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* Thin scrollbars that stay out of the way. */
+  .scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hh-line) transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Range input used by <Slider>: a thick, touch-friendly track filled up to the value. */
+  .hh-range {
+    --fill: 50%;
+    --tone: var(--hh-accent);
+    appearance: none;
+    width: 100%;
+    height: 2.75rem;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+    touch-action: pan-y;
+  }
+  .hh-range::-webkit-slider-runnable-track {
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    background: linear-gradient(to right, var(--tone) var(--fill), var(--hh-sunken) var(--fill));
+  }
+  .hh-range::-moz-range-track {
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    background: linear-gradient(to right, var(--tone) var(--fill), var(--hh-sunken) var(--fill));
+  }
+  .hh-range::-webkit-slider-thumb {
+    appearance: none;
+    width: 0.375rem;
+    height: 1.5rem;
+    margin-top: 0.625rem;
+    margin-left: -0.6rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.85);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  }
+  .hh-range::-moz-range-thumb {
+    width: 0.375rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.85);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  }
+  .hh-range:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .hh-range.is-thin,
+  .hh-range.is-thin::-webkit-slider-runnable-track {
+    height: 0.5rem;
+  }
+  .hh-range.is-thin::-moz-range-track {
+    height: 0.5rem;
+  }
+  .hh-range.is-thin::-webkit-slider-thumb {
+    width: 1rem;
+    height: 1rem;
+    margin-top: -0.25rem;
+    margin-left: 0;
+    background: var(--hh-fg);
+  }
+  .hh-range.is-thin::-moz-range-thumb {
+    width: 1rem;
+    height: 1rem;
+    background: var(--hh-fg);
+  }
+  .hh-range.is-bare::-webkit-slider-runnable-track {
+    background: transparent;
+  }
+  .hh-range.is-bare::-moz-range-track {
+    background: transparent;
+  }
+  .hh-range.is-bare.is-thin {
+    height: 1.5rem;
+  }
+  .hh-range.is-bare.is-thin::-webkit-slider-runnable-track {
+    height: 1.5rem;
+  }
+  .hh-range.is-bare.is-thin::-moz-range-track {
+    height: 1.5rem;
+  }
+  .hh-range.is-bare.is-thin::-webkit-slider-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.125rem;
+    background: #fff;
+    border: 2px solid rgb(0 0 0 / 0.25);
+  }
+  .hh-range.is-bare.is-thin::-moz-range-thumb {
+    width: 1.25rem;
+    height: 1.25rem;
+    background: #fff;
+    border: 2px solid rgb(0 0 0 / 0.25);
+  }
+}
+
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility pb-nav {
+  /* Room for the bottom navigation on phones (incl. the home indicator). */
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom));
+}

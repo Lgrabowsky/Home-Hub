@@ -579,6 +579,8 @@ export interface BootstrapInfo {
   setupRequired: boolean;
   demo: boolean;
   version: string;
+  /** State of the session the request was made with (so the app need not probe with a failing request). */
+  session: 'none' | 'enroll' | 'full';
 }
 
 export interface LoginRequest {

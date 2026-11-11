@@ -136,6 +136,7 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
         // Viewing streams are strictly one-way; talking needs the dedicated talk stream.
         return sendError('Senden ist auf diesem Stream nicht erlaubt.', CLOSE_FORBIDDEN);
       }
+      if (message.type === 'webrtc/offer') media.noteRtcSession(who.sessionId);
       const payload = JSON.stringify({ type: message.type, value: message.value ?? '' });
       if (upstream.readyState === upstream.OPEN) upstream.send(payload);
       else pending.push(payload);

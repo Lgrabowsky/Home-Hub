@@ -259,7 +259,9 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   if (ctx.config.webDir) {
     await app.register(fastifyStatic, {
       root: ctx.config.webDir,
-      wildcard: false,
+      // Files are looked up per request, so a rebuilt web app is picked up without restarting the hub.
+      wildcard: true,
+      dotfiles: 'ignore',
       setHeaders(reply, filePath) {
         if (/[\\/]assets[\\/]/.test(filePath)) reply.header('Cache-Control', 'public, max-age=31536000, immutable');
         else reply.header('Cache-Control', 'no-cache');

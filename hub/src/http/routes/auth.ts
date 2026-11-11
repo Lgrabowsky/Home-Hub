@@ -104,6 +104,7 @@ export function registerAuthRoutes(app: FastifyInstance, ctx: HubContext): void 
       setupRequired: ctx.setup.required,
       demo: ctx.config.demo,
       version: signedIn ? ctx.config.version : '',
+      session: request.auth?.session.kind ?? 'none',
     };
   });
 
