@@ -430,6 +430,18 @@ describe('entities', () => {
     expect(names().sort()).toEqual(['Gartentor', 'Logik 7 · Kontakt 1.1']);
   });
 
+  it('exports everything the controller reports, readable and without credentials', async () => {
+    const { gekko } = await boot();
+    const data = gekko.rawExport();
+    expect(data.controller.firmware).toBe('879015');
+    expect(data.systems.alarmsystem?.item0).toMatchObject({ name: 'Alarmanlage', group: false, fields: { zone1AlarmState: '0' } });
+    expect(data.systems.lights?.item0?.name).toBe('Wohnzimmer Decke');
+    expect(data.contactZone).toMatchObject({ reading: 'closed', zones: [{ name: 'Hülle', alarmState: 0 }] });
+    const text = JSON.stringify(data);
+    for (const marker of SECRET_MARKERS) expect(text).not.toContain(marker);
+    expect(text).not.toMatch(/password|username/i);
+  });
+
   it('lets explicit contact mappings win over the automatic ones', async () => {
     const contacts: ContactMapping[] = [
       mapping('kueche', 'alarms_logics/item0', { name: 'Küchenfenster', room: 'Küche', zone: 'Erdgeschoss' }),

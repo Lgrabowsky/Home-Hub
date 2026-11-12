@@ -56,6 +56,13 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: HubContext): void
     candidates: integrations.need('mygekko').contactCandidates(),
   }));
 
+  /** All the controller reports through its Query API (no credentials), as a file for troubleshooting. */
+  app.get('/api/admin/mygekko/raw', admin, async (_request, reply) => {
+    const data = integrations.need('mygekko').rawExport();
+    reply.header('Content-Disposition', `attachment; filename="mygekko-datenauszug-${data.exportedAt.slice(0, 10)}.json"`);
+    return data;
+  });
+
   app.get('/api/admin/diagnostics', admin, async (): Promise<DiagnosticsReport> => {
     const entities = ctx.state.all();
     const counts: Record<string, number> = {};

@@ -327,6 +327,39 @@ export class MyGekkoIntegration implements Integration {
     return listCandidates(this.tree, this.values, this.settings, this.contacts);
   }
 
+  /**
+   * Everything the controller reports through the Query API — names, pages, field names and current
+   * values of every element — for the owner to check (and send for troubleshooting) what their
+   * controller exposes. Credentials are never part of it: they travel in the query string only.
+   */
+  rawExport(): {
+    exportedAt: string;
+    controller: { firmware: string | null; hardware: string | null };
+    contactZone: { reading: string; zones: { system: string; name: string; alarmState: number | null }[] };
+    discovery: ReturnType<ContactDiscovery['summary']>;
+    systems: Record<string, Record<string, { name: string; page: string | null; group: boolean; fields: Record<string, string> }>>;
+  } {
+    const systems: Record<string, Record<string, { name: string; page: string | null; group: boolean; fields: Record<string, string> }>> = {};
+    for (const [system, items] of this.tree?.systems ?? []) {
+      const out: Record<string, { name: string; page: string | null; group: boolean; fields: Record<string, string> }> = {};
+      for (const [key, item] of items) {
+        const values = this.values.get(`${system}/${key}`) ?? [];
+        const fields: Record<string, string> = {};
+        values.forEach((value, index) => (fields[item.labels[index] || `field${index}`] = value));
+        out[key] = { name: item.name, page: item.page, group: item.isGroup, fields };
+      }
+      systems[system] = out;
+    }
+    const zones = this.tree ? contactZones(this.tree, this.values, this.settings) : [];
+    return {
+      exportedAt: new Date().toISOString(),
+      controller: { firmware: this.network.version, hardware: this.network.hardware },
+      contactZone: { reading: readContactZones(zones), zones: zones.map((zone) => ({ system: zone.system, name: zone.name, alarmState: zone.alarmState })) },
+      discovery: this.discovery.summary(),
+      systems,
+    };
+  }
+
   /** Connection test for (possibly unsaved) settings. Never throws. */
   static async test(settings: MyGekkoSettings, options: MyGekkoOptions = {}): Promise<TestResult> {
     try {

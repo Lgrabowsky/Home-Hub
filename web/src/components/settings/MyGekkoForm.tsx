@@ -1,9 +1,11 @@
-import { ChevronDown, Info } from 'lucide-react';
-import { useMemo } from 'react';
+import { Check, ChevronDown, Copy, Download, Info } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { get } from '../../lib/api.ts';
+import { toast } from '../toast.tsx';
 import type { ContactEntity } from '@home-hub/shared';
 import { useHub } from '../../store/hub.ts';
 import { contactIcon } from '../entities/icons.ts';
-import { Badge, Card, Field, Notice, Row, RowGroup, Section, Segmented, TextInput } from '../ui.tsx';
+import { Badge, Button, Card, Field, Notice, Row, RowGroup, Section, Segmented, TextInput } from '../ui.tsx';
 import { ContactsEditor } from './ContactsEditor.tsx';
 import type { FormProps } from './meta.ts';
 import { HowTo, SecretInput, SwitchRow } from './parts.tsx';
@@ -86,6 +88,7 @@ export function MyGekkoForm({ value, saved, onChange }: FormProps<'mygekko'>) {
           preis; der Hub findet es selbst überall dort, wo der myGEKKO einen Kontakt einzeln führt (Raumregler, Zutrittstüren, Logiken, Trends). Kontakte ohne sprechenden Namen erscheinen, sobald sie zweimal geöffnet wurden.
         </Notice>
         <AutoContacts explicitIds={value.contacts.map((contact) => contact.id)} enabled={value.autoContacts && saved.enabled} />
+        {connected && saved.enabled && <RawExport />}
         <RowGroup className="mb-4">
           <SwitchRow
             title="Kontakte automatisch erkennen"
@@ -151,6 +154,61 @@ function AutoContacts({ explicitIds, enabled }: { explicitIds: string[]; enabled
           ))}
         </RowGroup>
       )}
+    </div>
+  );
+}
+
+/**
+ * Everything the myGEKKO reports through its interface, as a file: to check whether the contacts show up
+ * anywhere — and to send it along when asking for help. No passwords are in it.
+ */
+function RawExport() {
+  const [busy, setBusy] = useState<'download' | 'copy' | null>(null);
+  const [copied, setCopied] = useState(false);
+  const load = async () => JSON.stringify(await get<unknown>('/api/admin/mygekko/raw'), null, 2);
+  const download = async () => {
+    setBusy('download');
+    try {
+      const text = await load();
+      const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mygekko-datenauszug-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      toast.fromError(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+  const copy = async () => {
+    setBusy('copy');
+    try {
+      await navigator.clipboard.writeText(await load());
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch (err) {
+      toast.fromError(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+  return (
+    <div className="mb-4 rounded-tile bg-surface p-4 shadow-tile">
+      <p className="font-medium">Was meldet mein myGEKKO?</p>
+      <p className="mt-1 text-sm text-muted">
+        Alle Werte, die der myGEKKO über seine Schnittstelle meldet – zum Nachsehen, ob die Kontakte irgendwo einzeln vorkommen, oder zum Weitergeben bei der Fehlersuche. Passwörter sind nicht enthalten, Raum- und
+        Gerätenamen schon.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" icon={Download} loading={busy === 'download'} onClick={() => void download()}>
+          Herunterladen
+        </Button>
+        <Button size="sm" icon={copied ? Check : Copy} loading={busy === 'copy'} onClick={() => void copy()}>
+          {copied ? 'Kopiert' : 'Kopieren'}
+        </Button>
+      </div>
     </div>
   );
 }

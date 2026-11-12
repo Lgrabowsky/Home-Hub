@@ -75,6 +75,15 @@ verwirft der Hub ihn wieder. Sammel-Ausgänge einer Logik („irgendein Fenster 
 Wie die Alarmzone mit den Kontakten heißt, steht in den Einstellungen („Alarmzone der Kontakte“,
 ab Werk „Hülle“).
 
+**Und die myGEKKO-App?** Sie zeigt die offenen Melder, weil sie über den Dienst „myGEKKO Viewer“
+die Bedienoberfläche des Gebäudereglers selbst anzeigt – eine Fernanzeige des Bildschirms, keine
+Datenschnittstelle. Dieser Dienst ist laut myGEKKO unverschlüsselt, nur fürs geschützte Heimnetz
+gedacht und nicht für andere Programme dokumentiert; der Hub nutzt ihn deshalb nicht.
+
+**Nachsehen, was dein myGEKKO meldet:** Unter Gebäude (myGEKKO) › Fenster- & Türkontakte › „Was meldet
+mein myGEKKO?“ lädst du alle Werte herunter, die er über die Schnittstelle preisgibt (ohne
+Passwörter). Daran siehst du – oder wer dir hilft –, ob die Kontakte irgendwo einzeln vorkommen.
+
 **Wenn die Kontakte nur in der Alarmanlage hängen** und sonst nirgends einzeln vorkommen, kann der Hub
 sie nicht einzeln zeigen – die App meldet dann ehrlich „mindestens ein Kontakt ist offen“. Abhilfe am
 myGEKKO (reine Konfiguration, keine neue Verdrahtung): den Eingang des Kontakts zusätzlich einer
