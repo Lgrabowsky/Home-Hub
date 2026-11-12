@@ -339,6 +339,8 @@ describe('video streams', () => {
     room: '',
     rtspPort: 554,
     streamProtocol: 'rtsp',
+    connection: 'api',
+    onvifPort: 8000,
     ...overrides,
   });
   const declare = (overrides: Partial<ReolinkDeviceSettings> = {}) => new ReolinkIntegration(env.deps, { enabled: true, devices: [device(overrides)] }).streams();

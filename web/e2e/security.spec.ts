@@ -58,6 +58,26 @@ test.describe('windows, doors and cameras', () => {
     await expect(page.getByRole('alert')).toBeHidden();
   });
 
+  test('a camera without HTTP interface is turned and positioned through ONVIF', async ({ page, request }) => {
+    const camera = (await hubState(request)).entities['cam:wohnzimmer'];
+    expect(camera).toMatchObject({ available: true, model: 'E1 Pro', features: { ptz: true, presets: true, light: false, siren: false } });
+
+    await page.goto('/sicherheit/kamera/wohnzimmer');
+    const position = page.getByRole('button', { name: 'Rasen', exact: true });
+    await expect(position).toBeVisible();
+    await position.click();
+    await expect(page.getByRole('alert')).toBeHidden();
+    const right = page.getByRole('button', { name: /rechts/i }).first();
+    const box = (await right.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(500);
+    await page.mouse.up();
+    await expect(page.getByRole('alert')).toBeHidden();
+    // Neither spotlight nor siren are offered: ONVIF cannot switch them.
+    await expect(page.getByRole('button', { name: /Sirene/ })).toHaveCount(0);
+  });
+
   test('talking to a camera opens the microphone channel', async ({ page, request }) => {
     const state = await hubState(request);
     test.skip(state.services.media.status !== 'ok', 'live video needs go2rtc and ffmpeg');

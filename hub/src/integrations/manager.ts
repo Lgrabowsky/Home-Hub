@@ -85,7 +85,12 @@ export class IntegrationManager {
   }
 
   private depsFor(key: DeviceKey): IntegrationDeps {
-    return { ...this.deps, log: this.deps.log.child({ mod: key }) };
+    return {
+      ...this.deps,
+      log: this.deps.log.child({ mod: key }),
+      streamSnapshot: (name) => this.media.snapshot(name),
+      streamsChanged: () => this.syncStreams(),
+    };
   }
 
   private safely(key: DeviceKey, fn: () => void): void {

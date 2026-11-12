@@ -143,6 +143,31 @@ nicht – der Rest funktioniert davon unabhängig.
 Bei Bildaussetzern: in den Einstellungen der Kamera unter „Erweitert“ die Videoübertragung von RTSP
 auf **FLV** umstellen (dann ohne Gegensprechen).
 
+### Kameras ohne HTTP/HTTPS (E1 Pro und andere E1-Modelle)
+
+Manche Modelle zeigen unter **Server-Einstellungen** nur „Basisdienste“, „RTSP“ und „ONVIF“ – ohne
+HTTP oder HTTPS. Für sie gibt es die Verbindungsart **„ONVIF + RTSP“**:
+
+1. In der Reolink-App unter **Einstellungen › Netzwerk › Erweitert › Server-Einstellungen**
+   **„RTSP“** (Port 554) und **„ONVIF“** (Port 8000) einschalten.
+2. Unter **Einstellungen › System › Datum & Uhrzeit** die automatische Zeit (NTP) eingeschaltet
+   lassen – ONVIF-Anmeldungen enthalten einen Zeitstempel. (Der Hub gleicht Abweichungen selbst aus,
+   eine richtig gehende Uhr schadet trotzdem nicht.)
+3. In der App beim Hinzufügen der Kamera die Verbindungsart **„ONVIF + RTSP“** wählen, Adresse,
+   Benutzer (z. B. admin) und Passwort eintragen, **Verbindung testen**. Andere Ports trägst du
+   unter „Erweitert“ ein.
+
+**Was dann geht:** Live-Video in HD/SD, Mithören, Schwenken/Neigen (und Zoom, wo vorhanden),
+gespeicherte Positionen. Die Video-Adressen fragt der Hub per ONVIF bei der Kamera ab.
+
+**Was so nicht geht:** Licht und Sirene (ONVIF kennt keinen Befehl dafür). **Gegensprechen** nur,
+wenn die Kamera über RTSP einen Rückkanal für ihren Lautsprecher anbietet – der Verbindungstest
+sagt, ob das der Fall ist. Die E1-Modelle tun das nach unserem Kenntnisstand nicht; Sprechen geht
+dann weiterhin nur in der Reolink-App.
+
+Den Port „Basisdienste“ (9000) braucht der Hub nicht; er gehört zum herstellereigenen Protokoll der
+Reolink-App.
+
 ---
 
 ## Sonos-Lautsprecher
@@ -216,6 +241,8 @@ Hub sieht:
 - [ ] Live-Bild in HD und SD; Schwenken stoppt beim Loslassen.
 - [ ] Gespeicherte Positionen, Scheinwerfer, Sirene (kurz!).
 - [ ] Gegensprechen, sofern die Kamera einen Lautsprecher hat.
+- [ ] Kameras über „ONVIF + RTSP“ (E1 Pro): Schwenkrichtungen stimmen (links ist links, oben ist oben),
+      Bewegung stoppt beim Loslassen, Positionen werden angefahren, Standbild in der Übersicht erscheint.
 
 **Sonos & Spotify**
 - [ ] Alle Lautsprecher erscheinen; Lautstärke und Play/Pause wirken.

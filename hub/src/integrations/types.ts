@@ -18,6 +18,10 @@ export interface IntegrationDeps {
   vault: Vault;
   audit: AuditLog;
   images: ImageProxy;
+  /** A current JPEG of a go2rtc stream (null when the video service cannot produce one). */
+  streamSnapshot?(streamName: string): Promise<Buffer | null>;
+  /** Tells the hub that the integration's `streams()` changed (e.g. a camera reported its video addresses). */
+  streamsChanged?(): void;
 }
 
 /**

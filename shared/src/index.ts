@@ -732,8 +732,15 @@ export interface ReolinkDeviceSettings {
   channel: number;
   room: string;
   rtspPort: number;
-  /** How the hub pulls video: RTSP (enables talk) or HTTP-FLV. */
+  /** How the hub pulls video: RTSP (enables talk) or HTTP-FLV. Always RTSP with `connection: 'onvif'`. */
   streamProtocol: 'rtsp' | 'flv';
+  /**
+   * `api`: Reolink's own HTTP(S) interface (all functions).
+   * `onvif`: ONVIF for control and RTSP for video — for cameras without HTTP(S), e.g. the E1 series.
+   */
+  connection: 'api' | 'onvif';
+  /** ONVIF port (Reolink default 8000). */
+  onvifPort: number;
 }
 
 export interface ReolinkSettings {

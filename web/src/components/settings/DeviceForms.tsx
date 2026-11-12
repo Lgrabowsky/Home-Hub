@@ -344,7 +344,7 @@ export function DoorBirdForm({ value, saved, onChange, test }: FormProps<'doorbi
 
 export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink'>) {
   const set = (changes: Partial<typeof value>) => onChange({ ...value, ...changes });
-  const editing = useEditing<ReolinkDeviceSettings>(value.devices, () => ({ id: '', name: '', host: '', port: 0, https: false, username: 'admin', password: '', channel: 0, room: '', rtspPort: 554, streamProtocol: 'rtsp' }));
+  const editing = useEditing<ReolinkDeviceSettings>(value.devices, () => ({ id: '', name: '', host: '', port: 0, https: false, username: 'admin', password: '', channel: 0, room: '', rtspPort: 554, streamProtocol: 'rtsp', connection: 'api', onvifPort: 8000 }));
   const withId = (device: ReolinkDeviceSettings) => (device.id ? device : { ...device, id: uniqueId(device.name, value.devices.map((other) => other.id), 'kamera') });
   const [advanced, setAdvanced] = useState(false);
 
@@ -361,6 +361,7 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
           title="In der Reolink-App vorbereiten"
           steps={[
             <>In den Einstellungen der Kamera unter „Netzwerk › Erweitert › Server-Einstellungen“ die Dienste „HTTPS“ (oder „HTTP“) und „RTSP“ einschalten.</>,
+            <>Gibt es dort kein HTTP/HTTPS, sondern nur „Basisdienste“, „RTSP“ und „ONVIF“ (z. B. E1 Pro und andere E1-Modelle): „RTSP“ und „ONVIF“ einschalten und bei der Kamera die Verbindungsart „ONVIF + RTSP“ wählen.</>,
             <>Am besten einen eigenen Benutzer für den Hub anlegen. Zum Schwenken und für das Licht braucht er Administratorrechte.</>,
             <>Hängen die Kameras an einem Rekorder (NVR), trägst du dessen Adresse ein und wählst je Kamera den Kanal.</>,
           ]}
@@ -404,11 +405,38 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
         {({ draft, set: setDevice, errors, storedPassword }) => (
           <>
             <CommonFields draft={draft} set={setDevice} errors={errors} storedPassword={storedPassword} hostHint="IP-Adresse der Kamera oder des Rekorders im Heimnetz." userHint="Ein Benutzer der Kamera, z. B. admin." />
+            <div>
+              <p className="mb-1.5 text-sm font-medium">Verbindungsart</p>
+              <Segmented
+                className="w-full"
+                value={draft.connection}
+                onChange={(connection) => setDevice({ connection })}
+                options={[
+                  { value: 'api', label: 'Reolink (HTTP/HTTPS)' },
+                  { value: 'onvif', label: 'ONVIF + RTSP' },
+                ]}
+              />
+              <p className="mt-1.5 text-sm text-faint">
+                {draft.connection === 'api'
+                  ? 'Alle Funktionen inklusive Licht und Sirene. Braucht HTTP oder HTTPS an der Kamera.'
+                  : 'Für Kameras ohne HTTP/HTTPS (z. B. E1 Pro): Live-Bild, Ton, Schwenken und gespeicherte Positionen über die Ports ONVIF (8000) und RTSP (554). Licht und Sirene gehen so nicht.'}
+              </p>
+            </div>
             <button type="button" className="flex items-center gap-1 text-sm font-medium text-accent" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
               Erweitert
               <ChevronDown className={cx('size-4 transition', advanced && 'rotate-180')} aria-hidden />
             </button>
-            {advanced && (
+            {advanced && draft.connection === 'onvif' && (
+              <div className="grid grid-cols-2 gap-3 rounded-control bg-sunken p-3.5">
+                <Field label="ONVIF-Port" hint="Standard: 8000">
+                  <NumberInput value={draft.onvifPort} min={1} max={65535} fallback={8000} onChange={(onvifPort) => setDevice({ onvifPort })} className="bg-surface" />
+                </Field>
+                <Field label="RTSP-Port" hint="Standard: 554">
+                  <NumberInput value={draft.rtspPort} min={1} max={65535} fallback={554} onChange={(rtspPort) => setDevice({ rtspPort })} className="bg-surface" />
+                </Field>
+              </div>
+            )}
+            {advanced && draft.connection !== 'onvif' && (
               <div className="space-y-4 rounded-control bg-sunken p-3.5">
                 <Field label="Kanal" hint="Nur bei einem Rekorder: die Nummer der Kamera, beginnend bei 0. Einzelne Kameras haben immer 0.">
                   <NumberInput value={draft.channel} min={0} max={63} onChange={(channel) => setDevice({ channel })} className="max-w-24 bg-surface" />

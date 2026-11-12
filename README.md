@@ -54,7 +54,7 @@ docker compose -f docker-compose.demo.yml up --build
 
 Dann <http://localhost:8080> öffnen und mit dem Einrichtungscode `DEMO-DEMO-DEMO` ein Konto anlegen.
 Alle Geräte sind simuliert: ein Haus mit Lichtern, Jalousien, Heizung, Kontakten, zwei Türstationen,
-drei Kameras, sechs Lautsprechern und einem Spotify-Konto.
+vier Kameras (eine davon über ONVIF wie eine E1 Pro), sechs Lautsprechern und einem Spotify-Konto.
 
 Ohne Docker (Node.js ab 22.13, für Live-Video zusätzlich `go2rtc` und `ffmpeg` im Pfad):
 

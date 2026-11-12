@@ -4,11 +4,13 @@ import { HttpError, notFound, unavailable } from '../http/errors.ts';
 import { describeError, DeviceHttp, DeviceHttpError } from '../util/http.ts';
 import { Mutex, Poller } from '../util/poller.ts';
 import { streamName, type StreamSpec } from './media.ts';
+import { OnvifCamera, rtspUrl } from './reolink/onvif-camera.ts';
 import type { Integration, IntegrationDeps } from './types.ts';
 
 /**
  * Reolink cameras / NVR channels: local HTTP API for state and control, RTSP
- * or FLV (through go2rtc) for video.
+ * or FLV (through go2rtc) for video. Cameras without the HTTP interface (the
+ * E1 series) are connected through ONVIF and RTSP instead (`reolink/onvif-camera.ts`).
  *
  * `cameraId` is always the configured device id (the entity id is `cam:<cameraId>`).
  *
@@ -628,7 +630,7 @@ class Camera {
 // --- The integration ---------------------------------------------------------------------------------
 
 export class ReolinkIntegration implements Integration {
-  private readonly cameras = new Map<string, Camera>();
+  private readonly cameras = new Map<string, Camera | OnvifCamera>();
   private readonly timing: ReolinkTiming;
   private stopped = false;
 
@@ -639,7 +641,9 @@ export class ReolinkIntegration implements Integration {
   ) {
     this.timing = { ...DEFAULT_TIMING, ...options.timing };
     for (const device of settings.devices) {
-      if (!this.cameras.has(device.id)) this.cameras.set(device.id, new Camera(deps, device, this.timing, () => this.publish()));
+      if (this.cameras.has(device.id)) continue;
+      const changed = () => this.publish();
+      this.cameras.set(device.id, device.connection === 'onvif' ? new OnvifCamera(deps, device, this.timing, changed) : new Camera(deps, device, this.timing, changed));
     }
   }
 
@@ -688,7 +692,7 @@ export class ReolinkIntegration implements Integration {
     }
   }
 
-  private camera(cameraId: string): Camera {
+  private camera(cameraId: string): Camera | OnvifCamera {
     const camera = this.cameras.get(cameraId);
     if (!camera) throw notFound('Diese Kamera gibt es nicht (mehr).');
     return camera;
@@ -709,7 +713,18 @@ export class ReolinkIntegration implements Integration {
    */
   streams(): StreamSpec[] {
     const specs: StreamSpec[] = [];
-    for (const { device } of this.cameras.values()) {
+    for (const camera of this.cameras.values()) {
+      const { device } = camera;
+      if (camera instanceof OnvifCamera) {
+        // The addresses the camera reported over ONVIF (Reolink's defaults until it has).
+        const paths = camera.rtspPaths();
+        for (const quality of ['main', 'sub'] as const) {
+          const name = streamName('cam', device.id, quality);
+          specs.push({ name, sources: [`${rtspUrl(device, paths[quality])}#backchannel=0`, `ffmpeg:${name}#audio=opus`] });
+        }
+        specs.push({ name: streamName('cam', device.id, 'talk'), sources: [rtspUrl(device, paths.sub)] });
+        continue;
+      }
       const host = hostOnly(device.host);
       const user = encodeUserInfo(device.username);
       const password = encodeUserInfo(device.password);
@@ -772,6 +787,7 @@ export class ReolinkIntegration implements Integration {
   /** Connection test for one (possibly unsaved) device. Never throws. */
   static async test(device: ReolinkDeviceSettings, options: ReolinkOptions = {}): Promise<TestResult> {
     const timeoutMs = options.timing?.requestTimeoutMs ?? DEFAULT_TIMING.requestTimeoutMs;
+    if (device.connection === 'onvif') return OnvifCamera.test(device, timeoutMs);
     const tried: string[] = [];
     try {
       for (const transport of transports(device)) {
@@ -827,7 +843,11 @@ export class ReolinkIntegration implements Integration {
       return {
         ok: false,
         message: 'Die Kamera ist unter dieser Adresse nicht erreichbar.',
-        details: [...tried, 'Stimmt die Adresse? In den Netzwerk-Einstellungen der Kamera muss „HTTPS“ oder „HTTP“ eingeschaltet sein.'],
+        details: [
+          ...tried,
+          'Stimmt die Adresse? In den Netzwerk-Einstellungen der Kamera muss „HTTPS“ oder „HTTP“ eingeschaltet sein.',
+          'Bietet deine Kamera dort nur „Basisdienste“, „RTSP“ und „ONVIF“ an (z. B. E1 Pro), stelle die Verbindungsart auf „ONVIF + RTSP“.',
+        ],
       };
     } catch (err) {
       return { ok: false, message: 'Der Test konnte nicht abgeschlossen werden.', details: [...tried, describeError(err)] };

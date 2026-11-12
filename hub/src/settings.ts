@@ -127,6 +127,8 @@ const schemas = {
           room,
           rtspPort: z.number().int().min(1).max(65535).default(554),
           streamProtocol: z.enum(['rtsp', 'flv']).default('rtsp'),
+          connection: z.enum(['api', 'onvif']).default('api'),
+          onvifPort: z.number().int().min(1).max(65535).default(8000),
         }),
       )
       .max(32)
@@ -228,6 +230,8 @@ const FIELD_LABELS: Record<string, string> = {
   relayNames: 'Türöffner',
   port: 'Port',
   rtspPort: 'RTSP-Port',
+  onvifPort: 'ONVIF-Port',
+  connection: 'Verbindungsart',
   channel: 'Kanal',
   clientId: 'Client-ID',
   clientSecret: 'Client-Secret',
