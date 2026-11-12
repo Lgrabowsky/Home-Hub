@@ -391,6 +391,45 @@ describe('entities', () => {
     expect((restarted.diagnostics() as { contacts: { provenWindowContacts: string[] } }).contacts.provenWindowContacts).toEqual(['roomtemps/item3']);
   });
 
+  it('finds contacts that are only known as unnamed logic inputs — no teaching, they just have to open twice', async () => {
+    const { sim, t, state, gekko, settings } = await boot({ sim: { contacts: 'unnamed' } });
+    const id = 'gekko:contact/auto-alarms-logics-item7-13';
+    const names = () => own(state).filter((candidate) => candidate.kind === 'contact').map((candidate) => candidate.name);
+    await pause(250);
+    // Nothing tells the hub that "Logik 7" holds the contacts.
+    expect(names()).toEqual(['Gartentor']);
+
+    const openAndClose = async () => {
+      sim.setContact('Fenster Küche', true);
+      await waitFor(() => entity(state, 'gekko:alarmsystem/item0#1', 'alarm').breached || null, 3000, 'the zone to report an open contact');
+      await pause(150);
+      sim.setContact('Fenster Küche', false);
+      await waitFor(() => !entity(state, 'gekko:alarmsystem/item0#1', 'alarm').breached || null, 3000, 'the zone to report all closed');
+      await pause(150);
+    };
+    await openAndClose();
+    expect(state.get(id)).toBeUndefined();
+    await openAndClose();
+    await waitFor(() => state.get(id), 3000, 'the learned kitchen contact');
+    expect(entity(state, id, 'contact')).toMatchObject({ name: 'Logik 7 · Kontakt 1.1', room: 'Logik', zone: 'Hülle', contactType: 'window', open: false, available: true });
+    // The "any input open" output of the same logic followed the zone as well — it is not a contact.
+    expect(state.get('gekko:contact/auto-alarms-logics-item7-0')).toBeUndefined();
+
+    sim.setContact('Fenster Küche', true);
+    await waitFor(() => entity(state, id, 'contact').open || null, 3000, 'the learned contact to read open');
+    sim.setContact('Fenster Küche', false);
+    await waitFor(() => !entity(state, id, 'contact').open || null, 3000, 'the learned contact to read closed');
+
+    // Remembered across a restart of the hub.
+    await gekko.stop();
+    const restarted = relaunch(t, settings);
+    await online(state);
+    expect(entity(state, id, 'contact')).toMatchObject({ open: false, available: true });
+    // Two values were learned (the input and the "any open" output); only the input is shown.
+    expect((restarted.diagnostics() as { contacts: { discovery: { learned: number } } }).contacts.discovery.learned).toBe(2);
+    expect(names().sort()).toEqual(['Gartentor', 'Logik 7 · Kontakt 1.1']);
+  });
+
   it('lets explicit contact mappings win over the automatic ones', async () => {
     const contacts: ContactMapping[] = [
       mapping('kueche', 'alarms_logics/item0', { name: 'Küchenfenster', room: 'Küche', zone: 'Erdgeschoss' }),

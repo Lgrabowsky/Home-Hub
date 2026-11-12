@@ -102,7 +102,7 @@ function MappingSheet({
         </Field>
 
         <div className="space-y-4 rounded-control bg-sunken p-3.5">
-          <p className="text-sm text-muted">Woher der Zustand kommt. Am einfachsten füllst du das über „Kontakt anlernen“ aus.</p>
+          <p className="text-sm text-muted">Woher der Zustand kommt. Am einfachsten füllst du das über „Kontakt suchen“ aus.</p>
           <div className="grid grid-cols-[1fr_6rem] gap-3">
             <Field label="Element am myGEKKO" error={sourceError}>
               <TextInput value={draft.source} onChange={(event) => set({ source: event.target.value })} placeholder="alarms_logics/item12" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="bg-surface font-mono text-sm" />
@@ -230,7 +230,7 @@ function LearnSheet({ open, onClose, onPick, mappings }: { open: boolean; onClos
   }, [candidates, needle]);
 
   return (
-    <Sheet open={open} onClose={onClose} wide title="Kontakt anlernen" subtitle="Der Hub beobachtet, was sich am myGEKKO ändert">
+    <Sheet open={open} onClose={onClose} wide title="Kontakt suchen" subtitle="Der Hub beobachtet, was sich am myGEKKO ändert">
       {query.isError ? (
         <Notice tone="danger">{errorMessage(query.error)}</Notice>
       ) : !candidates ? (
@@ -396,8 +396,8 @@ export function ContactsEditor({ value, onChange, connected, defaultZone }: { va
         <div className="rounded-tile bg-surface shadow-tile">
           <EmptyState
             icon={DoorClosed}
-            title="Noch keine eigenen Kontakte"
-            text="Lerne einen Kontakt an: Du öffnest das Fenster, der Hub zeigt dir, welches Element am myGEKKO darauf reagiert."
+            title="Keine eigenen Zuordnungen"
+            text="Meist nicht nötig. Fehlt ein Kontakt, hilft „Kontakt suchen“: Du öffnest das Fenster, der Hub zeigt dir, welcher Wert am myGEKKO darauf reagiert."
           />
         </div>
       ) : (
@@ -426,13 +426,13 @@ export function ContactsEditor({ value, onChange, connected, defaultZone }: { va
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button variant="primary" icon={Radar} disabled={!connected} onClick={() => setLearning(true)}>
-          Kontakt anlernen
+          Kontakt suchen
         </Button>
         <Button icon={Plus} onClick={() => setEditing({ mapping: blankMapping(defaultZone), index: null })}>
           Von Hand hinzufügen
         </Button>
       </div>
-      {!connected && <p className="mt-2 px-1 text-sm text-muted">Zum Anlernen muss der myGEKKO verbunden sein: erst die Zugangsdaten oben eintragen und speichern.</p>}
+      {!connected && <p className="mt-2 px-1 text-sm text-muted">Zum Suchen muss der myGEKKO verbunden sein: erst die Zugangsdaten oben eintragen und speichern.</p>}
 
       <LearnSheet
         open={learning}

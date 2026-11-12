@@ -1,4 +1,5 @@
 import { slugify, type ContactCandidate, type ContactMapping, type ContactType, type MyGekkoSettings } from '@home-hub/shared';
+import { learnedName, type LearnedContact } from './discovery.ts';
 import { filled, num, type GekkoTree, type TreeItem } from './protocol.ts';
 
 /**
@@ -6,8 +7,9 @@ import { filled, num, type GekkoTree, type TreeItem } from './protocol.ts';
  *
  * The Query API does not expose the detectors of the alarm system (an
  * `alarmsystem` element only has name, page, zone names and a summary state),
- * so single contacts are read from other elements: whatever the administrator
- * mapped explicitly, plus — if enabled — what can be recognised automatically.
+ * so single contacts are read from other elements: what can be recognised
+ * automatically (by name, and by watching which values follow the contact zone,
+ * see `discovery.ts`), plus whatever the administrator mapped explicitly.
  */
 
 export type ContactSettings = Pick<MyGekkoSettings, 'autoContacts' | 'contactKeywords' | 'doorKeywords' | 'contactZone' | 'contacts'>;
@@ -124,6 +126,7 @@ export function resolveContacts(
   values: ReadonlyMap<string, string[]>,
   settings: ContactSettings,
   provenWindows: ReadonlySet<string>,
+  learned: readonly LearnedContact[] = [],
 ): ResolvedContact[] {
   const contacts = settings.contacts.map(explicitContact);
   if (!settings.autoContacts) return contacts;
@@ -148,6 +151,42 @@ export function resolveContacts(
         name: suggestion.name,
         contactType: suggestion.contactType,
         room: suggestion.room || null,
+        zone,
+        auto: true,
+      });
+    }
+  }
+
+  // Values that turned out to follow the contact zone (see discovery.ts) — unless the same element or a
+  // contact of the same name is shown already (a contact may also be logged by a trend, for example).
+  const usedSources = new Set(contacts.map((contact) => contact.source));
+  const usedNames = new Set(contacts.map((contact) => foldText(contact.name).replace(/\s+/g, ' ').trim()));
+  const perSource = new Map<string, LearnedContact[]>();
+  for (const contact of learned) perSource.set(contact.source, [...(perSource.get(contact.source) ?? []), contact]);
+  const doorWords = parseKeywords(settings.doorKeywords);
+  for (const [source, all] of perSource) {
+    const parsed = splitSource(source);
+    const item = parsed ? tree.systems.get(parsed.system)?.get(parsed.key) : undefined;
+    if (!item) continue;
+    // A logic whose inputs follow the zone usually also has an output "any of them open": that one is no contact.
+    const isInput = (field: number) => /^inputValue/.test(item.labels[field] ?? '');
+    const list = all.some((contact) => isInput(contact.field)) ? all.filter((contact) => !/^outputGate/.test(item.labels[contact.field] ?? '')) : all;
+    if (usedSources.has(source)) continue;
+    for (const contact of [...list].sort((a, b) => a.field - b.field)) {
+      const id = `${autoContactId(item)}-${contact.field}`;
+      const name = learnedName(item, contact.field, values.get(source), list.length);
+      const folded = foldText(name).replace(/\s+/g, ' ').trim();
+      if (ids.has(id) || usedNames.has(folded)) continue;
+      ids.add(id);
+      usedNames.add(folded);
+      contacts.push({
+        id,
+        source,
+        field: contact.field,
+        openWhen: contact.openWhen,
+        name,
+        contactType: matches(name, doorWords) ? 'door' : 'window',
+        room: item.page,
         zone,
         auto: true,
       });

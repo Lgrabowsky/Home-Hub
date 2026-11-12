@@ -62,13 +62,13 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
           title="Noch keine Fenster- und Türkontakte"
           text={
             isAdmin
-              ? 'Sobald die Gebäudesteuerung verbunden ist und Kontakte zugeordnet sind, siehst du hier, was offen ist.'
+              ? 'Sobald die Gebäudesteuerung verbunden ist, siehst du hier, was offen ist – die Kontakte erkennt der Hub selbst.'
               : 'Sobald Kontakte eingerichtet sind, siehst du hier, was offen ist.'
           }
           action={
             isAdmin ? (
               <Link to="/einstellungen/dienste/mygekko" className="text-accent underline-offset-4 hover:underline">
-                Kontakte einrichten
+                Gebäudesteuerung einrichten
               </Link>
             ) : undefined
           }
@@ -110,12 +110,15 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
         </div>
       </Card>
 
-      {unknownOpen && isAdmin && (
+      {unknownOpen && (
         <Notice tone="neutral">
-          Damit einzelne Fenster und Türen angezeigt werden, müssen ihre Kontakte zugeordnet sein.{' '}
-          <Link to="/einstellungen/dienste/mygekko" className="text-accent underline-offset-2 hover:underline">
-            Kontakte zuordnen
-          </Link>
+          Der myGEKKO meldet über seine Schnittstelle nur, dass etwas offen ist. Einzelne Fenster und Türen erkennt der Hub von selbst, sobald der myGEKKO sie irgendwo einzeln führt – Kontakte ohne sprechenden Namen, nachdem sie
+          zweimal geöffnet wurden.{' '}
+          {isAdmin && (
+            <Link to="/einstellungen/dienste/mygekko" className="text-accent underline-offset-2 hover:underline">
+              Erkannte Kontakte ansehen
+            </Link>
+          )}
         </Notice>
       )}
 

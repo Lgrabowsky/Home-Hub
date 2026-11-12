@@ -48,40 +48,42 @@ Gut zu wissen:
 
 ### Fenster- und Türkontakte
 
-Das ist der eine Punkt, an dem der myGEKKO Grenzen setzt – deshalb ausführlich:
+**Kurz:** Anlernen ist nicht nötig. Der Hub erkennt die Kontakte selbst; was du sofort siehst und was
+erst nach und nach erscheint, hängt davon ab, wie dein myGEKKO die Kontakte führt.
 
-**Was der myGEKKO nach außen gibt.** Über seine Schnittstelle meldet der myGEKKO die
-Alarmüberwachung (bei dir „Hülle“) nur als Ganzes: scharf/unscharf, Alarm ja/nein und „mindestens ein
-Melder ist offen“. **Welcher** Melder offen ist, verrät die Schnittstelle für die Alarmanlage nicht.
-Die App zeigt diesen Gesamtzustand unter **Sicherheit**.
+**Was der myGEKKO nach außen gibt.** Über seine Schnittstelle (Query API) meldet der myGEKKO die
+Alarmüberwachung (bei dir „Hülle“) je Zone nur als Ganzes: scharf/unscharf, Alarm ja/nein und
+„mindestens ein Melder ist offen“. **Welcher** Melder offen ist, steht für die Alarmanlage nirgends in
+der Schnittstelle – das bestätigen die offizielle Variablenliste von myGEKKO und die Daten mehrerer
+echter Anlagen. Den Gesamtzustand zeigt die App unter **Sicherheit** immer sofort.
 
-**Wie die App trotzdem jedes Fenster einzeln zeigt.** Einen einzelnen Kontakt kann der Hub lesen,
-sobald er am myGEKKO als eigenes Element existiert. Drei Arten erkennt der Hub von selbst (Schalter
-„Kontakte automatisch erkennen“):
+**Wie die App trotzdem jedes Fenster einzeln zeigt.** Viele Anlagen führen die Kontakte zusätzlich an
+anderer Stelle einzeln. Das findet der Hub von selbst (Schalter „Kontakte automatisch erkennen“, ab Werk
+an):
 
-| Am myGEKKO | Wird in der App zu |
-| --- | --- |
-| Raumregler mit angeschlossenem Fensterkontakt | „Fenster ‹Raum›“ – sobald der Kontakt einmal als offen gemeldet wurde |
-| Zutrittstür (Zutrittskontrolle) | Tür mit ihrem Namen |
-| Logik, deren Name oder Seite ein Stichwort enthält (Fenster, Tür, Tor, Kontakt, Magnet, Terrasse, Balkon, Hülle …) | Fenster bzw. Tür mit dem Namen der Logik |
+| Am myGEKKO | Wird in der App zu | Ab wann |
+| --- | --- | --- |
+| Raumregler mit angeschlossenem Fensterkontakt | „Fenster ‹Raum›“ | sobald das Fenster einmal als offen gemeldet wurde |
+| Zutrittstür (Zutrittskontrolle) | Tür mit ihrem Namen | sofort |
+| Logik, deren Name oder Seite ein Stichwort enthält (Fenster, Tür, Tor, Kontakt, Terrasse, Balkon, Hülle …) | Fenster bzw. Tür mit dem Namen der Logik | sofort |
+| Ein Wert ohne sprechenden Namen (z. B. ein Eingang einer Logik oder ein mitgeschriebener Eingang in einem Trend), der genau mit der Hülle auf- und zugeht | „‹Logik› · Kontakt 1.1“ bzw. Name aus dem Trend | nachdem das Fenster zweimal geöffnet und wieder geschlossen wurde |
 
-Die Stichwörter kannst du in den Einstellungen anpassen.
+Für die letzte Zeile beobachtet der Hub still im Hintergrund: Ein Wert wird nur dann zum Kontakt, wenn
+er bei geschlossener Hülle **immer** „zu“ zeigt und bei zwei getrennten Öffnungen mit der Hülle
+umspringt. Zeigt ein so gefundener Kontakt später „offen“, während die Hülle „alles zu“ meldet,
+verwirft der Hub ihn wieder. Sammel-Ausgänge einer Logik („irgendein Fenster offen“) blendet er aus.
+Wie die Alarmzone mit den Kontakten heißt, steht in den Einstellungen („Alarmzone der Kontakte“,
+ab Werk „Hülle“).
 
-**Wenn deine Magnetkontakte nur in der Alarmanlage hängen**, legst du am myGEKKO (oder lässt deinen
-Elektriker/Systemintegrator anlegen) **je Kontakt eine Logik** an, die den Eingang des Kontakts
-einfach durchreicht – benannt nach dem Fenster, z. B. „Fenster Küche“, auf der Seite des Raums. Das
-ist reine Konfiguration am myGEKKO, keine neue Verdrahtung. Danach findet der Hub die Kontakte von
-selbst.
+**Wenn die Kontakte nur in der Alarmanlage hängen** und sonst nirgends einzeln vorkommen, kann der Hub
+sie nicht einzeln zeigen – die App meldet dann ehrlich „mindestens ein Kontakt ist offen“. Abhilfe am
+myGEKKO (reine Konfiguration, keine neue Verdrahtung): den Eingang des Kontakts zusätzlich einer
+**Logik** zuführen, die nach dem Fenster benannt ist (z. B. „Fenster Küche“), oder ihn als
+Fensterkontakt des **Raumreglers** eintragen. Danach erscheint er in der App von selbst.
 
-**Anlernen – wenn der Hub einen Kontakt nicht von selbst erkennt:**
-
-1. Gebäude (myGEKKO) › Fenster- & Türkontakte › **Kontakt anlernen**.
-2. Das betreffende Fenster öffnen und kurz offen lassen.
-3. Die App zeigt, welches Element am myGEKKO darauf reagiert hat › **Das ist es** › Namen, Art und
-   Raum prüfen › Übernehmen › Speichern.
-
-In der Liste „Eigene Kontakte“ siehst du danach live, ob der Kontakt als offen oder geschlossen
-erkannt wird. Zeigt er es verkehrt herum an, stellst du im Kontakt „Offen, wenn der Wert … 0 ist“ um.
+**Nur falls nötig: von Hand zuordnen.** Unter Gebäude (myGEKKO) › Fenster- & Türkontakte › „Von Hand
+zuordnen“ kannst du einen Kontakt umbenennen, einem Raum zuweisen oder mit **Kontakt suchen** ergänzen
+(Fenster öffnen, der Hub zeigt, welcher Wert reagiert). Für den Normalfall ist das nicht nötig.
 
 ---
 
@@ -228,7 +230,7 @@ Hub sieht:
 - [ ] Ein Licht schalten und dimmen; eine Jalousie auf eine Position fahren und stoppen.
 - [ ] Sollwert eines Raumreglers ändern; prüfen, ob er am myGEKKO ankommt.
 - [ ] Eine Aktion/Szene starten.
-- [ ] Fensterkontakte: Stimmt „offen/geschlossen“ für jeden Kontakt? Sonst anlernen (siehe oben).
+- [ ] Fensterkontakte: Zeigt **Sicherheit** „alles zu“ bzw. „offen“ passend zur Hülle? Erscheinen die einzelnen Kontakte (ggf. nach zweimaligem Öffnen), und stimmt „offen/geschlossen“?
 - [ ] Wird der Zustand der Alarmanlage („Hülle“) richtig angezeigt (scharf/unscharf, etwas offen)?
 
 **DoorBird**

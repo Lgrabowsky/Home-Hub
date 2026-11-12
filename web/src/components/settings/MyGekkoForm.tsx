@@ -1,6 +1,9 @@
-import { Info } from 'lucide-react';
+import { ChevronDown, Info } from 'lucide-react';
+import { useMemo } from 'react';
+import type { ContactEntity } from '@home-hub/shared';
 import { useHub } from '../../store/hub.ts';
-import { Card, Field, Notice, RowGroup, Section, Segmented, TextInput } from '../ui.tsx';
+import { contactIcon } from '../entities/icons.ts';
+import { Badge, Card, Field, Notice, Row, RowGroup, Section, Segmented, TextInput } from '../ui.tsx';
 import { ContactsEditor } from './ContactsEditor.tsx';
 import type { FormProps } from './meta.ts';
 import { HowTo, SecretInput, SwitchRow } from './parts.tsx';
@@ -79,33 +82,75 @@ export function MyGekkoForm({ value, saved, onChange }: FormProps<'mygekko'>) {
 
       <Section title="Fenster- & Türkontakte">
         <Notice icon={Info} className="mb-4">
-          Der myGEKKO meldet seine Alarmüberwachung („Hülle“) nach außen nur als Ganzes: „etwas ist offen“. Damit du jedes Fenster und jede Tür einzeln siehst, muss der Kontakt am myGEKKO als eigenes Element lesbar sein – als
-          Raumregler mit Fensterkontakt, als Zutrittstür oder als Logik je Kontakt. Der Hub zeigt alles an, was er so findet; den Rest lernst du unten an.
+          Kontakte werden automatisch erkannt – anlernen musst du nichts. Ob in der Alarmüberwachung („Hülle“) etwas offen ist, zeigt die App immer sofort. Welches Fenster genau, gibt die Schnittstelle des myGEKKO nicht direkt
+          preis; der Hub findet es selbst überall dort, wo der myGEKKO einen Kontakt einzeln führt (Raumregler, Zutrittstüren, Logiken, Trends). Kontakte ohne sprechenden Namen erscheinen, sobald sie zweimal geöffnet wurden.
         </Notice>
+        <AutoContacts explicitIds={value.contacts.map((contact) => contact.id)} enabled={value.autoContacts && saved.enabled} />
         <RowGroup className="mb-4">
           <SwitchRow
             title="Kontakte automatisch erkennen"
-            subtitle="Raumregler mit Fensterkontakt, Zutrittstüren und Logiken mit passendem Namen werden von selbst zu Kontakten."
+            subtitle="Raumregler mit Fensterkontakt, Zutrittstüren, Logiken mit passendem Namen und Werte, die mit der Hülle auf- und zugehen."
             checked={value.autoContacts}
             onChange={(autoContacts) => set({ autoContacts })}
           />
           {value.autoContacts && (
             <div className="space-y-4 p-4">
-              <Field label="Stichwörter für Kontakte" hint="Logiken, deren Name oder Seite eines dieser Wörter enthält, gelten als Kontakt. Mit Komma trennen.">
+              <Field label="Alarmzone der Kontakte" hint="Name der Zone, in der die Fenster- und Türkontakte stecken, z. B. „Hülle“. Daran erkennt der Hub, welche Werte Kontakte sind.">
+                <TextInput value={value.contactZone} onChange={(event) => set({ contactZone: event.target.value })} maxLength={60} className="max-w-xs" />
+              </Field>
+              <Field label="Stichwörter für Kontakte" hint="Logiken, deren Name oder Seite eines dieser Wörter enthält, gelten sofort als Kontakt. Mit Komma trennen.">
                 <TextInput value={value.contactKeywords} onChange={(event) => set({ contactKeywords: event.target.value })} maxLength={300} autoCapitalize="none" />
               </Field>
               <Field label="Stichwörter für Türen" hint="Enthält der Name eines davon, wird der Kontakt als Tür statt als Fenster angezeigt.">
                 <TextInput value={value.doorKeywords} onChange={(event) => set({ doorKeywords: event.target.value })} maxLength={300} autoCapitalize="none" />
               </Field>
-              <Field label="Zone" hint="Unter diesem Namen werden die automatisch gefundenen Kontakte zusammengefasst.">
-                <TextInput value={value.contactZone} onChange={(event) => set({ contactZone: event.target.value })} maxLength={60} className="max-w-xs" />
-              </Field>
             </div>
           )}
         </RowGroup>
-        <h3 className="mb-2.5 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Eigene Kontakte</h3>
-        <ContactsEditor value={value.contacts} onChange={(contacts) => set({ contacts })} connected={connected && saved.enabled} defaultZone={value.contactZone} />
+        <details className="group">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-1 text-sm font-medium text-accent">
+            <ChevronDown className="size-4 shrink-0 transition group-open:rotate-180" aria-hidden />
+            Von Hand zuordnen – nur falls ein Kontakt fehlt oder anders heißen soll
+          </summary>
+          <div className="pt-2">
+            <ContactsEditor value={value.contacts} onChange={(contacts) => set({ contacts })} connected={connected && saved.enabled} defaultZone={value.contactZone} />
+          </div>
+        </details>
       </Section>
     </>
+  );
+}
+
+/** What the hub found by itself, live. */
+function AutoContacts({ explicitIds, enabled }: { explicitIds: string[]; enabled: boolean }) {
+  const entities = useHub((state) => state.entities);
+  const found = useMemo(
+    () =>
+      Object.values(entities)
+        .filter((entity): entity is ContactEntity => entity.kind === 'contact' && entity.service === 'mygekko' && !explicitIds.includes(entity.id.slice('gekko:contact/'.length)))
+        .sort((a, b) => Number(b.open) - Number(a.open) || a.name.localeCompare(b.name, 'de', { numeric: true })),
+    [entities, explicitIds],
+  );
+  if (!enabled) return null;
+  return (
+    <div className="mb-4">
+      <h3 className="mb-2.5 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">Automatisch erkannt ({found.length})</h3>
+      {found.length === 0 ? (
+        <p className="px-1 text-sm text-muted">Noch keiner. Sobald der myGEKKO verbunden ist und Kontakte meldet, erscheinen sie hier.</p>
+      ) : (
+        <RowGroup>
+          {found.map((contact) => (
+            <Row
+              key={contact.id}
+              icon={contactIcon(contact)}
+              tone={contact.available ? (contact.open ? 'warn' : 'ok') : 'neutral'}
+              title={contact.name}
+              subtitle={[contact.room, contact.zone].filter(Boolean).join(' · ') || undefined}
+              trailing={contact.available ? <Badge tone={contact.open ? 'warn' : 'ok'}>{contact.open ? 'Offen' : 'Geschlossen'}</Badge> : 'Nicht erreichbar'}
+            />
+          ))}
+        </RowGroup>
+      )}
+    </div>
   );
 }

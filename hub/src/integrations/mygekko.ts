@@ -5,6 +5,7 @@ import { Poller } from '../util/poller.ts';
 import { GekkoClient, GekkoError, isGekkoError, type GekkoErrorKind } from './mygekko/client.ts';
 import { isSuperseding, planCommand } from './mygekko/commands.ts';
 import { ROOM_WINDOW_FIELD, listCandidates, openRoomWindows, resolveContacts, type ResolvedContact } from './mygekko/contacts.ts';
+import { ContactDiscovery, contactZones, readContactZones, type LearnedContact } from './mygekko/discovery.ts';
 import { EntityFactory, MAPPED_SYSTEMS, SERVICE } from './mygekko/entities.ts';
 import { controllerKey, credentialsKey, loginBlockedUntil, noteRejection, wereRejected } from './mygekko/lockout.ts';
 import { clockTime, describeFailure, missingSetting } from './mygekko/messages.ts';
@@ -92,6 +93,8 @@ interface PersistedState {
   controller: string;
   /** Room controllers whose window contact was seen open (see `resolveContacts`). */
   windowContacts: string[];
+  /** Values found to follow the contact zone (see discovery.ts). */
+  learnedContacts?: LearnedContact[];
   /** A login the controller rejected: not to be repeated before `until`. */
   authBlock: { credentials: string; until: number } | null;
 }
@@ -150,6 +153,7 @@ export class MyGekkoIntegration implements Integration {
   private contacts: ResolvedContact[] = [];
   private notes: string[] = [];
   private readonly provenWindows = new Set<string>();
+  private discovery = new ContactDiscovery();
   private authBlockStored = false;
 
   // --- Health -------------------------------------------------------------------
@@ -281,6 +285,8 @@ export class MyGekkoIntegration implements Integration {
         // they become contacts once the window was seen open.
         roomControllersReportingWindow: this.roomControllersReportingWindow(),
         provenWindowContacts: [...this.provenWindows],
+        // Contacts found by watching which values follow the contact zone.
+        discovery: this.discovery.summary(),
         notes: this.notes,
       },
       commands: {
@@ -449,12 +455,19 @@ export class MyGekkoIntegration implements Integration {
       this.deps.log.info({ sources: opened }, 'room controller reports an open window: shown as contact from now on');
       this.persist();
     }
+    if (this.settings.autoContacts) {
+      const zone = readContactZones(contactZones(this.tree, this.values, this.settings));
+      const { learned, dropped } = this.discovery.observe(this.tree, this.values, zone);
+      if (learned.length > 0) this.deps.log.info({ contacts: learned }, 'found values that follow the contact zone: shown as contacts from now on');
+      if (dropped.length > 0) this.deps.log.info({ contacts: dropped }, 'a learned contact read "open" while the zone was closed: no longer shown');
+      if (learned.length > 0 || dropped.length > 0) this.persist();
+    }
   }
 
   private publish(): void {
     const tree = this.tree;
     if (!tree || this.stopped) return;
-    this.contacts = resolveContacts(tree, this.values, this.settings, this.provenWindows);
+    this.contacts = resolveContacts(tree, this.values, this.settings, this.provenWindows, this.discovery.contacts);
     const built = this.factory.build({ tree, values: this.values, meteo: this.meteo, contacts: this.contacts, now: Date.now() });
     this.elements = built.elements;
     this.notes = built.notes;
@@ -576,6 +589,11 @@ export class MyGekkoIntegration implements Integration {
         for (const source of Array.isArray(stored.windowContacts) ? stored.windowContacts : []) {
           if (typeof source === 'string') this.provenWindows.add(source);
         }
+        const learned = (Array.isArray(stored.learnedContacts) ? stored.learnedContacts : []).filter(
+          (entry): entry is LearnedContact =>
+            typeof entry === 'object' && entry !== null && typeof entry.source === 'string' && Number.isInteger(entry.field) && (entry.openWhen === 'nonzero' || entry.openWhen === 'zero'),
+        );
+        this.discovery = new ContactDiscovery(learned);
         const block = stored.authBlock;
         if (block && block.credentials === credentialsKey(this.settings) && typeof block.until === 'number') {
           this.authBlockStored = true;
@@ -601,7 +619,12 @@ export class MyGekkoIntegration implements Integration {
 
   private persist(authBlock: PersistedState['authBlock'] = null): void {
     if (this.stopped) return;
-    const state: PersistedState = { controller: controllerKey(this.settings), windowContacts: [...this.provenWindows], authBlock };
+    const state: PersistedState = {
+      controller: controllerKey(this.settings),
+      windowContacts: [...this.provenWindows],
+      learnedContacts: this.discovery.contacts,
+      authBlock,
+    };
     try {
       this.deps.settings.setInternal(STATE_KEY, state);
     } catch (err) {

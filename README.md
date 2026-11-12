@@ -90,10 +90,10 @@ Details: [docs/SICHERHEIT.md](docs/SICHERHEIT.md)
 - **Du brauchst einen kleinen Rechner, der immer läuft** (z. B. Raspberry Pi 4/5 mit 2 GB RAM oder mehr,
   ein NAS mit Docker oder ein Mini-PC). Ohne ihn geht es nicht: Die Geräte sind nur aus deinem
   Heimnetz erreichbar, und irgendwo müssen Anmeldung und Verschlüsselung stattfinden.
-- **Einzelne Fensterkontakte bei myGEKKO:** Der myGEKKO gibt seine Alarmüberwachung nach außen nur als
-  Ganzes preis („Hülle: etwas ist offen“). Einzelne Kontakte zeigt die App, wenn sie am myGEKKO als
-  eigenes Element lesbar sind. Was automatisch gefunden wird und wie du den Rest in zwei Minuten
-  „anlernst“, steht in [docs/GERAETE.md](docs/GERAETE.md#fenster--und-türkontakte).
+- **Einzelne Fensterkontakte bei myGEKKO:** Anlernen ist nicht nötig. Der myGEKKO gibt seine
+  Alarmüberwachung über die Schnittstelle nur als Ganzes preis („Hülle: etwas ist offen“) – das zeigt
+  die App sofort. Einzelne Fenster erkennt der Hub selbst, überall dort, wo der myGEKKO sie einzeln
+  führt; Details in [docs/GERAETE.md](docs/GERAETE.md#fenster--und-türkontakte).
 - **Spotify** verlangt eine eigene, kostenlose „Entwickler-App“ und ein Premium-Konto. Die
   Einrichtung dauert fünf Minuten und ist in der App Schritt für Schritt erklärt.
 - **Gegensprechen über Kameras** funktioniert nur bei Reolink-Modellen mit Lautsprecher, die

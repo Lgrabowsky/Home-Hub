@@ -484,6 +484,13 @@ export interface MyGekkoSimOptions {
   cloud?: { key: string; gekkoId: string; incompleteAnswers?: number };
   /** Lock the account after this many wrong logins in a row (null = never). Real controllers lock for 10 minutes. */
   lockout?: { attempts: number; durationMs: number } | null;
+  /**
+   * How the reed contacts of the zone "Hülle" show up in the Query API.
+   * `named` (default): one logic element per contact on the page "Türen und Fenster".
+   * `unnamed`: only as inputs of a single logic element without a telling name (its first output is
+   * "any input open"), and no trend logs them — what the hub has to find out by watching.
+   */
+  contacts?: 'named' | 'unnamed';
 }
 
 export interface SimCommand {
@@ -588,6 +595,7 @@ class Simulator implements MyGekkoSim {
   private readonly loads: Load[] = [];
   private readonly rooms: RoomController[] = [];
   private readonly logics: LogicContact[] = [];
+  private readonly contactStyle: 'named' | 'unnamed';
   private readonly gate = { open: false };
   private blindGroupState = 0;
 
@@ -599,6 +607,7 @@ class Simulator implements MyGekkoSim {
     this.lockout = options.lockout === undefined ? { attempts: 5, durationMs: 10 * 60_000 } : options.lockout;
     this.blindTravelMs = options.blindTravelMs ?? 18_000;
     this.incompleteAnswers = options.cloud?.incompleteAnswers ?? 0;
+    this.contactStyle = options.contacts ?? 'named';
     this.buildHousehold();
     this.server = http.createServer((req, res) => this.handle(req, res));
     this.server.on('connection', (socket) => {
@@ -741,10 +750,23 @@ class Simulator implements MyGekkoSim {
     ].entries()) {
       this.logics.push(logic(`item${index}`, name, 'Türen und Fenster'));
     }
+    // Contacts known only as inputs of one logic element: inputValue1_1 … inputValue6_2 are fields 13 … 24.
+    const combined: SimElement = {
+      key: 'item7',
+      name: 'Logik 7',
+      page: 'Logik',
+      read: () => {
+        const fields = new Array<number>(25).fill(0);
+        this.logics.slice(0, 12).forEach((contact, index) => (fields[13 + index] = contact.value));
+        fields[0] = this.logics.some((contact) => contact.value !== 0) ? 1 : 0;
+        return `${fields.map(f2).join(';')};`;
+      },
+      write: (value) => (numberAfter(value, 'S') === null ? 400 : 200),
+    };
     this.systems.set('alarms_logics', {
       spec: SPECS.alarms_logics,
       elements: [
-        ...this.logics,
+        ...(this.contactStyle === 'unnamed' ? [combined] : this.logics),
         // Ordinary logics that are no contacts.
         logic('item20', 'Heizung Sommerbetrieb', 'Heizung'),
         logic('item21', 'Beschattung Süd', '...'),
@@ -889,17 +911,19 @@ class Simulator implements MyGekkoSim {
       ],
     });
 
+    // The trend logs two contacts by name — not in the `unnamed` household.
+    const logged: SimElement = {
+      key: 'item0',
+      name: 'Kontakte Erdgeschoss',
+      page: '...',
+      // Two digital inputs (type 1 = dIn) are logged: variable n value sits at field 3 + 5·(n−1).
+      read: () => `1;1;Fenster Kueche;${f2(this.logicByName('Fenster Küche').value)};;1;1;Haustuer;${f2(this.logicByName('Haustür').value)};;0;0;;0.00;;0;0;;0.00;;0;`,
+      write: (value) => (numberAfter(value, 'S') === null ? 400 : 200),
+    };
     this.systems.set('trends', {
       spec: SPECS.trends,
       elements: [
-        {
-          key: 'item0',
-          name: 'Kontakte Erdgeschoss',
-          page: '...',
-          // Two digital inputs (type 1 = dIn) are logged: variable n value sits at field 3 + 5·(n−1).
-          read: () => `1;1;Fenster Kueche;${f2(this.logicByName('Fenster Küche').value)};;1;1;Haustuer;${f2(this.logicByName('Haustür').value)};;0;0;;0.00;;0;0;;0.00;;0;`,
-          write: (value) => (numberAfter(value, 'S') === null ? 400 : 200),
-        },
+        ...(this.contactStyle === 'unnamed' ? [] : [logged]),
         fixed('group0', 'Grp 1', undefined, '1'),
       ],
     });
