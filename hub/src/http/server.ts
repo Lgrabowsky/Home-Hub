@@ -7,7 +7,8 @@ import { hasPermission, type ApiError, type Permission } from '@home-hub/shared'
 import type { AuthContext } from '../auth/sessions.ts';
 import { NATIVE_APP_ORIGINS } from '../config.ts';
 import type { HubContext } from '../context.ts';
-import { HttpError, forbidden, unauthorized } from './errors.ts';
+import { forbidden, HttpError, notFound, unauthorized } from './errors.ts';
+import { CA_PATH, CERT_PAGE_PATH, certificatePage, safeHost } from './certificate.ts';
 import { registerAuthRoutes } from './routes/auth.ts';
 import { registerUserRoutes } from './routes/users.ts';
 import { registerAdminRoutes } from './routes/admin.ts';
@@ -134,7 +135,7 @@ function isProtectedRoute(request: FastifyRequest): boolean {
   return request.url.startsWith('/api/');
 }
 
-function securityHeaders(request: FastifyRequest, reply: FastifyReply): void {
+function securityHeaders(request: FastifyRequest, reply: FastifyReply, ownTls: boolean): void {
   reply.header(
     'Content-Security-Policy',
     [
@@ -158,7 +159,9 @@ function securityHeaders(request: FastifyRequest, reply: FastifyReply): void {
   reply.header('Referrer-Policy', 'no-referrer');
   reply.header('Cross-Origin-Opener-Policy', 'same-origin');
   reply.header('Permissions-Policy', 'camera=(), geolocation=(), payment=(), usb=(), microphone=(self)');
-  if (isSecureRequest(request)) reply.header('Strict-Transport-Security', 'max-age=15552000');
+  // Not when the hub encrypts by itself: HSTS covers the whole host name with all its ports, and the
+  // hub's plain port (certificate page) or a later start without https would become unreachable.
+  if (isSecureRequest(request) && !ownTls) reply.header('Strict-Transport-Security', 'max-age=15552000');
 }
 
 /** Trust exactly `hops` proxies in front of the hub when reading X-Forwarded-* headers. */
@@ -168,6 +171,8 @@ function trustHops(hops: number): (address: string, hop: number) => boolean {
 
 export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   const app = Fastify({
+    // HTTPS served by the hub itself (HUB_TLS); the certificate can be swapped at runtime (renewal).
+    ...(ctx.tls ? { https: { key: ctx.tls.key, cert: ctx.tls.cert, minVersion: 'TLSv1.2' as const } } : {}),
     loggerInstance: ctx.log.child({ mod: 'http' }),
     // Requests are logged by our own onResponse hook (without query strings, which may carry tickets).
     logController: new LogController({ disableRequestLogging: true }),
@@ -193,7 +198,7 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   });
 
   app.addHook('onRequest', async (request, reply) => {
-    securityHeaders(request, reply);
+    securityHeaders(request, reply, ctx.tls !== null);
     if (!isProtectedRoute(request)) return;
 
     reply.header('Cache-Control', 'no-store');
@@ -288,6 +293,19 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   app.options('/api/*', { config: { access: 'public' } }, async (_request, reply) => reply.code(204).send());
 
   app.get('/api/health', { config: { access: 'public' } }, async () => ({ ok: true }));
+
+  // The hub's own certificate authority (HTTPS without a domain): what devices install once.
+  app.get(CA_PATH, { config: { access: 'public' } }, async (_request, reply) => {
+    if (!ctx.tls) throw notFound('Dieser Hub verwendet kein eigenes Zertifikat.');
+    reply.header('Content-Type', 'application/x-x509-ca-cert').header('Content-Disposition', 'attachment; filename="HomeHub-Zertifikat.crt"');
+    return ctx.tls.caCert;
+  });
+  app.get(CERT_PAGE_PATH, { config: { access: 'public' } }, async (request, reply) => {
+    if (!ctx.tls) throw notFound('Dieser Hub verwendet kein eigenes Zertifikat.');
+    const host = safeHost(request.host);
+    reply.header('Content-Type', 'text/html; charset=utf-8');
+    return certificatePage(ctx.tls, host ? `${request.protocol}://${host}` : null);
+  });
 
   registerAuthRoutes(app, ctx);
   registerUserRoutes(app, ctx);

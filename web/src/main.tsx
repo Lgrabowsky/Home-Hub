@@ -8,8 +8,6 @@ import './styles.css';
 initTheme();
 
 if (isNative) {
-  // Camera pictures must not show up in the task switcher or in screenshots.
-  void import('@capacitor-community/privacy-screen').then(({ PrivacyScreen }) => PrivacyScreen.enable()).catch(() => {});
   void import('@capacitor/splash-screen').then(({ SplashScreen }) => SplashScreen.hide()).catch(() => {});
 }
 

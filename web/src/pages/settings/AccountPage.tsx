@@ -1,4 +1,4 @@
-import { Check, Copy, Fingerprint, KeyRound, LogOut, Monitor, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react';
+import { Check, Copy, EyeOff, Fingerprint, KeyRound, LogOut, Monitor, ShieldCheck, ShieldOff, Smartphone } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ROLE_LABELS, type SessionInfo, type TotpEnableResponse, type TotpSetupResponse } from '@home-hub/shared';
@@ -283,6 +283,7 @@ function Sessions() {
 export function AccountPage() {
   const user = useSession((state) => state.user);
   const lockEnabled = useSession((state) => state.lockEnabled);
+  const privacyEnabled = useSession((state) => state.privacyEnabled);
   const [passwordOpen, setPasswordOpen] = useState(false);
   if (!user) return null;
   return (
@@ -300,7 +301,7 @@ export function AccountPage() {
           </Section>
           <TwoFactor />
           {isNative && (
-            <Section title="App-Sperre">
+            <Section title="Auf diesem Gerät">
               <RowGroup>
                 <Row
                   icon={Fingerprint}
@@ -316,6 +317,24 @@ export function AccountPage() {
                           .getState()
                           .setLockEnabled(next)
                           .catch((err: unknown) => toast.error(err instanceof Error && err.name === 'ApiError' ? err.message : 'Die App-Sperre konnte nicht geändert werden.'))
+                      }
+                    />
+                  }
+                />
+                <Row
+                  icon={EyeOff}
+                  tone={privacyEnabled ? 'ok' : 'neutral'}
+                  title="Inhalt in der App-Übersicht verbergen"
+                  subtitle="Zeigt in der Übersicht der geöffneten Apps eine leere Kachel und verhindert Bildschirmfotos."
+                  trailing={
+                    <Toggle
+                      checked={privacyEnabled}
+                      label="Inhalt in der App-Übersicht verbergen"
+                      onChange={(next) =>
+                        void useSession
+                          .getState()
+                          .setPrivacyEnabled(next)
+                          .catch(() => toast.error('Die Einstellung konnte nicht geändert werden.'))
                       }
                     />
                   }

@@ -8,6 +8,7 @@ import { UserStore } from './auth/users.ts';
 import type { HubConfig } from './config.ts';
 import type { HubContext } from './context.ts';
 import { Db } from './db.ts';
+import { startCertificateHelper, type CertificateHelper } from './http/certificate.ts';
 import { buildServer } from './http/server.ts';
 import { IntegrationManager } from './integrations/manager.ts';
 import { createLogger, type Logger } from './log.ts';
@@ -15,6 +16,7 @@ import { RealtimeHub } from './realtime.ts';
 import { AuditLog } from './security/audit.ts';
 import { Vault } from './security/crypto.ts';
 import { RateLimiter, Throttle } from './security/throttle.ts';
+import { loadTlsMaterial, type TlsMaterial } from './security/tls.ts';
 import { SettingsStore } from './settings.ts';
 import { startDemo, type DemoHandle } from './sim/demo.ts';
 import { StateStore } from './state.ts';
@@ -61,6 +63,13 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     });
   }
 
+  // HTTPS by the hub itself: its own certificate (renewed when it ages or the addresses change) or the owner's.
+  const loadTls = (): TlsMaterial | null => loadTlsMaterial(config, vault);
+  const tls = loadTls();
+  if (tls) {
+    log.info({ names: tls.names, fingerprint: tls.caFingerprint, validUntil: tls.serverNotAfter.toISOString() }, 'HTTPS certificate ready');
+  }
+
   const ctx: HubContext = {
     config,
     log,
@@ -81,6 +90,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     images,
     startedAt: Date.now(),
     demo: null,
+    tls,
   };
 
   const app = await buildServer(ctx);
@@ -90,6 +100,17 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
 
   let demo: DemoHandle | null = null;
   let maintenance: NodeJS.Timeout | null = null;
+  let helper: CertificateHelper | null = null;
+
+  /** New addresses or an ageing certificate: issue a new one and hand it to the running server. */
+  const renewTls = () => {
+    if (config.tls.mode !== 'auto' || !ctx.tls) return;
+    const next = loadTls();
+    if (!next || next.cert === ctx.tls.cert) return;
+    ctx.tls = next;
+    (app.server as unknown as { setSecureContext(options: { key: string; cert: string }): void }).setSecureContext({ key: next.key, cert: next.cert });
+    log.info({ names: next.names, validUntil: next.serverNotAfter.toISOString() }, 'HTTPS certificate renewed');
+  };
   let stopped = false;
 
   return {
@@ -99,12 +120,16 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
       if (config.demo) demo = await startDemo(ctx);
       await integrations.start();
       await demo?.ready();
-      const address = await app.listen({ host: config.host, port: config.port });
+      const address = await app.listen({ host: config.host, port: ctx.tls ? config.tls.httpsPort : config.port });
+      if (ctx.tls) {
+        helper = await startCertificateHelper({ host: config.host, port: config.port, httpsPort: config.tls.httpsPort, tls: () => ctx.tls! });
+      }
       maintenance = setInterval(
         () => {
           try {
             sessions.cleanup();
             audit.cleanup();
+            renewTls();
           } catch (err) {
             log.warn({ err }, 'maintenance failed');
           }
@@ -119,6 +144,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
       stopped = true;
       if (maintenance) clearInterval(maintenance);
       realtime.close();
+      await helper?.close();
       await app.close();
       await integrations.stop();
       await demo?.stop();

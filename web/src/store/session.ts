@@ -48,6 +48,8 @@ interface SessionStore {
   prefs: UserPrefs;
   /** App lock with biometrics is switched on (app only). */
   lockEnabled: boolean;
+  /** Android: blank tile in the task switcher and no screenshots (FLAG_SECURE). Off unless chosen. */
+  privacyEnabled: boolean;
 
   init(): Promise<void>;
   /** (App) stores the hub address after checking that a hub answers there. */
@@ -62,6 +64,7 @@ interface SessionStore {
   refresh(): Promise<void>;
   savePrefs(partial: Partial<UserPrefs>): Promise<void>;
   setLockEnabled(enabled: boolean): Promise<void>;
+  setPrivacyEnabled(enabled: boolean): Promise<void>;
   unlock(): Promise<boolean>;
   can(permission: Permission): boolean;
 }
@@ -69,6 +72,13 @@ interface SessionStore {
 const BACKGROUND_LOCK_MS = 60_000;
 let hiddenAt = 0;
 let resumeHooked = false;
+
+/** Android FLAG_SECURE through the privacy-screen plugin. */
+async function applyPrivacyScreen(enabled: boolean): Promise<void> {
+  if (!isNative) return;
+  const { PrivacyScreen } = await import('@capacitor-community/privacy-screen');
+  await (enabled ? PrivacyScreen.enable() : PrivacyScreen.disable());
+}
 
 function normaliseHubUrlOrThrow(input: string): string {
   try {
@@ -137,13 +147,15 @@ export const useSession = create<SessionStore>((set, getState) => {
     session: null,
     prefs: DEFAULT_PREFS,
     lockEnabled: false,
+    privacyEnabled: false,
 
     async init() {
       hookResume();
       configureApi({ onUnauthorized: signedOut });
       if (isNative) {
-        const [hubUrl, token, lock] = await Promise.all([deviceStore.get('hubUrl'), deviceStore.get('token'), deviceStore.get('lock')]);
-        set({ lockEnabled: lock === '1' });
+        const [hubUrl, token, lock, privacy] = await Promise.all([deviceStore.get('hubUrl'), deviceStore.get('token'), deviceStore.get('lock'), deviceStore.get('privacy')]);
+        set({ lockEnabled: lock === '1', privacyEnabled: privacy === '1' });
+        if (privacy === '1') void applyPrivacyScreen(true);
         if (!hubUrl) {
           set({ phase: 'connect' });
           return;
@@ -274,6 +286,12 @@ export const useSession = create<SessionStore>((set, getState) => {
         void getState().refresh().catch(() => {});
         throw err;
       }
+    },
+
+    async setPrivacyEnabled(enabled) {
+      await applyPrivacyScreen(enabled);
+      await deviceStore.set('privacy', enabled ? '1' : '0');
+      set({ privacyEnabled: enabled });
     },
 
     async setLockEnabled(enabled) {

@@ -81,7 +81,7 @@ Zum Nachlesen: **[Sicherheit & Datenschutz](docs/SICHERHEIT.md)** · **[Entwickl
 - Jede Türöffnung, Anmeldung und Änderung steht im **Protokoll**.
 - Die App lädt **nichts von fremden Servern** – keine Schriften, keine Statistik, keine Werbung.
 - Android: Anmeldung im geschützten Schlüsselspeicher, optionale **Sperre per Fingerabdruck**,
-  kein Inhalt in der App-Übersicht, kein Cloud-Backup der App-Daten.
+  auf Wunsch kein Inhalt in der App-Übersicht, kein Cloud-Backup der App-Daten.
 
 Details: [docs/SICHERHEIT.md](docs/SICHERHEIT.md)
 

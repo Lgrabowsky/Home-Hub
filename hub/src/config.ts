@@ -24,6 +24,24 @@ export interface HubConfig {
   /** Directory with the built web app (index.html). */
   webDir: string | null;
   setupToken: string | null;
+  /**
+   * HTTPS served by the hub itself. `off`: plain HTTP (behind a reverse proxy, the Docker setup).
+   * `auto`: the hub issues its own certificate (see security/tls.ts). `files`: the owner's certificate.
+   * With TLS, `port` only serves a small page with the certificate and redirects to `httpsPort`.
+   */
+  tls: {
+    mode: 'off' | 'auto' | 'files';
+    httpsPort: number;
+    certFile: string | null;
+    keyFile: string | null;
+    /** Extra names for the generated certificate (must lie inside the home network). */
+    names: string[];
+    /**
+     * Where the generated certificates live (default `<dataDir>/tls`). A directory of its own lets
+     * several data directories (e.g. demo and real) share one certificate that devices trust.
+     */
+    dir: string | null;
+  };
   media: {
     enabled: boolean;
     go2rtcBin: string;
@@ -106,6 +124,25 @@ function findWebDir(explicit: string | undefined): string | null {
   return null;
 }
 
+function parseTls(env: NodeJS.ProcessEnv): HubConfig['tls'] {
+  const certFile = env.HUB_TLS_CERT?.trim() || null;
+  const keyFile = env.HUB_TLS_KEY?.trim() || null;
+  if (Boolean(certFile) !== Boolean(keyFile)) throw new Error('HUB_TLS_CERT and HUB_TLS_KEY must be set together');
+  const value = env.HUB_TLS?.trim().toLowerCase() ?? '';
+  let mode: HubConfig['tls']['mode'] = 'off';
+  if (certFile) mode = 'files';
+  else if (['auto', '1', 'true', 'yes', 'on'].includes(value)) mode = 'auto';
+  else if (value && !['off', '0', 'false', 'no'].includes(value)) throw new Error(`HUB_TLS must be "auto" or "off", got "${env.HUB_TLS}"`);
+  return {
+    mode,
+    httpsPort: int(env.HUB_HTTPS_PORT, 8443, 'HUB_HTTPS_PORT'),
+    certFile,
+    keyFile,
+    names: list(env.HUB_TLS_NAMES),
+    dir: env.HUB_TLS_DIR?.trim() ? resolve(env.HUB_TLS_DIR.trim()) : null,
+  };
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
   let publicUrl: URL | null = null;
   if (env.HUB_PUBLIC_URL?.trim()) {
@@ -128,6 +165,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     logLevel: env.HUB_LOG_LEVEL?.trim() || 'info',
     webDir: findWebDir(env.HUB_WEB_DIR?.trim()),
     setupToken: env.HUB_SETUP_TOKEN?.trim() || null,
+    tls: parseTls(env),
     media: {
       enabled: bool(env.HUB_MEDIA, true),
       go2rtcBin: env.GO2RTC_BIN?.trim() || 'go2rtc',

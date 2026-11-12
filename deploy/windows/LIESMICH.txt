@@ -29,28 +29,58 @@ Das Fenster zeigt die Adressen für das Handy und – beim ersten Start – den
 EINRICHTUNGSCODE für das erste Konto. Solange das Fenster offen ist, läuft der Hub.
 
 
-2. VOM HANDY VERBINDEN – IM EIGENEN WLAN (sofort)
--------------------------------------------------
-
-Handy im selben WLAN wie der PC. Die Adresse eintragen, die das Fenster zeigt,
-z. B. http://192.168.178.23:8080 –
-
-  - in der Home-Hub-App (Android) als "Adresse des Hubs", oder
-  - in Chrome auf dem Handy (Tipp: Menü > "Zum Startbildschirm hinzufügen").
-
-Dann Einrichtungscode eingeben, Konto anlegen, fertig.
-
-Diese Verbindung ist NICHT verschlüsselt: Sie funktioniert nur im eigenen WLAN, und wer
-dort mitlesen kann, könnte die Anmeldung sehen. Die App erlaubt das deshalb nur für
-Adressen im Heimnetz. Im Browser gehen ohne https außerdem Mikrofon und Spotify nicht
-(in der App geht das Mikrofon).
-
-
-3. VERSCHLÜSSELT UND VON UNTERWEGS (empfohlen)
+2. SICHER VERBINDEN – IM EIGENEN WLAN (https)
 ---------------------------------------------
 
-Für eine verschlüsselte Verbindung, auch außerhalb deines WLANs, braucht der Hub eine
-https-Adresse. Am einfachsten mit Tailscale (kostenlos, nichts am Router einzustellen):
+Der Hub verschlüsselt selbst (https, Port 8443) – mit einem eigenen Zertifikat, das
+nur für Adressen im Heimnetz gilt (z. B. 192.168.…). Jedes Gerät muss diesem
+Zertifikat EINMAL vertrauen:
+
+  Dieser PC   Erledigt das Startfenster beim ersten Start. Windows fragt nach –
+              mit "Ja" bestätigen.
+
+  Handy       Im Browser die Adresse mit :8080 öffnen, die das Fenster zeigt,
+              z. B. http://192.168.178.23:8080 – die Seite bietet das Zertifikat
+              zum Herunterladen an und erklärt die zwei Schritte für Android und
+              iPhone. Den Fingerabdruck auf der Seite mit dem im Fenster vergleichen.
+
+Danach überall die https-Adresse verwenden, z. B. https://192.168.178.23:8443 –
+
+  - in der Home-Hub-App (Android) als "Adresse des Hubs",
+  - in Chrome auf dem Handy (Tipp: Menü > "Zum Startbildschirm hinzufügen"),
+  - auf diesem PC: https://localhost:8443
+
+Dann Einrichtungscode eingeben, Konto anlegen, fertig. Mikrofon (Gegensprechen) und
+Spotify funktionieren damit auch im Browser.
+
+Gib dem PC im Router eine FESTE IP-ADRESSE. Ändert sie sich, stellt der Hub sich zwar
+selbst ein neues Zertifikat aus (ohne erneute Installation auf den Geräten), aber die
+Adresse in App und Spotify müsste geändert werden.
+
+Demo und echter Betrieb verwenden dasselbe Zertifikat. Es liegt unter
+%LOCALAPPDATA%\HomeHub\zertifikat.
+
+Ohne https (nur zum Testen): in diesem Ordner eine Eingabeaufforderung öffnen und
+  powershell -ExecutionPolicy Bypass -File start.ps1 -NoHttps
+eingeben. Dann gilt die Adresse mit :8080 – unverschlüsselt.
+
+
+3. SPOTIFY
+----------
+
+Spotify verlangt für die Verknüpfung eine https-Adresse – die hat der Hub jetzt.
+Das Fenster zeigt die "Redirect URI", z. B.
+  https://192.168.178.23:8443/api/spotify/callback
+Diese in deiner Spotify-App auf developer.spotify.com eintragen. Die übrigen
+Schritte erklärt die App unter "Mehr > Geräte & Dienste > Spotify".
+
+
+3b. VON UNTERWEGS
+-----------------
+
+Von außerhalb deines WLANs am einfachsten mit Tailscale (kostenlos, nichts am Router
+einzustellen, öffentlich anerkanntes Zertifikat – auf den Handys muss dann nichts
+installiert werden):
 
   a) Tailscale auf dem PC installieren (https://tailscale.com/download/windows) und anmelden.
   b) In der Tailscale-Verwaltung (login.tailscale.com > DNS) "MagicDNS" und
@@ -58,8 +88,7 @@ https-Adresse. Am einfachsten mit Tailscale (kostenlos, nichts am Router einzust
   c) Tailscale-App auf dem Handy installieren und mit demselben Konto anmelden.
   d) Home Hub hier neu starten. Das Fenster zeigt dann eine Adresse wie
      https://mein-pc.tailXXXX.ts.net – die in der Home-Hub-App eintragen.
-
-Damit funktioniert alles, auch Mikrofon und Spotify, zu Hause und unterwegs.
+     Die Spotify-Redirect-URI lautet dann https://mein-pc.tailXXXX.ts.net/api/spotify/callback.
 
 
 4. DATEN

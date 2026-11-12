@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { slugify } from '@home-hub/shared';
 import { hubState } from './helpers.ts';
 
 test.describe('rooms and devices', () => {
@@ -92,5 +93,37 @@ test.describe('rooms and devices', () => {
     await page.goto('/jalousien');
     await page.getByRole('button', { name: 'Alle hoch' }).click();
     await expect.poll(moving, { timeout: 20_000 }).toBeGreaterThan(1);
+  });
+
+  test('room tiles can be rearranged and the order is kept', async ({ page, request }) => {
+    const order = async () => ((await (await request.get('/api/auth/me')).json()) as { prefs: { roomOrder: string[] } }).prefs.roomOrder;
+    await page.goto('/raeume');
+    await page.getByRole('button', { name: 'Anordnen' }).click();
+    const downstairs = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Erdgeschoss' }) });
+    const cards = downstairs.getByRole('button', { name: / verschieben$/ });
+    const first = (await cards.first().getAttribute('aria-label'))!.replace(' verschieben', '');
+    const second = (await cards.nth(1).getAttribute('aria-label'))!.replace(' verschieben', '');
+
+    // Keyboard: pick up, move one place to the right, put down.
+    // (The sensor listens from the next frame on; a human never types this fast.)
+    await cards.first().focus();
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Space');
+    await expect(cards.first()).toHaveAttribute('aria-label', `${second} verschieben`);
+    await expect.poll(async () => (await order()).slice(0, 2)).toEqual([second, first].map(slugify));
+    await page.getByRole('button', { name: 'Fertig' }).click();
+
+    // Kept after a reload, and on the overview too.
+    await page.reload();
+    const tiles = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Erdgeschoss' }) }).getByRole('link', { name: / öffnen$/ });
+    await expect(tiles.first()).toHaveAttribute('aria-label', `${second} öffnen`);
+
+    // Back to alphabetical.
+    await page.getByRole('button', { name: 'Anordnen' }).click();
+    await page.getByRole('button', { name: 'Alphabetisch' }).click();
+    await expect.poll(order).toEqual([]);
   });
 });

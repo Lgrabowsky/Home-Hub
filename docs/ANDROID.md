@@ -22,12 +22,15 @@ Einen neuen Lauf startest du jederzeit über **Run workflow**; außerdem baut Gi
 
 1. Die App fragt nach der **Adresse deines Hubs**: `https://` gefolgt von deinem Namen aus
    [FERNZUGRIFF.md](FERNZUGRIFF.md), z. B. `https://rechner.mein-netz.ts.net`.
-   Im eigenen WLAN nimmt die App auch eine unverschlüsselte Adresse an (`http://192.168.…:8080`, wie
-   sie das Fenster des Windows-Pakets zeigt) – aber nur für Adressen, die es ausschließlich im
-   Heimnetz gibt, und mit einem Hinweis. Für den Dauerbetrieb und von unterwegs gehört https dazu.
+   Läuft der Hub mit eigenem Zertifikat (Windows-Paket: Standard), installierst du es vorher einmal auf
+   dem Handy – die Seite `http://<IP des Hubs>:8080` führt durch die zwei Schritte – und trägst dann
+   `https://<IP des Hubs>:8443` ein. Die App vertraut Zertifikaten, die du selbst auf dem Handy
+   installiert hast. Ohne https nimmt die App unverschlüsselte Adressen nur im Heimnetz an
+   (`http://192.168.…`) und weist darauf hin.
 2. Anmelden mit Benutzername, Passwort und Code aus der Authenticator-App.
 3. Empfohlen: unter **Mehr › Konto & Sicherheit** die **App-Sperre** einschalten. Dann verlangt die
-   App nach einer Minute im Hintergrund Fingerabdruck, Gesicht oder Geräte-PIN.
+   App nach einer Minute im Hintergrund Fingerabdruck, Gesicht oder Geräte-PIN. Dort lässt sich auch
+   einstellen, dass die Übersicht der geöffneten Apps keinen Inhalt zeigt (ab Werk aus).
 4. Beim ersten Gegensprechen fragt Android nach dem Mikrofon – erlauben.
 
 Die App bleibt angemeldet, bis du dich abmeldest oder das Gerät 30 Tage nicht benutzt wurde.

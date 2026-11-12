@@ -4,8 +4,11 @@
 #   Home Hub starten.cmd   → echte Geräte (in der App unter „Geräte & Dienste“ einrichten)
 #
 # Fehlt Node.js oder ffmpeg, installiert das Skript beides mit winget (einmalig).
+#
+# Der Hub spricht https mit einem eigenen Zertifikat (Port 8443). Port 8080 zeigt nur die Seite, auf
+# der Handys das Zertifikat einmalig installieren. -NoHttps schaltet das ab (dann alles über 8080).
 
-param([switch]$Demo)
+param([switch]$Demo, [switch]$NoHttps)
 
 $ErrorActionPreference = 'Stop'
 # Whatever goes wrong: say it and keep the window open, instead of vanishing.
@@ -72,7 +75,53 @@ $env:GO2RTC_BIN = Join-Path $Root 'bin\go2rtc.exe'
 $env:FFMPEG_BIN = 'ffmpeg'
 if ($Demo) { $env:HUB_DEMO = '1' } else { Remove-Item Env:HUB_DEMO -ErrorAction SilentlyContinue }
 
-# Tailscale (optional): gibt dem Hub eine https-Adresse – die braucht die Android-App.
+# --- Adressen für das Handy ------------------------------------------------------------------------------
+$addresses = @()
+try {
+  $addresses = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+    Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -notlike '100.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
+    Select-Object -ExpandProperty IPAddress)
+} catch { }
+# Die Adresse im Heimnetz: die der Verbindung mit der Standardroute (nicht die virtueller Adapter).
+$primary = $null
+try {
+  $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction Stop | Sort-Object RouteMetric, InterfaceMetric | Select-Object -First 1
+  $primary = Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 -ErrorAction Stop |
+    Where-Object { $_.IPAddress -notlike '169.254.*' } | Select-Object -First 1 -ExpandProperty IPAddress
+} catch { }
+if (-not $primary -and $addresses) { $primary = $addresses[0] }
+
+# --- https mit eigenem Zertifikat ---------------------------------------------------------------------------
+$hubJs = Join-Path $Root 'app\hub\dist\index.js'
+$https = -not $NoHttps
+$fingerprint = $null
+if ($https) {
+  $env:HUB_TLS = 'auto'
+  $env:HUB_HTTPS_PORT = '8443'
+  # Ein Zertifikat für Demo und echten Betrieb: Geräte müssen es nur einmal installieren.
+  $env:HUB_TLS_DIR = Join-Path $env:LOCALAPPDATA 'HomeHub\zertifikat'
+  $prepared = & node $hubJs --prepare-tls | ConvertFrom-Json
+  $fingerprint = $prepared.fingerprint
+  $caFile = $prepared.caFile
+  $ca = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($caFile)
+  if (-not (Test-Path ("Cert:\CurrentUser\Root\" + $ca.Thumbprint))) {
+    Say ''
+    Say 'Damit Browser auf diesem PC dem Hub vertrauen, wird sein Zertifikat jetzt eingetragen.' White
+    Say 'Windows fragt gleich nach – bitte mit „Ja“ bestätigen. (Es gilt nur für Adressen im Heimnetz.)' White
+    try {
+      Import-Certificate -FilePath $caFile -CertStoreLocation Cert:\CurrentUser\Root | Out-Null
+      Say 'Zertifikat eingetragen.' Green
+    } catch {
+      Say "Nicht eingetragen – Browser auf diesem PC warnen dann. Nachholen: Doppelklick auf $caFile" Yellow
+    }
+  }
+} else {
+  Remove-Item Env:HUB_TLS, Env:HUB_HTTPS_PORT, Env:HUB_TLS_DIR -ErrorAction SilentlyContinue
+}
+$appPort = if ($https) { 8443 } else { 8080 }
+$scheme = if ($https) { 'https' } else { 'http' }
+
+# Tailscale (optional): eine https-Adresse mit öffentlich anerkanntem Zertifikat, auch von unterwegs.
 $tailscaleUrl = $null
 $tailscale = Get-Command tailscale -ErrorAction SilentlyContinue
 if ($tailscale) {
@@ -80,49 +129,64 @@ if ($tailscale) {
     $status = & tailscale status --json | ConvertFrom-Json
     if ($status.BackendState -eq 'Running' -and $status.Self.DNSName) {
       $name = $status.Self.DNSName.TrimEnd('.')
-      & tailscale serve --bg 8080 | Out-Null
+      $target = if ($https) { 'https+insecure://127.0.0.1:8443' } else { '8080' }
+      & tailscale serve --bg $target | Out-Null
       $tailscaleUrl = "https://$name"
-      $env:HUB_PUBLIC_URL = $tailscaleUrl
     }
   } catch {
     Say "Tailscale ist installiert, aber „tailscale serve“ hat nicht geklappt: $($_.Exception.Message)" Yellow
   }
 }
 
-# --- Adressen für das Handy ------------------------------------------------------------------------------
-$addresses = @()
-try {
-  $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
-    Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' -and $_.IPAddress -notlike '100.*' -and $_.PrefixOrigin -ne 'WellKnown' } |
-    Select-Object -ExpandProperty IPAddress
-} catch { }
+# Die feste Adresse des Hubs (u. a. für die Rückleitung von Spotify): Tailscale, sonst die Heimnetz-Adresse.
+if ($tailscaleUrl) { $env:HUB_PUBLIC_URL = $tailscaleUrl }
+elseif ($https -and $primary) { $env:HUB_PUBLIC_URL = "https://${primary}:8443" }
+else { Remove-Item Env:HUB_PUBLIC_URL -ErrorAction SilentlyContinue }
 
 Say ''
 Say '==============================================================' Green
 if ($Demo) { Say '  Home Hub – Demo (alle Geräte sind simuliert)' Green } else { Say '  Home Hub' Green }
 Say '==============================================================' Green
 Say ''
-Say 'Vom Handy im selben WLAN, im Browser (Chrome) öffnen:' White
-foreach ($ip in $addresses) { Say "    http://${ip}:8080" Cyan }
-if (-not $addresses) { Say '    http://<IP-Adresse dieses PCs>:8080' Cyan }
-Say ''
-if ($tailscaleUrl) {
-  Say 'Mit der Android-App (und von unterwegs) diese Adresse eintragen:' White
-  Say "    $tailscaleUrl" Cyan
+$shown = if ($primary) { @($primary) + @($addresses | Where-Object { $_ -ne $primary }) } else { $addresses }
+if ($https) {
+  Say 'Handy im selben WLAN – einmalig das Zertifikat installieren, im Browser öffnen:' White
+  foreach ($ip in $shown) { Say "    http://${ip}:8080" Cyan }
+  if (-not $shown) { Say '    http://<IP-Adresse dieses PCs>:8080' Cyan }
+  Say '  (die Seite erklärt die zwei Schritte für Android und iPhone)' DarkGray
+  Say ''
+  Say 'Danach im Browser und in der Android-App diese Adresse verwenden:' White
+  foreach ($ip in $shown) { Say "    https://${ip}:8443" Cyan }
+  Say '    Auf diesem PC: https://localhost:8443' Cyan
+  Say ''
+  Say "Fingerabdruck des Zertifikats (zum Vergleich auf dem Handy):" DarkGray
+  Say "    $fingerprint" DarkGray
 } else {
-  Say 'Für die Android-App braucht der Hub eine https-Adresse: Tailscale auf PC und Handy' DarkGray
-  Say 'installieren und anmelden, dann dieses Fenster schließen und neu starten (siehe LIESMICH).' DarkGray
+  Say 'Vom Handy im selben WLAN, im Browser öffnen:' White
+  foreach ($ip in $shown) { Say "    http://${ip}:8080" Cyan }
+  if (-not $shown) { Say '    http://<IP-Adresse dieses PCs>:8080' Cyan }
 }
 Say ''
+if ($tailscaleUrl) {
+  Say 'Über Tailscale (auch von unterwegs, ohne Zertifikat-Installation):' White
+  Say "    $tailscaleUrl" Cyan
+  Say ''
+}
+if ($env:HUB_PUBLIC_URL) {
+  Say 'Spotify: in deiner Spotify-App (developer.spotify.com) als Redirect URI eintragen:' White
+  Say "    $($env:HUB_PUBLIC_URL)/api/spotify/callback" Cyan
+  Say '  Tipp: dem PC im Router eine feste IP-Adresse geben, sonst ändert sich diese Adresse.' DarkGray
+  Say ''
+}
 Say 'Fragt Windows nach der Firewall: „Private Netzwerke“ zulassen.' DarkGray
 Say 'Beim ersten Start steht unten der Einrichtungscode für das erste Konto.' DarkGray
 Say 'Beenden: dieses Fenster schließen oder Strg+C.' DarkGray
 Say ''
 
-& node (Join-Path $Root 'app\hub\dist\index.js')
+& node $hubJs
 $code = $LASTEXITCODE
 if ($code -ne 0) {
   Say ''
-  Say "Der Hub wurde mit Code $code beendet. Läuft er vielleicht schon in einem anderen Fenster (Port 8080 belegt)?" Red
+  Say "Der Hub wurde mit Code $code beendet. Läuft er vielleicht schon in einem anderen Fenster (Port 8080 oder 8443 belegt)?" Red
   Read-Host 'Enter zum Beenden'
 }

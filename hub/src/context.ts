@@ -14,6 +14,7 @@ import type { TicketStore } from './auth/tickets.ts';
 import type { IntegrationManager } from './integrations/manager.ts';
 import type { ImageProxy } from './util/images.ts';
 import type { DemoControl } from './sim/demo.ts';
+import type { TlsMaterial } from './security/tls.ts';
 
 /** Everything the HTTP layer and the integrations share. */
 export interface HubContext {
@@ -37,4 +38,6 @@ export interface HubContext {
   startedAt: number;
   /** Set while the demo mode (HUB_DEMO=1) is running. */
   demo: DemoControl | null;
+  /** Certificate the hub serves HTTPS with (null without HUB_TLS). Replaced when it is renewed. */
+  tls: TlsMaterial | null;
 }

@@ -123,6 +123,74 @@ jobs:
           path: dist-windows/HomeHub
           retention-days: 30
 
+  windows-smoke:
+    # The package on a real Windows machine: the scripts parse in both PowerShells, the hub starts
+    # with its own certificate, and Windows itself accepts that certificate (name constraints included).
+    needs: windows-package
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: HomeHub-Windows
+          path: HomeHub
+
+      - name: Scripts parse (PowerShell 7)
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem HomeHub -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Host "$($file.Name):$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          }
+
+      - name: Scripts parse (Windows PowerShell 5.1, what double-clicking uses)
+        shell: powershell
+        run: |
+          foreach ($file in Get-ChildItem HomeHub -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Host "$($file.Name):$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          }
+
+      - name: Hub answers over HTTPS with a certificate Windows trusts
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:HUB_TLS = 'auto'
+          $env:HUB_TLS_DIR = Join-Path $env:RUNNER_TEMP 'cert'
+          $env:HUB_DATA_DIR = Join-Path $env:RUNNER_TEMP 'data'
+          $env:HUB_DEMO = '1'
+          $env:HUB_MEDIA = '0'
+          $env:HUB_HOST = '127.0.0.1'
+          $hubJs = Join-Path $PWD 'HomeHub\app\hub\dist\index.js'
+          $prepared = & node $hubJs --prepare-tls | ConvertFrom-Json
+          Write-Host "Zertifikat: $($prepared.fingerprint) für $($prepared.names -join ', ')"
+          # The runner is an administrator: the machine store needs no confirmation dialog.
+          Import-Certificate -FilePath $prepared.caFile -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          $log = Join-Path $env:RUNNER_TEMP 'hub.log'
+          $hub = Start-Process node -ArgumentList "`"$hubJs`"" -PassThru -NoNewWindow -RedirectStandardOutput $log -RedirectStandardError "$log.err"
+          try {
+            $health = $null
+            for ($i = 0; $i -lt 60 -and -not $health; $i++) {
+              Start-Sleep -Seconds 1
+              try { $health = Invoke-WebRequest -UseBasicParsing -Uri 'https://localhost:8443/api/health' } catch { }
+            }
+            if (-not $health) { Get-Content $log, "$log.err" -ErrorAction SilentlyContinue; throw 'Keine https-Antwort mit Windows-Zertifikatsprüfung' }
+            Write-Host "https://localhost:8443 → $($health.StatusCode) $($health.Content)"
+            Invoke-WebRequest -UseBasicParsing -Uri 'https://127.0.0.1:8443/api/bootstrap' | Out-Null
+            $page = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8080/'
+            if ($page.Content -notmatch [regex]::Escape($prepared.fingerprint)) { throw 'Zertifikatsseite ohne Fingerabdruck' }
+            $redirect = Invoke-WebRequest -UseBasicParsing -Uri 'http://127.0.0.1:8080/api/auth/me' -MaximumRedirection 0 -ErrorAction SilentlyContinue
+            if ($redirect.StatusCode -ne 308) { throw "http leitet nicht auf https um ($($redirect.StatusCode))" }
+          } finally {
+            Stop-Process -Id $hub.Id -Force -ErrorAction SilentlyContinue
+          }
+
   image:
     needs: test
     runs-on: ubuntu-latest

@@ -18,6 +18,8 @@ const PUBLIC_ROUTES = new Set([
   '/api/ws', // authenticates with a one-time ticket
   '/api/media/ws', // authenticates with a one-time ticket
   '/api/*', // CORS preflight (OPTIONS) only
+  '/hub-ca.crt', // the hub's public CA certificate (HTTPS without a domain), nothing secret
+  '/zertifikat', // how to install it
 ]);
 
 let hub: TestHub;

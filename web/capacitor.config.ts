@@ -29,8 +29,10 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_INSIDE',
       showSpinner: false,
     },
+    // Off by default: the app shows its content in the task switcher. Owners who want a blank tile
+    // (and no screenshots) switch it on under Konto & Sicherheit.
     PrivacyScreen: {
-      enable: true,
+      enable: false,
     },
   },
 };

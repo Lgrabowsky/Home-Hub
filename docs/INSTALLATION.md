@@ -12,9 +12,13 @@ Entpacken, dann Doppelklick auf **„Demo starten.cmd“** (alle Geräte simulie
 installiert. Das Fenster zeigt die Adresse fürs Handy und den Einrichtungscode; alles Weitere steht in
 `LIESMICH.txt` im Paket.
 
-Vom Handy im selben WLAN geht es sofort im Browser (`http://<IP des PCs>:8080`). Die Android-App
-braucht https – dafür Tailscale auf PC und Handy installieren (siehe [FERNZUGRIFF.md](FERNZUGRIFF.md));
-das Startskript richtet `tailscale serve` dann selbst ein.
+Der Hub verschlüsselt dabei selbst (**https auf Port 8443**) mit einem eigenen Zertifikat, das nur
+für Adressen im Heimnetz gilt. Jedes Gerät vertraut ihm einmal: auf dem PC erledigt das das
+Startfenster, auf dem Handy die Seite `http://<IP des PCs>:8080` (Zertifikat herunterladen,
+installieren – die Seite erklärt es für Android und iPhone). Danach gilt überall
+`https://<IP des PCs>:8443` – im Browser, in der Android-App und als Spotify-Redirect-URI. Mit
+Tailscale auf PC und Handy (siehe [FERNZUGRIFF.md](FERNZUGRIFF.md)) geht es zusätzlich von unterwegs
+und ohne Zertifikat-Installation; das Startskript richtet `tailscale serve` dann selbst ein.
 
 Für den Dauerbetrieb ist ein Rechner, der immer läuft, die bessere Wahl – weiter mit der Anleitung unten.
 
@@ -160,3 +164,8 @@ Für die normale Installation genügt die Datei `.env`. Der Vollständigkeit hal
 | `HUB_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 | `HUB_DEMO` | aus | `1` = Demo mit simulierten Geräten |
 | `HUB_SETUP_TOKEN` | – | Fester Einrichtungscode statt eines zufälligen (für automatisierte Installationen) |
+| `HUB_TLS` | aus | `auto` = der Hub spricht selbst https mit einem eigenen, aufs Heimnetz beschränkten Zertifikat (`/zertifikat` erklärt die Installation). `HUB_PORT` zeigt dann nur noch diese Seite und leitet sonst auf https um. Hinter einem Proxy (Docker-Setup) aus lassen. |
+| `HUB_HTTPS_PORT` | `8443` | Port für https bei `HUB_TLS` |
+| `HUB_TLS_DIR` | `<HUB_DATA_DIR>/tls` | Ablage des eigenen Zertifikats (mit eigenem Schlüssel), z. B. gemeinsam für mehrere Datenverzeichnisse |
+| `HUB_TLS_NAMES` | – | Weitere Namen fürs Zertifikat, mit Komma getrennt (nur Heimnetz-Namen wie `hub.fritz.box`) |
+| `HUB_TLS_CERT` / `HUB_TLS_KEY` | – | Eigenes Zertifikat (PEM-Dateien) statt des selbst ausgestellten |

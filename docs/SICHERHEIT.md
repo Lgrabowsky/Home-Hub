@@ -79,6 +79,15 @@ Alle Verschlüsselung auf dem Hub hängt an einem Hauptschlüssel:
 
 - Ausschließlich **https**; der Hub sendet strenge Sicherheitsvorgaben an den Browser (u. a. eine
   Content-Security-Policy, die das Nachladen fremder Inhalte unterbindet).
+- **Eigenes Zertifikat ohne Domain** (`HUB_TLS=auto`, Standard im Windows-Paket): Der Hub ist seine
+  eigene kleine Zertifizierungsstelle. Weil Geräte ihr ausdrücklich vertrauen müssen, ist sie
+  technisch beschränkt (X.509-Namensbeschränkung, „kritisch“): Sie kann nur Adressen bescheinigen,
+  die es ausschließlich im Heimnetz gibt (private IP-Bereiche, `localhost`, `….local`, `….lan`,
+  `….fritz.box` u. ä.). Selbst mit ihrem Schlüssel ließe sich damit keine Webseite im Internet
+  nachahmen. Der Schlüssel liegt verschlüsselt beim Hub. Vergleiche beim Installieren auf dem Handy
+  den Fingerabdruck mit dem im Fenster des Hubs – die Installationsseite selbst kommt noch
+  unverschlüsselt. Der unverschlüsselte Port liefert nur diese Seite und das Zertifikat; App,
+  Anmeldung und Daten gibt es nur über https.
 - **Schutz vor fremden Webseiten:** Anfragen, die etwas verändern, werden nur von der App selbst
   angenommen (Herkunftsprüfung, eigener Anfrage-Kopf, Cookie nur für direkte Aufrufe).
 - **Live-Video:** Der Video-Dienst ist von außen nicht ansprechbar. Eine App erhält nach der Anmeldung
@@ -93,8 +102,9 @@ Alle Verschlüsselung auf dem Hub hängt an einem Hauptschlüssel:
 - Anmeldung im Android-Schlüsselspeicher, nicht in einer lesbaren Datei.
 - Optionale **App-Sperre** per Fingerabdruck/Gesicht/Geräte-PIN (unter Konto & Sicherheit); sie greift
   nach kurzer Zeit im Hintergrund.
-- Kein Inhalt in der „Zuletzt verwendet“-Übersicht und keine Bildschirmfotos (Schutz vor neugierigen
-  Blicken und anderen Apps).
+- Auf Wunsch kein Inhalt in der „Zuletzt verwendet“-Übersicht und keine Bildschirmfotos (Schutz vor
+  neugierigen Blicken und anderen Apps): **Konto & Sicherheit › Auf diesem Gerät › Inhalt in der
+  App-Übersicht verbergen**. Ab Werk aus – dann zeigt die Übersicht der Apps den letzten Bildschirm.
 - Vom Cloud-Backup und von der Geräteübertragung ausgeschlossen.
 - Unverschlüsselt (http) verbindet sich die App nur mit Adressen, die es ausschließlich im Heimnetz
   gibt (z. B. `192.168.…`), und weist dabei darauf hin; alles andere nur über https. Wer im eigenen
