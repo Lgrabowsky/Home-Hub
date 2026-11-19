@@ -52,6 +52,10 @@ nur wach, solange ihr Fenster offen ist. Wie du alles wieder entfernst, steht ga
 1. Öffne <https://www.virtualbox.org/wiki/Download_Old_Builds_6_1> und lade bei
    **VirtualBox 6.1.50** den Eintrag **„Windows hosts“** herunter. (Die neueren 7.x-Versionen laufen
    auf Windows 7 nicht zuverlässig.)
+   Lädt die Seite nicht (z. B. „402 Payment Required“), hol die Datei direkt vom Download-Server:
+   <https://download.virtualbox.org/virtualbox/6.1.50/> › **`VirtualBox-6.1.50-161033-Win.exe`**.
+   Nimm sie nur von dort, nicht von Download-Portalen. Beim Start muss Windows als verifizierten
+   Herausgeber **Oracle** anzeigen.
 2. Starte die Datei › **Next**.
 3. Seite **„Custom Setup“** – hier nur das Nötige auswählen. Klicke jeweils auf das Symbol vor dem
    Eintrag und wähle **„Entire feature will be unavailable“** für:
