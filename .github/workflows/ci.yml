@@ -280,6 +280,8 @@ jobs:
           $calls | ForEach-Object { Write-Host "VBoxManage $_" }
           if (-not ($calls -contains 'startvm HomeHub --type headless')) { throw 'VM was not started headless' }
           if (-not ($calls -contains 'controlvm HomeHub acpipowerbutton')) { throw 'VM was not shut down via ACPI' }
+          # The runner would otherwise report the deliberate failure of the last call above.
+          exit 0
 
   image:
     needs: test
