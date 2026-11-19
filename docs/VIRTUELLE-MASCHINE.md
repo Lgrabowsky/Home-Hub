@@ -116,8 +116,8 @@ Die VM „HomeHub“ links markieren › oben **„Ändern“**:
    *Fragt VirtualBox nicht nach dem Startmedium* (oder steht im Fenster „FATAL: No bootable medium
    found! System halted.“): VM ausschalten (Fenster schließen › „Die virtuelle Maschine
    ausschalten“), dann **Ändern › Massenspeicher** › unter „Controller: IDE“ das CD-Symbol
-   **„Leer“** anklicken › rechts neben „Optisches Laufwerk“ auf das kleine CD-Symbol › **„Datei für
-   optisches Medium auswählen …“** › die ISO-Datei › **Öffnen** › **OK** › **Starten**.
+   **„Leer“** anklicken › rechts neben „Optisches Laufwerk“ auf das kleine CD-Symbol › **„Abbild
+   auswählen …“** › die ISO-Datei › **Öffnen** › **OK** › **Starten**.
 2. Ein Klick ins VM-Fenster gibt Tastatur und Maus an die VM; **zurück zu Windows mit der rechten
    Strg-Taste**.
 3. Im Startmenü von Debian mit den Pfeiltasten **„Install“** wählen (nicht „Graphical install“) ›
