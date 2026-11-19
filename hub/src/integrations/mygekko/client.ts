@@ -149,7 +149,8 @@ export class GekkoClient {
     this.mode = settings.mode;
     const params: Record<string, string> =
       settings.mode === 'cloud'
-        ? { username: settings.username, key: settings.password, gekkoid: settings.gekkoId }
+        ? // An API key never contains blanks; pasted on a phone it often brings one along.
+          { username: settings.username, key: settings.password.trim(), gekkoid: settings.gekkoId }
         : { username: settings.username, password: settings.password };
     this.auth = Object.entries(params)
       .map(([name, value]) => `${name}=${encodeURIComponent(value)}`)

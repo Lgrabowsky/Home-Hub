@@ -1913,6 +1913,9 @@ describe('cloud mode', () => {
     const good = await MyGekkoIntegration.test(cloudSettings(), options);
     expect(good).toMatchObject({ ok: true, message: 'Verbunden mit „Musterhaus“ (Firmware 879015).' });
     expect(good.details[0]).toBe('Verbindung: über die myGEKKO-Cloud.');
+
+    // A key pasted with a blank or line break before or after it still logs in.
+    expect(await MyGekkoIntegration.test(cloudSettings({ password: ` ${API_KEY}\n` }), options)).toMatchObject({ ok: true });
   });
 });
 
