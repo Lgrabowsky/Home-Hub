@@ -248,7 +248,8 @@ jobs:
           $env:HOMEHUB_VM_NO_MINIMIZE = '1'
           $script = (Resolve-Path 'deploy/windows-vm/hub-vm.ps1').Path
           function Invoke-HubVm([string]$Action) {
-            & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Action $Action
+            # Show the script's output, but keep it out of the return value.
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Action $Action | Out-Host
             return $LASTEXITCODE
           }
 
