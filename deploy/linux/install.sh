@@ -125,13 +125,17 @@ EOF
     note "Gleich erscheint ein Link (und ein QR-Code). Öffne ihn auf dem Handy oder einem anderen"
     note "Gerät und melde dich an – mit demselben Konto, das du auch in der Tailscale-App nutzt."
     note "Neu bei Tailscale? Dann legst du dort jetzt kostenlos ein Konto an."
-    tailscale up --qr --hostname="$TS_HOSTNAME"
+    tailscale up --qr --hostname="$TS_HOSTNAME" --accept-dns=false
   fi
   for _ in $(seq 1 30); do
     [ "$(ts_state)" = Running ] && break
     sleep 1
   done
   [ "$(ts_state)" = Running ] || fail "Tailscale ist nicht verbunden. Starte das Skript noch einmal."
+  # Tailscale soll die Namensauflösung dieses Rechners nicht übernehmen. Der Hub braucht sie nicht,
+  # und Container übernehmen /etc/resolv.conf nur beim Start: Schreibt Tailscale die Datei danach um,
+  # findet der Hub keine Namen im Internet mehr (myGEKKO-Cloud, Spotify).
+  tailscale set --accept-dns=false
 
   DOMAIN="$(tailscale status --json | jq -r '.Self.DNSName // ""')"
   DOMAIN="${DOMAIN%.}"
@@ -171,7 +175,8 @@ EOF
   cd "$DIR/deploy"
   # Tailscale übernimmt https – den mitgelieferten Proxy (Caddy) braucht es auf diesem Weg nicht.
   docker compose pull -q hub
-  docker compose up -d hub
+  # Immer neu anlegen, damit der Container die aktuelle Namensauflösung des Rechners übernimmt.
+  docker compose up -d --force-recreate hub
 
   healthy=no
   for _ in $(seq 1 60); do

@@ -278,6 +278,18 @@ In den VM-Einstellungen (Schritt 5) die Netzwerkbrücke auf die richtige, kabelg
 Netzwerkkarte stellen. In der VM zeigt `ip -4 addr` eine Adresse wie `192.168.178.x`, wenn alles
 stimmt.
 
+**„Hostname konnte nicht aufgelöst werden“ (z. B. bei der myGEKKO-Cloud oder Spotify)**
+Der Hub findet keine Namen im Internet, obwohl die VM selbst online ist. In der VM:
+
+```bash
+sudo tailscale set --accept-dns=false
+sudo docker restart home-hub
+sudo docker exec home-hub nslookup live.my-gekko.com
+```
+
+Die letzte Zeile muss eine Adresse („Address: …“) zeigen. Danach die Verbindung im Hub noch
+einmal testen. (Installationen ab dem 19.11.2026 richten das von selbst so ein.)
+
 **Sonos-Lautsprecher werden nicht gefunden**
 Netzwerkbrücke statt „NAT“ eingestellt? PC per Kabel verbunden? Notfalls trägst du die Adressen der
 Lautsprecher in den Hub-Einstellungen von Hand ein.
