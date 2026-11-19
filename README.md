@@ -65,7 +65,8 @@ npm run demo
 
 ## Richtig installieren
 
-1. **[Installation](docs/INSTALLATION.md)** – Hub auf einem Rechner im Heimnetz starten.
+1. **[Installation](docs/INSTALLATION.md)** – Hub auf einem Rechner im Heimnetz starten. Auf einem Windows-PC
+   ohne Windows anzutasten (auch Windows 7): **[in einer virtuellen Maschine](docs/VIRTUELLE-MASCHINE.md)**.
 2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, DoorBird, Reolink, Sonos und Spotify
    vorzubereiten ist, inklusive der Fenster- und Türkontakte.
 3. **[Zugriff von unterwegs](docs/FERNZUGRIFF.md)** – per VPN (empfohlen) oder über eine eigene Adresse.

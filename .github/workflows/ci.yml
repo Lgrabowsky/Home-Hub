@@ -37,6 +37,9 @@ jobs:
       - name: Hub tests
         run: npm run test -w hub
 
+      - name: Set-up script for Linux (shellcheck)
+        run: shellcheck -x deploy/linux/install.sh
+
       - name: Build
         run: npm run build
 
@@ -190,6 +193,92 @@ jobs:
           } finally {
             Stop-Process -Id $hub.Id -Force -ErrorAction SilentlyContinue
           }
+
+  windows-vm-scripts:
+    # Start/stop scripts for the hub in VirtualBox (deploy/windows-vm, written for Windows 7 and
+    # newer), driven against a stand-in for VBoxManage: start and keep watching, stop, and the case
+    # of a missing VM.
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scripts parse (PowerShell 7)
+        shell: pwsh
+        run: |
+          foreach ($file in Get-ChildItem deploy/windows-vm -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Host "$($file.Name):$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          }
+
+      - name: Scripts parse (Windows PowerShell 5.1)
+        shell: powershell
+        run: |
+          foreach ($file in Get-ChildItem deploy/windows-vm -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors) { $errors | ForEach-Object { Write-Host "$($file.Name):$($_.Extent.StartLineNumber): $($_.Message)" }; exit 1 }
+          }
+
+      - name: Start, watch and stop against a stand-in VBoxManage
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'vbox'
+          New-Item -ItemType Directory -Path $work | Out-Null
+          $stateFile = Join-Path $work 'state.txt'
+          $fake = Join-Path $work 'VBoxManage.cmd'
+          Set-Content -Path $fake -Encoding Ascii -Value @(
+            '@echo off',
+            'set /p STATE=<"%HOMEHUB_FAKE_STATE%"',
+            'echo %*>>"%HOMEHUB_FAKE_STATE%.log"',
+            'if "%STATE%"=="missing" exit /b 1',
+            'if "%1"=="showvminfo" (echo name="HomeHub"& echo VMState="%STATE%"& exit /b 0)',
+            'if "%1"=="startvm" (>"%HOMEHUB_FAKE_STATE%" echo running& exit /b 0)',
+            'if "%1"=="controlvm" (>"%HOMEHUB_FAKE_STATE%" echo poweroff& exit /b 0)',
+            'exit /b 2'
+          )
+          Set-Content -Path $stateFile -Encoding Ascii -Value 'poweroff'
+          $env:HOMEHUB_FAKE_STATE = $stateFile
+          $env:HOMEHUB_VBOXMANAGE = $fake
+          $env:HOMEHUB_VM_POLL_SECONDS = '1'
+          $env:HOMEHUB_VM_STOP_POLL_SECONDS = '1'
+          $env:HOMEHUB_VM_READ_SECONDS = '0'
+          $env:HOMEHUB_VM_NO_MINIMIZE = '1'
+          $script = (Resolve-Path 'deploy/windows-vm/hub-vm.ps1').Path
+          function Invoke-HubVm([string]$Action) {
+            & powershell -NoProfile -ExecutionPolicy Bypass -File $script -Action $Action
+            return $LASTEXITCODE
+          }
+
+          if ((Invoke-HubVm status) -ne 0) { throw 'status failed while the VM is off' }
+
+          # "start" keeps running (and keeps the PC awake) as long as the VM runs.
+          $start = Start-Process powershell -PassThru -NoNewWindow -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$script`"", '-Action', 'start')
+          $null = $start.Handle
+          $deadline = (Get-Date).AddSeconds(30)
+          while ((Get-Content $stateFile) -ne 'running') {
+            if ((Get-Date) -gt $deadline) { throw 'start did not start the VM' }
+            Start-Sleep -Milliseconds 200
+          }
+          Start-Sleep -Seconds 3
+          if ($start.HasExited) { throw "start returned while the VM is still running (exit $($start.ExitCode))" }
+
+          if ((Invoke-HubVm stop) -ne 0) { throw 'stop failed' }
+          if ((Get-Content $stateFile) -ne 'poweroff') { throw 'stop did not power the VM off' }
+          if (-not $start.WaitForExit(20000)) { $start.Kill(); throw 'start kept running after the VM was off' }
+          if ($start.ExitCode -ne 0) { throw "start ended with $($start.ExitCode)" }
+
+          if ((Invoke-HubVm stop) -ne 0) { throw 'stop of a VM that is already off should succeed' }
+
+          Set-Content -Path $stateFile -Encoding Ascii -Value 'missing'
+          if ((Invoke-HubVm start) -ne 1) { throw 'start should fail for a missing VM' }
+
+          $calls = Get-Content "$stateFile.log"
+          $calls | ForEach-Object { Write-Host "VBoxManage $_" }
+          if (-not ($calls -contains 'startvm HomeHub --type headless')) { throw 'VM was not started headless' }
+          if (-not ($calls -contains 'controlvm HomeHub acpipowerbutton')) { throw 'VM was not shut down via ACPI' }
 
   image:
     needs: test

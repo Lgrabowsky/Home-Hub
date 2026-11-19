@@ -1,0 +1,3 @@
+# Windows scripts for the VirtualBox set-up are used as they are (CRLF, UTF-8 with BOM for
+# Windows PowerShell 2.0) - git must not convert them.
+deploy/windows-vm/** -text

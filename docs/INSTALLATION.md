@@ -22,6 +22,18 @@ und ohne Zertifikat-Installation; das Startskript richtet `tailscale serve` dann
 
 Für den Dauerbetrieb ist ein Rechner, der immer läuft, die bessere Wahl – weiter mit der Anleitung unten.
 
+Ältere Windows-Version (z. B. Windows 7), oder soll Windows unangetastet bleiben? Dann läuft der Hub
+in einer virtuellen Maschine – Schritt für Schritt in [VIRTUELLE-MASCHINE.md](VIRTUELLE-MASCHINE.md).
+
+**Abkürzung für Debian, Ubuntu und Raspberry Pi OS (64-Bit):** Das Skript `deploy/linux/install.sh`
+erledigt die Schritte 1 und 2 samt Tailscale (Weg A in [FERNZUGRIFF.md](FERNZUGRIFF.md)) in einem
+Rutsch und zeigt am Ende Adresse und Einrichtungscode:
+
+```bash
+wget -O hub.sh https://raw.githubusercontent.com/lgrabowsky/home-hub/HEAD/deploy/linux/install.sh
+sudo bash hub.sh
+```
+
 ## 1. Was du brauchst
 
 - **Einen Rechner, der immer an ist** und per Kabel oder stabilem WLAN im selben Netz wie deine

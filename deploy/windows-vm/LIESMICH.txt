@@ -1,0 +1,16 @@
+﻿Home Hub in VirtualBox - Start- und Stopp-Dateien
+==================================================
+
+Die drei Dateien gehören zusammen in einen Ordner:
+
+  Hub-VM starten.cmd   startet die VM "HomeHub" unsichtbar im Hintergrund. Ein Fenster legt sich
+                       minimiert in die Taskleiste und hält den PC wach, solange der Hub läuft.
+  Hub-VM beenden.cmd   fährt die VM sauber herunter. Danach ist der Arbeitsspeicher wieder frei.
+  hub-vm.ps1           die Logik dahinter (wird von den beiden .cmd-Dateien aufgerufen).
+
+Vor dem Herunterfahren, Neustarten oder Abmelden von Windows immer zuerst "Hub-VM beenden".
+
+Dauerhaft ändern die Dateien nichts an Windows: keine Energieeinstellung, kein Autostart, kein Dienst.
+
+Vollständige Anleitung (VirtualBox, Debian, Hub einrichten):
+https://github.com/lgrabowsky/home-hub/blob/HEAD/docs/VIRTUELLE-MASCHINE.md
