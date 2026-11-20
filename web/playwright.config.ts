@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -18,6 +18,11 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = Number(process.env.HH_E2E_PORT ?? 18480);
 // One data directory per run; workers inherit it through the environment.
 process.env.HH_E2E_DATA ??= mkdtempSync(join(tmpdir(), 'home-hub-e2e-'));
+// Stands in for the directory the Linux set-up shares with its helper on the machine ("Server neu starten").
+if (!process.env.HH_E2E_CONTROL) {
+  process.env.HH_E2E_CONTROL = mkdtempSync(join(tmpdir(), 'home-hub-e2e-control-'));
+  writeFileSync(join(process.env.HH_E2E_CONTROL, 'helper'), '1\n');
+}
 
 export const ADMIN = { name: 'Erika Muster', username: 'erika', password: 'Ein-langes-Test-Passwort-1' };
 export const STORAGE = 'e2e/.auth/admin.json';
@@ -57,6 +62,7 @@ export default defineConfig({
       HUB_WEBRTC_PORT: String(PORT + 1),
       HUB_RTSP_PORT: String(PORT + 2),
       HUB_DATA_DIR: process.env.HH_E2E_DATA,
+      HUB_HOST_CONTROL_DIR: process.env.HH_E2E_CONTROL,
       HUB_SETUP_TOKEN: 'DEMO-DEMO-DEMO',
       HUB_LOG_LEVEL: 'warn',
       HUB_WEB_DIR: join(import.meta.dirname, 'dist'),

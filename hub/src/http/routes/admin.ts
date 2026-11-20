@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { AuditEntry, ContactCandidate, DiagnosticsReport, IntegrationSettingsMap, SettingsKey, TestResult } from '@home-hub/shared';
 import type { HubContext } from '../../context.ts';
 import { isSettingsKey } from '../../settings.ts';
-import { notFound } from '../errors.ts';
+import { notFound, unavailable } from '../errors.ts';
 import { actor, parseBody } from '../server.ts';
 
 /** Hub administration: integration settings, connection tests, audit log, diagnostics. */
@@ -79,6 +79,20 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: HubContext): void
       media: { running: media.running, version: media.version, streams: media.streams, candidates: media.candidates },
       counts,
       raw: { ...integrations.diagnostics(), media },
+      host: { canReboot: ctx.hostControl.canReboot },
     };
+  });
+
+  /**
+   * Restarts the machine the hub runs on (e.g. the VM). The hub itself cannot do that: it asks a
+   * helper on the machine, which only exists when the Linux set-up script installed it.
+   */
+  app.post('/api/admin/system/reboot', { config: { access: 'admin', sensitive: true } }, async (request, reply) => {
+    if (!ctx.hostControl.canReboot) throw unavailable('Auf diesem Server ist der Neustart aus der App nicht eingerichtet.');
+    const who = actor(request);
+    audit.record('system.reboot', who);
+    ctx.log.warn({ by: who.username }, 'restart of the host machine requested');
+    ctx.hostControl.requestReboot(who.username ?? 'unbekannt');
+    return reply.code(202).send({ ok: true });
   });
 }

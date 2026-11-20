@@ -1,4 +1,4 @@
-import { DoorOpen, KeyRound, LogIn, LogOut, ScrollText, Settings2, ShieldAlert, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
+import { DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { AuditEntry } from '@home-hub/shared';
@@ -61,6 +61,8 @@ function describe(entry: AuditEntry): Described {
       return { icon: DoorOpen, tone: 'warn', category: 'door', text: `${who} hat ${text(detail.door, 'eine Tür')} geöffnet${detail.relay ? ` (${text(detail.relay)})` : ''}` };
     case 'door.open_failed':
       return { icon: DoorOpen, tone: 'danger', category: 'door', text: `${who} konnte ${text(detail.door, 'eine Tür')} nicht öffnen` };
+    case 'system.reboot':
+      return { icon: RotateCw, tone: 'warn', category: 'change', text: `${who} hat den Server neu gestartet` };
     case 'spotify.linked':
       return { icon: Settings2, tone: 'ok', category: 'change', text: `Spotify wurde verbunden${detail.account ? ` (${text(detail.account)})` : ''}` };
     case 'spotify.unlinked':

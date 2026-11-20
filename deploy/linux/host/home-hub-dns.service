@@ -1,0 +1,8 @@
+[Unit]
+Description=Home Hub: Namensserver abgleichen
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/home-hub/home-hub-dns-sync.sh

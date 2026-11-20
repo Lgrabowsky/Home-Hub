@@ -165,6 +165,7 @@ Für die normale Installation genügt die Datei `.env`. Der Vollständigkeit hal
 | --- | --- | --- |
 | `HUB_PUBLIC_URL` | – | Adresse, unter der die App den Hub erreicht (`https://…`). Wird für sichere Cookies und die Spotify-Verknüpfung gebraucht. |
 | `HUB_HOST` / `HUB_PORT` | `0.0.0.0` / `8080` | Woran der Hub lauscht. Hinter dem Proxy: `127.0.0.1`. |
+| `HUB_HOST_CONTROL_DIR` | – | Ordner, den der Hub mit einem Helfer auf dem Rechner teilt; dann gibt es in der App „Server neu starten“. Richtet `deploy/linux/install.sh` ein. |
 | `HUB_TRUST_PROXY` | aus | `1`, wenn genau ein Proxy davor sitzt (damit die echte Adresse des Aufrufers im Protokoll steht und die Anmeldebremse richtig zählt). |
 | `HUB_DATA_DIR` | `./data` | Datenverzeichnis |
 | `HUB_MASTER_KEY` | – | Hauptschlüssel (32 zufällige Bytes, Base64); sonst `master.key` im Datenverzeichnis |

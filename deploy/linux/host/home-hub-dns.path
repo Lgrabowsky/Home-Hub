@@ -1,0 +1,10 @@
+# Home Hub: give the hub the machine's current name servers (see home-hub-dns-sync.sh).
+[Unit]
+Description=Home Hub: Namensserver abgleichen
+
+[Path]
+PathChanged=/etc/resolv.conf
+Unit=home-hub-dns.service
+
+[Install]
+WantedBy=multi-user.target

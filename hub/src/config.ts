@@ -25,6 +25,11 @@ export interface HubConfig {
   webDir: string | null;
   setupToken: string | null;
   /**
+   * Directory shared with a helper on the machine the hub runs on (deploy/linux/install.sh).
+   * The hub leaves requests there, e.g. to restart the machine; null: no such helper.
+   */
+  hostControlDir: string | null;
+  /**
    * HTTPS served by the hub itself. `off`: plain HTTP (behind a reverse proxy, the Docker setup).
    * `auto`: the hub issues its own certificate (see security/tls.ts). `files`: the owner's certificate.
    * With TLS, `port` only serves a small page with the certificate and redirects to `httpsPort`.
@@ -165,6 +170,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): HubConfig {
     logLevel: env.HUB_LOG_LEVEL?.trim() || 'info',
     webDir: findWebDir(env.HUB_WEB_DIR?.trim()),
     setupToken: env.HUB_SETUP_TOKEN?.trim() || null,
+    hostControlDir: env.HUB_HOST_CONTROL_DIR?.trim() ? resolve(env.HUB_HOST_CONTROL_DIR.trim()) : null,
     tls: parseTls(env),
     media: {
       enabled: bool(env.HUB_MEDIA, true),

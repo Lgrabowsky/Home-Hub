@@ -1,9 +1,9 @@
-import { Check, ChevronDown, Copy } from 'lucide-react';
+import { Check, ChevronDown, Copy, RotateCw } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SERVICE_LABELS, type DiagnosticsReport, type ServiceHealth } from '@home-hub/shared';
-import { Badge, Button, Card, Notice, PageHeader, Row, RowGroup, Section, Spinner, type Tone } from '../../../components/ui.tsx';
-import { errorMessage, get } from '../../../lib/api.ts';
+import { Badge, Button, Card, ConfirmDialog, Notice, PageHeader, Row, RowGroup, Section, Spinner, type Tone } from '../../../components/ui.tsx';
+import { errorMessage, get, post } from '../../../lib/api.ts';
 import { formatAgo } from '../../../lib/format.ts';
 
 const STATUS: Record<ServiceHealth['status'], { label: string; tone: Tone }> = {
@@ -35,6 +35,52 @@ function uptime(seconds: number): string {
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   return days > 0 ? `${days} T ${hours} Std.` : hours > 0 ? `${hours} Std. ${minutes} Min.` : `${minutes} Min.`;
+}
+
+/** Restarts the machine the hub runs on (the VM) – only where the Linux set-up installed the helper for it. */
+function RestartServer() {
+  const [confirming, setConfirming] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Section title="Server">
+      {sent ? (
+        <Notice tone="accent">Der Server startet neu. In etwa zwei Minuten ist der Hub wieder erreichbar – die App verbindet sich von selbst.</Notice>
+      ) : (
+        <RowGroup>
+          <Row
+            icon={RotateCw}
+            tone="warn"
+            title="Server neu starten"
+            subtitle={<span className="whitespace-normal">Startet den Rechner neu, auf dem der Hub läuft. Hilft, wenn eine Verbindung hängt.</span>}
+            onClick={() => setConfirming(true)}
+          />
+        </RowGroup>
+      )}
+      {error && (
+        <Notice tone="danger" className="mt-3">
+          {error}
+        </Notice>
+      )}
+      <ConfirmDialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title="Server neu starten?"
+        text="Der Hub ist dabei etwa zwei Minuten nicht erreichbar: keine Steuerung, keine Klingel-Benachrichtigung, kein Live-Bild."
+        confirmLabel="Neu starten"
+        danger
+        onConfirm={async () => {
+          setError(null);
+          try {
+            await post('/api/admin/system/reboot');
+            setSent(true);
+          } catch (err) {
+            setError(errorMessage(err));
+          }
+        }}
+      />
+    </Section>
+  );
 }
 
 export function DiagnosticsPage() {
@@ -82,6 +128,8 @@ export function DiagnosticsPage() {
                 />
               </RowGroup>
             </Section>
+
+            {report.host?.canReboot && <RestartServer />}
           </div>
 
           <div>

@@ -21,6 +21,7 @@ import { SettingsStore } from './settings.ts';
 import { startDemo, type DemoHandle } from './sim/demo.ts';
 import { StateStore } from './state.ts';
 import { ImageProxy } from './util/images.ts';
+import { HostControl } from './system/host-control.ts';
 
 export interface Hub {
   ctx: HubContext;
@@ -91,6 +92,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     startedAt: Date.now(),
     demo: null,
     tls,
+    hostControl: new HostControl(config.hostControlDir),
   };
 
   const app = await buildServer(ctx);

@@ -15,6 +15,7 @@ import type { IntegrationManager } from './integrations/manager.ts';
 import type { ImageProxy } from './util/images.ts';
 import type { DemoControl } from './sim/demo.ts';
 import type { TlsMaterial } from './security/tls.ts';
+import type { HostControl } from './system/host-control.ts';
 
 /** Everything the HTTP layer and the integrations share. */
 export interface HubContext {
@@ -40,4 +41,6 @@ export interface HubContext {
   demo: DemoControl | null;
   /** Certificate the hub serves HTTPS with (null without HUB_TLS). Replaced when it is renewed. */
   tls: TlsMaterial | null;
+  /** Requests to the machine the hub runs on (restart), answered by a helper installed there. */
+  hostControl: HostControl;
 }

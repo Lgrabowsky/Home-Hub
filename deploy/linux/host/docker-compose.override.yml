@@ -1,0 +1,9 @@
+# Copied to deploy/docker-compose.override.yml by deploy/linux/install.sh. Docker Compose merges
+# it into docker-compose.yml: the hub shares one directory with the helper on this machine and
+# may leave it a request to restart the machine (button "Server neu starten" in the app).
+services:
+  hub:
+    environment:
+      HUB_HOST_CONTROL_DIR: /host-control
+    volumes:
+      - /var/lib/home-hub/control:/host-control

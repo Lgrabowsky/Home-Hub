@@ -818,6 +818,8 @@ export interface DiagnosticsReport {
   counts: Record<string, number>;
   /** Raw, credential-free debug information per integration. */
   raw: Record<string, unknown>;
+  /** What the machine the hub runs on lets the hub ask for. */
+  host: { canReboot: boolean };
 }
 
 // ---------------------------------------------------------------------------

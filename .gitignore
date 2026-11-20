@@ -38,3 +38,6 @@ web/android/app/*.keystore
 web/android/keystore.properties
 web/e2e/.auth/
 dist-windows/
+
+# Created by deploy/linux/install.sh on the machine (restart helper)
+deploy/docker-compose.override.yml

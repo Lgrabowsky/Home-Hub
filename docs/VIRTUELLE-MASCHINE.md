@@ -234,14 +234,20 @@ braucht nur wenige Megabyte.
 (nicht ausschalten!). Bequemer mit Kopieren und Einfügen geht es über SSH, z. B. mit dem
 Programm PuTTY (ohne Installation lauffähig) und der Adresse der VM aus deinem Router.
 
+**Server neu starten aus der App:** Einstellungen › Diagnose › **„Server neu starten“** (nur für
+Administratoren, mit Rückfrage). Die VM startet neu, nach etwa zwei Minuten ist der Hub wieder da.
+Der Hub selbst hat dafür keine Rechte über die VM: Er legt nur eine Anfrage ab, ein kleiner Helfer
+auf der VM führt sie aus und schreibt es ins Protokoll. Windows und VirtualBox bleiben dabei
+unberührt, das Fenster „Hub-VM starten“ läuft einfach weiter.
+
 **Aktualisieren:**
 
 ```bash
-sudo bash /opt/home-hub/deploy/linux/install.sh
+cd /opt/home-hub && sudo git pull && sudo bash deploy/linux/install.sh
 ```
 
-Holt die neueste Version des Hubs; Einstellungen und Daten bleiben erhalten. Linux selbst
-installiert Sicherheitsupdates täglich von allein.
+Holt die neueste Version des Hubs und des Einrichtungsskripts; Einstellungen und Daten bleiben
+erhalten. Linux selbst installiert Sicherheitsupdates täglich von allein.
 
 **Sichern:** wie in [INSTALLATION.md, „Sichern und wiederherstellen“](INSTALLATION.md#sichern-und-wiederherstellen)
 beschrieben, die Befehle im Ordner `/opt/home-hub/deploy` ausführen. Die Sicherungsdatei holst du
@@ -288,7 +294,9 @@ sudo docker exec home-hub nslookup live.my-gekko.com
 ```
 
 Die letzte Zeile muss eine Adresse („Address: …“) zeigen. Danach die Verbindung im Hub noch
-einmal testen. (Installationen ab dem 19.11.2026 richten das von selbst so ein.)
+einmal testen. Kommt der Fehler nach jedem Neustart der VM wieder, ist das Einrichtungsskript noch
+von vor dem 20.11.2026: einmal aktualisieren (siehe „Im Alltag“). Danach gleicht ein Helfer auf der
+VM die Namensserver nach jedem Start von selbst ab.
 
 **Sonos-Lautsprecher werden nicht gefunden**
 Netzwerkbrücke statt „NAT“ eingestellt? PC per Kabel verbunden? Notfalls trägst du die Adressen der

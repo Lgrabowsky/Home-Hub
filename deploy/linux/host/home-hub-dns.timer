@@ -1,0 +1,11 @@
+# Home Hub: shortly after every boot and then every five minutes, in case a change went unseen.
+[Unit]
+Description=Home Hub: Namensserver regelmäßig abgleichen
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5min
+Unit=home-hub-dns.service
+
+[Install]
+WantedBy=timers.target

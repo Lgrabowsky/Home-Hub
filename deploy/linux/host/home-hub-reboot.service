@@ -1,0 +1,6 @@
+[Unit]
+Description=Home Hub: Neustart auf Wunsch des Hubs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/home-hub/home-hub-reboot.sh

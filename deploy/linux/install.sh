@@ -171,6 +171,25 @@ EOF
   fi
   chmod 600 "$ENV_FILE"
 
+  step "Helfer für den Hub einrichten"
+  # Zwei kleine Helfer auf diesem Rechner, damit der Hub selbst keine Rechte über ihn braucht:
+  #  - Neustart auf Wunsch: Der Hub legt eine Anfrage in /var/lib/home-hub/control ab (Knopf
+  #    „Server neu starten“ in der App), der Helfer startet den Rechner neu.
+  #  - Namensserver abgleichen: Startet der Hub beim Hochfahren, bevor das Netz die Namensserver
+  #    vergeben hat, findet er keine Namen im Internet. Der Helfer startet ihn dann einmal neu.
+  local host="$DIR/deploy/linux/host"
+  # Im Container läuft der Hub als Benutzer "node" (Kennung 1000).
+  install -d -m 0750 -o 1000 -g 1000 /var/lib/home-hub/control
+  printf '1\n' >/var/lib/home-hub/control/helper
+  install -d -m 0755 /usr/local/lib/home-hub
+  install -m 0755 "$host/home-hub-reboot.sh" "$host/home-hub-dns-sync.sh" /usr/local/lib/home-hub/
+  for unit in home-hub-reboot.path home-hub-reboot.service home-hub-dns.path home-hub-dns.service home-hub-dns.timer; do
+    install -m 0644 "$host/$unit" /etc/systemd/system/
+  done
+  systemctl daemon-reload
+  systemctl enable --now home-hub-reboot.path home-hub-dns.path home-hub-dns.timer >/dev/null 2>&1
+  cp "$host/docker-compose.override.yml" "$DIR/deploy/docker-compose.override.yml"
+
   step "Hub starten"
   cd "$DIR/deploy"
   # Tailscale übernimmt https – den mitgelieferten Proxy (Caddy) braucht es auf diesem Weg nicht.

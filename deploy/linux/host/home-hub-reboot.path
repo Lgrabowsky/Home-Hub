@@ -1,0 +1,9 @@
+# Home Hub: restart the machine when the hub asks for it (see home-hub-reboot.sh).
+[Unit]
+Description=Home Hub: Neustart auf Wunsch des Hubs
+
+[Path]
+PathExists=/var/lib/home-hub/control/reboot-request
+
+[Install]
+WantedBy=multi-user.target
