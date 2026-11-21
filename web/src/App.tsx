@@ -23,6 +23,8 @@ const DoorPage = lazy(() => import('./pages/security/DoorPage.tsx').then((m) => 
 const MusicPage = lazy(() => import('./pages/music/MusicPage.tsx').then((m) => ({ default: m.MusicPage })));
 const MorePage = lazy(() => import('./pages/more/MorePage.tsx').then((m) => ({ default: m.MorePage })));
 const HousePage = lazy(() => import('./pages/more/HousePage.tsx').then((m) => ({ default: m.HousePage })));
+// Labs: three.js and the model only load when someone opens the 3D house.
+const House3DPage = lazy(() => import('./pages/house3d/House3DPage.tsx').then((m) => ({ default: m.House3DPage })));
 const SettingsRoutes = lazy(() => import('./pages/settings/SettingsRoutes.tsx').then((m) => ({ default: m.SettingsRoutes })));
 
 const queryClient = new QueryClient({
@@ -62,6 +64,7 @@ function SignedIn() {
           <Route path="mehr" element={<Suspense fallback={<PageFallback />}><MorePage /></Suspense>} />
           <Route path="mehr/automationen" element={<Navigate to="/aktionen" replace />} />
           <Route path="mehr/haus" element={<Suspense fallback={<PageFallback />}><HousePage /></Suspense>} />
+          <Route path="haus3d" element={<Suspense fallback={<PageFallback />}><House3DPage /></Suspense>} />
           <Route path="einstellungen/*" element={<Suspense fallback={<PageFallback />}><SettingsRoutes /></Suspense>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

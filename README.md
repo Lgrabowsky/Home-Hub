@@ -22,6 +22,7 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
 | **Kameras** (Reolink) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer, Sirene |
 | **Musik** (Sonos + Spotify) | Was läuft wo, Lautstärke, Räume gruppieren, Sonos-Favoriten, in Spotify suchen und stöbern und auf jedem Lautsprecher abspielen |
 | **Verwaltung** | Benutzer und Rechte (z. B. „darf die Tür öffnen“), Geräte einrichten, Protokoll, Diagnose |
+| **3D-Haus** (Labs) | Das eigene Haus als 3D-Modell aus einer IFC-Datei: drehen, Geschosse öffnen, Geräte an ihrer Stelle bedienen, Licht und Schatten nach der echten Tageszeit – [Anleitung](docs/3D-HAUS.md) |
 
 ## So ist es aufgebaut
 
@@ -72,7 +73,7 @@ npm run demo
 3. **[Zugriff von unterwegs](docs/FERNZUGRIFF.md)** – per VPN (empfohlen) oder über eine eigene Adresse.
 4. **[Android-App](docs/ANDROID.md)** – APK herunterladen und installieren.
 
-Zum Nachlesen: **[Sicherheit & Datenschutz](docs/SICHERHEIT.md)** · **[Entwicklung](docs/ENTWICKLUNG.md)**
+Zum Nachlesen: **[3D-Haus (Labs)](docs/3D-HAUS.md)** · **[Sicherheit & Datenschutz](docs/SICHERHEIT.md)** · **[Entwicklung](docs/ENTWICKLUNG.md)**
 
 ## Sicherheit in Kürze
 

@@ -55,11 +55,13 @@ export interface RequestOptions {
   timeoutMs?: number;
   /** Do not treat a 401 as "the session ended" (used while signing in). */
   quiet401?: boolean;
+  /** Send this as the body instead of JSON (file uploads). */
+  raw?: { body: Blob; type: string; headers?: Record<string, string> };
 }
 
-function headers(hasBody: boolean): Record<string, string> {
+function headers(hasBody: boolean, contentType = 'application/json'): Record<string, string> {
   const out: Record<string, string> = { 'X-Requested-With': 'HomeHub', Accept: 'application/json' };
-  if (hasBody) out['Content-Type'] = 'application/json';
+  if (hasBody) out['Content-Type'] = contentType;
   if (bearer) out.Authorization = `Bearer ${bearer}`;
   return out;
 }
@@ -73,8 +75,8 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
   try {
     response = await fetch(baseUrl + path, {
       method,
-      headers: headers(hasBody),
-      body: hasBody ? JSON.stringify(options.body ?? {}) : undefined,
+      headers: options.raw ? { ...headers(true, options.raw.type), ...options.raw.headers } : headers(hasBody),
+      body: options.raw ? options.raw.body : hasBody ? JSON.stringify(options.body ?? {}) : undefined,
       credentials: isNative ? 'omit' : 'same-origin',
       cache: 'no-store',
       signal,
@@ -114,10 +116,21 @@ export const put = <T>(path: string, body?: unknown, options?: RequestOptions) =
 export const patch = <T>(path: string, body?: unknown, options?: RequestOptions) => api<T>(path, { ...options, method: 'PATCH', body });
 export const del = <T>(path: string, options?: RequestOptions) => api<T>(path, { ...options, method: 'DELETE' });
 
-/** Binary download (pictures). */
+/** Binary download (pictures, the 3D model). */
 export async function getBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const response = await send(path, { ...options, method: 'GET' });
   return response.blob();
+}
+
+/** Sends a file as the raw request body; the answer is JSON. */
+export async function uploadFile<T>(path: string, file: Blob, options: { type?: string; headers?: Record<string, string>; timeoutMs?: number; signal?: AbortSignal } = {}): Promise<T> {
+  const response = await send(path, {
+    method: 'POST',
+    raw: { body: file, type: options.type ?? 'application/octet-stream', headers: options.headers },
+    timeoutMs: options.timeoutMs ?? 300_000,
+    signal: options.signal,
+  });
+  return (await response.json()) as T;
 }
 
 /**

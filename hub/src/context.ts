@@ -16,6 +16,7 @@ import type { ImageProxy } from './util/images.ts';
 import type { DemoControl } from './sim/demo.ts';
 import type { TlsMaterial } from './security/tls.ts';
 import type { HostControl } from './system/host-control.ts';
+import type { House3DStore } from './house3d/store.ts';
 
 /** Everything the HTTP layer and the integrations share. */
 export interface HubContext {
@@ -43,4 +44,6 @@ export interface HubContext {
   tls: TlsMaterial | null;
   /** Requests to the machine the hub runs on (restart), answered by a helper installed there. */
   hostControl: HostControl;
+  /** The 3D model of the house (Labs). */
+  house3d: House3DStore;
 }

@@ -1,12 +1,13 @@
-import { Activity, ChevronRight, HardDrive, LogOut, MonitorSmartphone, Palette, ScrollText, Server, ShieldCheck, Users } from 'lucide-react';
+import { Activity, Box, ChevronRight, FlaskConical, HardDrive, LogOut, MonitorSmartphone, Palette, ScrollText, Server, ShieldCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROLE_LABELS } from '@home-hub/shared';
 import { isNative } from '../../lib/platform.ts';
 import { useTheme, type ThemeChoice } from '../../lib/theme.ts';
 import { useHub } from '../../store/hub.ts';
+import { useLabs } from '../../store/labs.ts';
 import { useIsAdmin, useSession } from '../../store/session.ts';
-import { Badge, ConfirmDialog, Row, RowGroup, Section, Segmented } from '../ui.tsx';
+import { Badge, ConfirmDialog, Row, RowGroup, Section, Segmented, Toggle } from '../ui.tsx';
 
 const chevron = <ChevronRight className="size-4.5 text-faint" aria-hidden />;
 
@@ -47,6 +48,7 @@ export function SettingsList() {
   const services = useHub((state) => state.services);
   const hubName = useHub((state) => state.hubName);
   const [confirm, setConfirm] = useState<'logout' | 'forget' | null>(null);
+  const labs = useLabs();
   const troubled = Object.values(services).filter((service) => service && (service.status === 'offline' || service.status === 'degraded')).length;
 
   return (
@@ -75,6 +77,18 @@ export function SettingsList() {
         </RowGroup>
       </Section>
 
+      <Section title="Labs">
+        <RowGroup>
+          <Row
+            icon={FlaskConical}
+            tone="accent"
+            title="3D-Haus"
+            subtitle="Testversion: das Haus als 3D-Modell bedienen. Gilt nur auf diesem Gerät."
+            trailing={<Toggle checked={labs.house3d} onChange={(next) => labs.set('house3d', next)} label="3D-Haus" />}
+          />
+        </RowGroup>
+      </Section>
+
       {isAdmin && (
         <Section title="Verwaltung">
           <RowGroup>
@@ -94,6 +108,7 @@ export function SettingsList() {
             <Row icon={Users} tone="accent" title="Benutzer" subtitle="Wer darf was" trailing={chevron} onClick={() => navigate('/einstellungen/benutzer')} />
             <Row icon={ScrollText} tone="accent" title="Protokoll" subtitle="Anmeldungen, Türöffnungen, Änderungen" trailing={chevron} onClick={() => navigate('/einstellungen/protokoll')} />
             <Row icon={Activity} tone="accent" title="Diagnose" subtitle="Zustand aller Verbindungen" trailing={chevron} onClick={() => navigate('/einstellungen/diagnose')} />
+            <Row icon={Box} tone="accent" title="3D-Haus" subtitle="Labs · IFC-Modell, Ausrichtung, Farben" trailing={chevron} onClick={() => navigate('/einstellungen/haus3d')} />
           </RowGroup>
         </Section>
       )}

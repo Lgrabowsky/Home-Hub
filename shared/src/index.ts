@@ -823,6 +823,107 @@ export interface DiagnosticsReport {
 }
 
 // ---------------------------------------------------------------------------
+// 3D house (Labs): the building model the administrator uploads as IFC
+// ---------------------------------------------------------------------------
+
+/**
+ * A storey of the 3D model, or the roof / the outdoor parts. Heights are
+ * metres in model coordinates (Z up, ground at 0).
+ */
+export interface House3DLevel {
+  /** Stable across uploads of a revised model ("eg", "1-og", "roof", "outside"). */
+  id: string;
+  kind: 'storey' | 'roof' | 'outside';
+  /** "KG", "EG", "1.OG", "DG" … */
+  short: string;
+  name: string;
+  /** Where the floor of the storey is. */
+  floorZ: number;
+  /** Height of the horizontal section that opens the storey. */
+  cutZ: number;
+  topZ: number;
+  bottomZ: number;
+  elements: number;
+}
+
+export interface House3DMaterial {
+  key: string;
+  label: string;
+  /** Default colour (`#rrggbb`); the administrator may override it. */
+  color: string;
+  opacity: number;
+  elements: number;
+}
+
+/** One mesh of the binary model file (offsets count from the end of the header). */
+export interface House3DGroup {
+  /** Index into `levels`. */
+  level: number;
+  material: string;
+  positionOffset: number;
+  vertexCount: number;
+  indexOffset: number;
+  indexCount: number;
+}
+
+export interface House3DModelInfo {
+  format: number;
+  schema: string;
+  application: string;
+  elements: number;
+  triangles: number;
+  /** Model coordinates = IFC coordinates (metres) minus this. */
+  origin: [number, number, number];
+  size: [number, number, number];
+  bounds: { min: [number, number, number]; max: [number, number, number] };
+  levels: House3DLevel[];
+  materials: House3DMaterial[];
+  /** Where the model says north is: degrees clockwise from its +Y axis. */
+  trueNorthDeg: number;
+  /** Position of the site when the model carries one. */
+  location: { latitude: number; longitude: number } | null;
+  /** German notes for the administrator (parts left out, no storeys found …). */
+  warnings: string[];
+}
+
+export interface House3DModel extends House3DModelInfo {
+  /** Changes with every upload; part of the model download URL. */
+  version: string;
+  fileName: string;
+  uploadedAt: number;
+  fileBytes: number;
+}
+
+export interface House3DView {
+  /** Direction of north: degrees clockwise from the model's +Y axis, seen from above. */
+  northDeg: number;
+  /** Where the house stands (for the position of the sun). */
+  latitude: number;
+  longitude: number;
+  /** Material colours chosen by the administrator (`key` → `#rrggbb`). */
+  colors: Record<string, string>;
+  /** Names for the storeys (`level id` → name), e.g. "Wohnebene". */
+  levelNames: Record<string, string>;
+}
+
+/** Where a device sits in the model. */
+export interface House3DMarker {
+  entityId: string;
+  /** IFC coordinates in metres — stays right when a revised model is uploaded. */
+  position: [number, number, number];
+  /** Level id the device belongs to. */
+  level: string;
+}
+
+export interface House3DState {
+  model: House3DModel | null;
+  view: House3DView;
+  markers: House3DMarker[];
+  /** Demo mode: the model is a generated example. */
+  demo: boolean;
+}
+
+// ---------------------------------------------------------------------------
 // Small helpers shared by both sides
 // ---------------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ const ServiceSettingsPage = lazy(() => import('./admin/ServiceSettingsPage.tsx')
 const UsersPage = lazy(() => import('./admin/UsersPage.tsx').then((m) => ({ default: m.UsersPage })));
 const AuditPage = lazy(() => import('./admin/AuditPage.tsx').then((m) => ({ default: m.AuditPage })));
 const DiagnosticsPage = lazy(() => import('./admin/DiagnosticsPage.tsx').then((m) => ({ default: m.DiagnosticsPage })));
+const House3DSettingsPage = lazy(() => import('./admin/House3DSettingsPage.tsx').then((m) => ({ default: m.House3DSettingsPage })));
 
 /** The hub enforces this as well; the guard only avoids showing screens that could not load anything. */
 function AdminOnly({ children }: { children: ReactNode }) {
@@ -48,6 +49,7 @@ export function SettingsRoutes() {
       <Route path="benutzer" element={<AdminOnly><UsersPage /></AdminOnly>} />
       <Route path="protokoll" element={<AdminOnly><AuditPage /></AdminOnly>} />
       <Route path="diagnose" element={<AdminOnly><DiagnosticsPage /></AdminOnly>} />
+      <Route path="haus3d" element={<AdminOnly><House3DSettingsPage /></AdminOnly>} />
       <Route path="*" element={<Navigate to="/einstellungen" replace />} />
     </Routes>
   );

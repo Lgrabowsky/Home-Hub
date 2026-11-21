@@ -19,9 +19,11 @@ import { RateLimiter, Throttle } from './security/throttle.ts';
 import { loadTlsMaterial, type TlsMaterial } from './security/tls.ts';
 import { SettingsStore } from './settings.ts';
 import { startDemo, type DemoHandle } from './sim/demo.ts';
+import { DEMO_HOUSE_MARKERS, demoHouseIfc } from './sim/demo-house.ts';
 import { StateStore } from './state.ts';
 import { ImageProxy } from './util/images.ts';
 import { HostControl } from './system/host-control.ts';
+import { House3DStore } from './house3d/store.ts';
 
 export interface Hub {
   ctx: HubContext;
@@ -93,7 +95,11 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     demo: null,
     tls,
     hostControl: new HostControl(config.hostControlDir),
+    house3d: new House3DStore({ dataDir: config.dataDir, vault, settings, log: log.child({ mod: 'house3d' }), memoryOnly: config.demo }),
   };
+
+  // The demo shows a generated house with its devices already placed.
+  if (config.demo) ctx.house3d.loadDemo(demoHouseIfc(), DEMO_HOUSE_MARKERS);
 
   const app = await buildServer(ctx);
   realtime.on('activity', (active) => integrations.setActive(active));

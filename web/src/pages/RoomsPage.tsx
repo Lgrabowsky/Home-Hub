@@ -11,9 +11,9 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowUpDown, Check, GripVertical, Home, Lightbulb, Music2, RotateCcw, Wind } from 'lucide-react';
+import { ArrowUpDown, Box, Check, GripVertical, Home, Lightbulb, Music2, RotateCcw, Wind } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import type { LightEntity } from '@home-hub/shared';
 import { HomeNav } from '../components/home/categories.tsx';
 import { FloorSection } from '../components/home/FloorSection.tsx';
@@ -24,6 +24,7 @@ import { useFloors, type RoomSummary } from '../hooks/entities.ts';
 import { sendCommand } from '../lib/actions.ts';
 import { formatNumber, formatPercent } from '../lib/format.ts';
 import { useHub } from '../store/hub.ts';
+import { useLabs } from '../store/labs.ts';
 import { useCan, useSession } from '../store/session.ts';
 
 /** Switches every lamp of a room at once — off when any is on, otherwise on. */
@@ -165,6 +166,8 @@ function floorMeta(rooms: RoomSummary[]): string | undefined {
 }
 
 export function RoomsPage() {
+  const house3d = useLabs((state) => state.house3d);
+  const navigate = useNavigate();
   const floors = useFloors();
   const [arranging, setArranging] = useState(false);
   const hasOrder = useSession((state) => state.prefs.roomOrder.length > 0);
@@ -191,16 +194,23 @@ export function RoomsPage() {
       <PageHeader
         title="Räume"
         actions={
-          floors.length > 0 &&
-          (arranging ? (
-            <Button size="sm" variant="primary" icon={Check} onClick={() => setArranging(false)}>
-              Fertig
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost" icon={ArrowUpDown} onClick={() => setArranging(true)}>
-              Anordnen
-            </Button>
-          ))
+          <>
+            {house3d && !arranging && (
+              <Button size="sm" variant="ghost" icon={Box} onClick={() => navigate('/haus3d')}>
+                3D
+              </Button>
+            )}
+            {floors.length > 0 &&
+              (arranging ? (
+                <Button size="sm" variant="primary" icon={Check} onClick={() => setArranging(false)}>
+                  Fertig
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" icon={ArrowUpDown} onClick={() => setArranging(true)}>
+                  Anordnen
+                </Button>
+              ))}
+          </>
         }
       />
       {arranging ? (

@@ -1,4 +1,4 @@
-import { DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
+import { Box, DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { AuditEntry } from '@home-hub/shared';
@@ -14,7 +14,7 @@ interface Described {
   text: string;
 }
 
-const AREAS: Record<string, string> = { general: 'Allgemein', mygekko: 'Gebäude', doorbird: 'Türstationen', reolink: 'Kameras', sonos: 'Lautsprecher', spotify: 'Spotify' };
+const AREAS: Record<string, string> = { general: 'Allgemein', mygekko: 'Gebäude', doorbird: 'Türstationen', reolink: 'Kameras', sonos: 'Lautsprecher', spotify: 'Spotify', house3d: '3D-Haus' };
 
 /** Turns a raw audit record into a sentence a home owner understands. */
 function describe(entry: AuditEntry): Described {
@@ -61,6 +61,10 @@ function describe(entry: AuditEntry): Described {
       return { icon: DoorOpen, tone: 'warn', category: 'door', text: `${who} hat ${text(detail.door, 'eine Tür')} geöffnet${detail.relay ? ` (${text(detail.relay)})` : ''}` };
     case 'door.open_failed':
       return { icon: DoorOpen, tone: 'danger', category: 'door', text: `${who} konnte ${text(detail.door, 'eine Tür')} nicht öffnen` };
+    case 'house3d.uploaded':
+      return { icon: Box, tone: 'accent', category: 'change', text: `${who} hat ein 3D-Modell hochgeladen${detail.file ? ` (${text(detail.file)})` : ''}` };
+    case 'house3d.removed':
+      return { icon: Box, tone: 'neutral', category: 'change', text: `${who} hat das 3D-Modell entfernt` };
     case 'system.reboot':
       return { icon: RotateCw, tone: 'warn', category: 'change', text: `${who} hat den Server neu gestartet` };
     case 'spotify.linked':

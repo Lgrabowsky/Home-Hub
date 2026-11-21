@@ -18,6 +18,7 @@ import { registerDoorRoutes } from './routes/doors.ts';
 import { registerCameraRoutes } from './routes/cameras.ts';
 import { registerMusicRoutes } from './routes/music.ts';
 import { registerRealtimeRoutes } from './routes/realtime.ts';
+import { registerHouse3DRoutes } from './routes/house3d.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -211,7 +212,7 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
       reply.header('Access-Control-Expose-Headers', 'Retry-After, X-Event-Ts, Content-Length');
       if (request.method === 'OPTIONS') {
         reply.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE');
-        reply.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With');
+        reply.header('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Requested-With, X-File-Name');
         reply.header('Access-Control-Max-Age', '600');
         return reply.code(204).send();
       }
@@ -315,6 +316,7 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   registerCameraRoutes(app, ctx);
   registerMusicRoutes(app, ctx);
   registerRealtimeRoutes(app, ctx);
+  registerHouse3DRoutes(app, ctx);
   registerDemoRoutes(app, ctx);
 
   // --- Web app (static files + SPA fallback) ---------------------------------------
