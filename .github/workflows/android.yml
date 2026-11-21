@@ -1,6 +1,8 @@
 name: Android-App
 
-# Builds the installable Android app (APK). Download it from the run's "Artifacts".
+# Builds the installable Android app (APK). Every run keeps it as an artifact; when the version
+# in web/package.json is new on the default branch, it is also published as a GitHub release
+# (tag v<version>, notes from CHANGELOG.md), where the APK can be downloaded directly on a phone.
 #
 # Without any configuration a debug build is produced. To get builds that can be
 # installed over one another (updates), add your own signing key as repository
@@ -18,7 +20,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  # Creating the release for a new version.
+  contents: write
 
 concurrency:
   group: android-${{ github.ref }}
@@ -46,6 +49,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Read the version
+        run: echo "APP_VERSION=$(node -p "require('./web/package.json').version")" >> "$GITHUB_ENV"
+
       - name: Build the app's web assets
         run: npm run build:native -w web
 
@@ -66,20 +72,45 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }}
+        run: ./gradlew --no-daemon assembleRelease -PversionCode=${{ github.run_number }} -PversionName=$APP_VERSION
 
       - name: Build debug APK
         if: env.KEYSTORE_BASE64 == ''
         working-directory: web/android
-        run: ./gradlew --no-daemon assembleDebug -PversionCode=${{ github.run_number }}
+        run: ./gradlew --no-daemon assembleDebug -PversionCode=${{ github.run_number }} -PversionName=$APP_VERSION
 
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/release.keystore"
 
+      - name: Name the APK after its version
+        run: |
+          mkdir -p "$RUNNER_TEMP/apk"
+          apk=$(find web/android/app/build/outputs/apk -name '*.apk' | head -n 1)
+          cp "$apk" "$RUNNER_TEMP/apk/HomeHub-$APP_VERSION.apk"
+
       - uses: actions/upload-artifact@v4
         with:
           name: home-hub-android
-          path: web/android/app/build/outputs/apk/**/*.apk
+          path: ${{ runner.temp }}/apk/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish a new version as a release
+        if: github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$APP_VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag exists already - raise the version in web/package.json for a new one."
+            exit 0
+          fi
+          # The section of CHANGELOG.md for this version, without its heading.
+          awk -v v="$APP_VERSION" '$0 == "## " v {on=1; next} /^## / {on=0} on' CHANGELOG.md \
+            | sed "s#](docs/#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/docs/#g" > "$RUNNER_TEMP/notes.md"
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            printf '\n---\nDiese APK ist mit einem Debug-Schlüssel signiert. Lässt Android sie nicht über die vorhandene App installieren, die alte App zuerst deinstallieren (danach neu anmelden) – oder einen eigenen Schlüssel einrichten, siehe docs/ANDROID.md.\n' >> "$RUNNER_TEMP/notes.md"
+          fi
+          gh release create "$tag" "$RUNNER_TEMP/apk/HomeHub-$APP_VERSION.apk" \
+            --target "$GITHUB_SHA" --title "Home Hub $APP_VERSION" --notes-file "$RUNNER_TEMP/notes.md"

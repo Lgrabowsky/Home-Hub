@@ -8,15 +8,19 @@ Deine App, dein Schlüssel, kein Dritter dazwischen.
 
 ## App herunterladen und installieren
 
-1. Auf GitHub im Projekt den Reiter **Actions** öffnen und links **Android-App** wählen.
-2. Den neuesten erfolgreichen Lauf (grüner Haken) anklicken.
-3. Unten unter **Artifacts** `home-hub-android` herunterladen und die ZIP-Datei entpacken – darin
-   liegt die `.apk`-Datei.
-4. Die APK aufs Handy bringen (z. B. per USB, eigener Cloud oder Messenger an dich selbst) und
-   antippen. Android fragt einmalig, ob diese Quelle Apps installieren darf – erlauben.
+1. Auf dem Handy im Browser die Seite **Releases** des Projekts öffnen
+   (`https://github.com/<dein-name>/Home-Hub/releases/latest`).
+2. Unter **Assets** die Datei `HomeHub-<Version>.apk` antippen und herunterladen.
+3. Die heruntergeladene Datei öffnen. Android fragt einmalig, ob der Browser Apps installieren darf –
+   erlauben.
 
-Einen neuen Lauf startest du jederzeit über **Run workflow**; außerdem baut GitHub die App bei jeder
-Änderung am Projekt neu.
+Eine neue Version erscheint dort, sobald im Projekt die Versionsnummer erhöht wird; was neu ist, steht
+in [CHANGELOG.md](../CHANGELOG.md) und auf der Release-Seite. Die App zeigt ihre Version ganz unten
+unter **Mehr**.
+
+Zwischenstände ohne neue Versionsnummer baut GitHub ebenfalls bei jeder Änderung: Reiter **Actions** ›
+**Android-App** › neuester Lauf mit grünem Haken › unter **Artifacts** `home-hub-android` (ZIP mit der
+APK darin). Einen neuen Lauf startest du dort jederzeit über **Run workflow**.
 
 ## Erster Start
 
@@ -75,7 +79,9 @@ Mit einem eigenen Schlüssel baut GitHub stattdessen eine signierte Release-Vers
 ## Aktualisieren
 
 Neue APK wie oben herunterladen und installieren – Anmeldung und Einstellungen bleiben erhalten
-(bei signierten Versionen mit gleichem Schlüssel).
+(bei signierten Versionen mit gleichem Schlüssel). Meldet Android bei einer Debug-Version „App nicht
+installiert“ oder einen Konflikt, die alte App zuerst deinstallieren und dann neu anmelden. Den Hub
+auf dieselbe Version bringen – neue Funktionen der App brauchen oft auch den neuen Hub.
 
 Die App prüft beim Start, ob sie zum Hub passt. Ist der Hub neuer, als die App versteht, sagt sie das
 und bittet um ein Update.

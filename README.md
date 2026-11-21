@@ -71,9 +71,9 @@ npm run demo
 2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, DoorBird, Reolink, Sonos und Spotify
    vorzubereiten ist, inklusive der Fenster- und Türkontakte.
 3. **[Zugriff von unterwegs](docs/FERNZUGRIFF.md)** – per VPN (empfohlen) oder über eine eigene Adresse.
-4. **[Android-App](docs/ANDROID.md)** – APK herunterladen und installieren.
+4. **[Android-App](docs/ANDROID.md)** – APK unter **Releases** herunterladen und installieren.
 
-Zum Nachlesen: **[3D-Haus (Labs)](docs/3D-HAUS.md)** · **[Sicherheit & Datenschutz](docs/SICHERHEIT.md)** · **[Entwicklung](docs/ENTWICKLUNG.md)**
+Zum Nachlesen: **[Änderungen](CHANGELOG.md)** · **[3D-Haus (Labs)](docs/3D-HAUS.md)** · **[Sicherheit & Datenschutz](docs/SICHERHEIT.md)** · **[Entwicklung](docs/ENTWICKLUNG.md)**
 
 ## Sicherheit in Kürze
 
