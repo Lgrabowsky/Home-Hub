@@ -5,11 +5,6 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
-## Unveröffentlicht (kommt mit der nächsten Version)
-
-- Unter **Sicherheit** steht keine Erklärung zu „Scharf/Unscharf“ mehr unter den Zonen der
-  Alarmanlage.
-
 ## 0.7.0
 
 - **Licht-Überwachung:** Die Zone „Status Beleuchtung“ der Alarmanlage zeigt unter **Sicherheit**,
@@ -18,8 +13,7 @@ beschrieben.
   bleiben dürfen.
 - **Fehlmeldung behoben:** „Mindestens ein Kontakt ist offen“ erschien, sobald irgendeine Zone der
   Alarmanlage etwas meldete – auch ein eingeschaltetes Licht. Jetzt zählen dafür nur die Zonen der
-  Fenster und Türen; die Zonen zeigen passende Texte („alle Lichter aus“, „alles ruhig“ …), und eine
-  Zeile erklärt, was „Unscharf“ heißt.
+  Fenster und Türen; die Zonen zeigen passende Texte („alle Lichter aus“, „alles ruhig“ …).
 - Licht, Jalousien, Klima, Geräte und Aktionen zeigen die Stockwerke von oben nach unten
   (Dachgeschoss, Obergeschoss, Erdgeschoss, Keller; Außen und Weiteres danach) – im Filter und in der
   Liste. Die Räume-Seite behält die eigene Reihenfolge.
