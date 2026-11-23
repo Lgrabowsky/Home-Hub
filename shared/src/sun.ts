@@ -46,22 +46,46 @@ export function sunPosition(date: Date, latitude: number, longitude: number): Su
   return { azimuth: ((fromSouth / RAD + 180) % 360 + 360) % 360, altitude: altitude / RAD };
 }
 
-/** Sunrise and sunset of the day of `date` (local), found by stepping through the day. */
+/**
+ * Sunrise and sunset between two instants (usually one day), found by stepping
+ * through it in 10 minute steps and narrowing down to the minute. The upper rim
+ * of the sun touching the horizon (−0.833°, refraction included) counts.
+ */
+export function sunCrossings(fromMs: number, toMs: number, latitude: number, longitude: number): { rise: number | null; set: number | null } {
+  const HORIZON = -0.833;
+  const altitude = (ms: number) => sunPosition(new Date(ms), latitude, longitude).altitude - HORIZON;
+  const refine = (a: number, b: number) => {
+    let lo = a;
+    let hi = b;
+    const rising = altitude(a) < 0;
+    while (hi - lo > 30_000) {
+      const mid = (lo + hi) / 2;
+      if (altitude(mid) < 0 === rising) lo = mid;
+      else hi = mid;
+    }
+    return Math.round(hi / 60_000) * 60_000;
+  };
+  let rise: number | null = null;
+  let set: number | null = null;
+  const step = 10 * 60_000;
+  let previous = altitude(fromMs);
+  for (let t = fromMs + step; t <= toMs; t += step) {
+    const value = altitude(t);
+    if (previous < 0 && value >= 0 && rise === null) rise = refine(t - step, t);
+    if (previous >= 0 && value < 0 && set === null) set = refine(t - step, t);
+    previous = value;
+  }
+  return { rise, set };
+}
+
+/** Sunrise and sunset of the day of `date` in the device's own time zone. */
 export function sunTimes(date: Date, latitude: number, longitude: number): { rise: Date | null; set: Date | null } {
   const start = new Date(date);
   start.setHours(0, 0, 0, 0);
-  let rise: Date | null = null;
-  let set: Date | null = null;
-  let previous = sunPosition(start, latitude, longitude).altitude;
-  for (let minutes = 5; minutes <= 24 * 60; minutes += 5) {
-    const moment = new Date(start.getTime() + minutes * 60_000);
-    const altitude = sunPosition(moment, latitude, longitude).altitude;
-    // -0.833°: the upper rim touches the horizon, refraction included.
-    if (previous < -0.833 && altitude >= -0.833 && !rise) rise = moment;
-    if (previous >= -0.833 && altitude < -0.833 && !set) set = moment;
-    previous = altitude;
-  }
-  return { rise, set };
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  const { rise, set } = sunCrossings(start.getTime(), end.getTime(), latitude, longitude);
+  return { rise: rise === null ? null : new Date(rise), set: set === null ? null : new Date(set) };
 }
 
 export interface Daylight {

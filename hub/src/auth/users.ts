@@ -1,7 +1,11 @@
 import {
   DEFAULT_PREFS,
+  HOME_FUNCTIONS,
   PERMISSIONS,
   ROLE_DEFAULT_PERMISSIONS,
+  type HomeFunction,
+  type HomeWidget,
+  type HomeWidgetSize,
   type Permission,
   type Role,
   type UserInfo,
@@ -290,5 +294,56 @@ export function normalizePrefs(input: unknown): UserPrefs {
     roomOrder: stringList(raw.roomOrder, 200),
     hiddenRooms: stringList(raw.hiddenRooms, 200),
     lastMusicPlayerId: typeof raw.lastMusicPlayerId === 'string' ? raw.lastMusicPlayerId.slice(0, 100) : null,
+    home: homeWidgets(raw.home),
   };
+}
+
+const SIZES: readonly HomeWidgetSize[] = ['small', 'wide', 'large'];
+
+/** The start page as the user arranged it. Unknown or broken tiles are dropped, never the whole page. */
+function homeWidgets(value: unknown): HomeWidget[] | null {
+  if (!Array.isArray(value)) return null;
+  const out: HomeWidget[] = [];
+  const keys = new Set<string>();
+  const text = (v: unknown, max = 200) => (typeof v === 'string' && v.length > 0 && v.length <= max ? v : null);
+  for (const item of value) {
+    if (out.length >= 60) break;
+    if (!item || typeof item !== 'object') continue;
+    const w = item as Record<string, unknown>;
+    const key = text(w.key, 60);
+    const size = SIZES.includes(w.size as HomeWidgetSize) ? (w.size as HomeWidgetSize) : 'small';
+    if (!key || keys.has(key)) continue;
+    let widget: HomeWidget | null = null;
+    switch (w.type) {
+      case 'function':
+        if (HOME_FUNCTIONS.includes(w.function as HomeFunction)) widget = { key, size, type: 'function', function: w.function as HomeFunction };
+        break;
+      case 'entity':
+      case 'camera': {
+        const entityId = text(w.entityId);
+        if (entityId) widget = { key, size, type: w.type, entityId };
+        break;
+      }
+      case 'room': {
+        const room = text(w.room, 60);
+        if (room) widget = { key, size, type: 'room', room };
+        break;
+      }
+      case 'scenes':
+      case 'favorites':
+      case 'rooms':
+      case 'weather':
+      case 'timers':
+      case 'house3d':
+        widget = { key, size, type: w.type };
+        break;
+      default:
+        break;
+    }
+    if (widget) {
+      keys.add(key);
+      out.push(widget);
+    }
+  }
+  return out;
 }

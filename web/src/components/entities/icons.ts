@@ -25,6 +25,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { ContactEntity, Entity, SensorEntity, SwitchEntity } from '@home-hub/shared';
+import { accessIcon } from './access.tsx';
 
 export function switchIcon(entity: SwitchEntity): LucideIcon {
   switch (entity.variant) {
@@ -89,5 +90,7 @@ export function entityIcon(entity: Entity): LucideIcon {
       return Camera;
     case 'door':
       return Bell;
+    case 'access':
+      return accessIcon(entity);
   }
 }

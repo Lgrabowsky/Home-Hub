@@ -15,7 +15,7 @@ export interface Area {
 
 /** The areas an administrator sets up — vendor names appear here (and only here) because this is where they matter. */
 export const AREAS: Area[] = [
-  { key: 'general', title: 'Allgemein', purpose: 'Name deines Zuhauses und Regeln für die Anmeldung', icon: SlidersHorizontal, tone: 'accent', service: null, testable: false },
+  { key: 'general', title: 'Allgemein', purpose: 'Name deines Zuhauses, Ort und Zeitzone, Regeln für die Anmeldung', icon: SlidersHorizontal, tone: 'accent', service: null, testable: false },
   { key: 'mygekko', title: 'Gebäude (myGEKKO)', purpose: 'Licht, Jalousien, Heizung, Szenen, Fenster- und Türkontakte', icon: Building2, tone: 'warm', service: 'mygekko', testable: true },
   { key: 'doorbird', title: 'Türstationen (DoorBird)', purpose: 'Klingel, Gegensprechen, Türöffner und Verlauf', icon: DoorClosed, tone: 'ok', service: 'doorbird', testable: true },
   { key: 'reolink', title: 'Kameras (Reolink)', purpose: 'Live-Bild, Schwenken und Gegensprechen', icon: Cctv, tone: 'cool', service: 'reolink', testable: true },

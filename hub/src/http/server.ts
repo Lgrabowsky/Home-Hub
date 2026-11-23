@@ -19,6 +19,7 @@ import { registerCameraRoutes } from './routes/cameras.ts';
 import { registerMusicRoutes } from './routes/music.ts';
 import { registerRealtimeRoutes } from './routes/realtime.ts';
 import { registerHouse3DRoutes } from './routes/house3d.ts';
+import { registerTimerRoutes } from './routes/timers.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -317,6 +318,7 @@ export async function buildServer(ctx: HubContext): Promise<FastifyInstance> {
   registerMusicRoutes(app, ctx);
   registerRealtimeRoutes(app, ctx);
   registerHouse3DRoutes(app, ctx);
+  registerTimerRoutes(app, ctx);
   registerDemoRoutes(app, ctx);
 
   // --- Web app (static files + SPA fallback) ---------------------------------------

@@ -27,6 +27,7 @@ const SYSTEM_LABELS: Record<string, [one: string, many: string]> = {
   roomtemps: ['Raumregler', 'Raumregler'],
   actions: ['Aktion', 'Aktionen'],
   clocks: ['Zeitschaltuhr', 'Zeitschaltuhren'],
+  accessdoors: ['Tür/Tor (Zutritt)', 'Türen/Tore (Zutritt)'],
   energycosts: ['Energiezähler', 'Energiezähler'],
 };
 
@@ -49,7 +50,6 @@ const UNMAPPED_LABELS: Record<string, string> = {
   air_handling_unit: 'Klimagerät',
   trends: 'Analysen',
   alarms_logics: 'Logiken',
-  accessdoors: 'Zutritt',
 };
 
 function itemsOf(tree: GekkoTree, system: string) {

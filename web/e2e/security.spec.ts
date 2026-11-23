@@ -38,6 +38,43 @@ test.describe('windows, doors and cameras', () => {
     await expect(page.getByText(/erika hat Seiteneingang geöffnet/).first()).toBeVisible();
   });
 
+  test('doors and gates of the building controller open from "Zutritt", and every use is on record', async ({ page, request }) => {
+    const door = async (name: string) => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'access' && entity.name === name);
+    await page.goto('/zutritt');
+    await expect(page.getByRole('heading', { name: 'Zutritt', level: 1 })).toBeVisible();
+
+    // A door: opened with the slide gesture, like the door station's opener.
+    const card = page.getByRole('button', { name: 'Nebeneingang: Details' }).locator('..');
+    const thumb = card.getByRole('button', { name: 'Zum Öffnen schieben' });
+    // Above the mini player at the bottom of the screen.
+    await thumb.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+    const box = (await thumb.boundingBox())!;
+    const track = (await thumb.locator('..').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(track.x + track.width - 8, box.y + box.height / 2, { steps: 12 });
+    await page.mouse.up();
+    await expect(page.getByText('Nebeneingang geöffnet')).toBeVisible();
+
+    // A gate: held open after asking, then closed again.
+    const gate = page.getByRole('button', { name: 'Einfahrtstor: Details' }).locator('..');
+    await gate.getByRole('button', { name: 'Dauerhaft öffnen' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Dauerhaft öffnen' }).click();
+    await expect.poll(() => door('Einfahrtstor'), { timeout: 20_000 }).toMatchObject({ action: 'hold_open' });
+    await expect(gate.getByText(/Dauerhaft offen/)).toBeVisible();
+    await gate.getByRole('button', { name: 'Zufahren' }).click();
+    await expect.poll(async () => { const gate = await door('Einfahrtstor'); return gate?.kind === 'access' ? gate.action : null; }, { timeout: 20_000 }).not.toBe('hold_open');
+
+    // The storey filter applies here as well.
+    await page.getByRole('tab', { name: 'Erdgeschoss', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Einfahrtstor: Details' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Nebeneingang: Details' })).toBeVisible();
+
+    await page.goto('/einstellungen/protokoll');
+    await expect(page.getByText('erika hat Nebeneingang geöffnet').first()).toBeVisible();
+    await expect(page.getByText('erika hat Einfahrtstor dauerhaft geöffnet').first()).toBeVisible();
+  });
+
   test('cameras show live video, can be turned and jump to stored positions', async ({ page, request }) => {
     const state = await hubState(request);
     test.skip(state.services.media.status !== 'ok', 'live video needs go2rtc and ffmpeg');

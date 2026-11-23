@@ -25,7 +25,8 @@ dem Portal live.my-gekko.com). Sie läuft über die Server von myGEKKO, reagiert
 der Zahl der Abfragen begrenzt – nimm sie nur, wenn die lokale Abfrage nicht möglich ist.
 
 **Was erscheint:** Lichter, Jalousien/Rollläden, Raumregler, Lasten/Steckdosen, Aktionen (als
-Szenen), Zeitschaltuhren, Wetterwerte, der Zustand der Alarmanlage – jeweils mit den Namen und
+Szenen), Zeitschaltuhren, Türen und Tore der Zutrittskontrolle, Wetterwerte, der Zustand der
+Alarmanlage – jeweils mit den Namen und
 Seiten/Räumen, die am myGEKKO vergeben sind. Benennst du am myGEKKO etwas um, übernimmt die App das.
 
 Gut zu wissen:
@@ -38,7 +39,26 @@ Gut zu wissen:
   das anbietet, sonst unverschlüsselt (http). Im zweiten Fall gehen die Zugangsdaten innerhalb deines
   Heimnetzes im Klartext über die Leitung; der Verbindungstest sagt, welcher Weg benutzt wird.
 - **Lasten werden dauerhaft eingeschaltet.** Was nur einen kurzen Impuls bekommen darf (Türöffner,
-  Garagentor-Taster), legst du am myGEKKO besser als Aktion an und startest diese aus der App.
+  Garagentor-Taster), legst du am myGEKKO besser als Zutrittstür bzw. Tor der Zutrittskontrolle an
+  (dann erscheint es unter **Zutritt**) oder als Aktion, die du aus der App startest.
+- **Zutritt:** Türen und Tore der myGEKKO-Zutrittskontrolle stehen unter **Räume › Zutritt** – mit
+  Zustand (offen, zu, wie weit ein Tor offen ist) und den Befehlen, die der myGEKKO dafür kennt:
+  öffnen (per Schieberegler), dauerhaft öffnen (mit Rückfrage), anhalten (Tore), schließen, sperren.
+  Bedienen darf das nur, wer das Recht **„Türen öffnen“** hat (Verwaltung › Benutzer); sehen nur, wer
+  „Fenster-/Türkontakte und Alarmstatus einsehen“ darf. Jede Bedienung steht im Protokoll. Was ein Befehl am Tor genau bewirkt
+  (z. B. ob „Schließen“ sofort zufährt), bestimmt die Einstellung am myGEKKO – probier es einmal
+  vor Ort aus.
+- **Zeitschaltuhren des myGEKKO:** Ihre Schaltzeiten lassen sich über die Schnittstelle des myGEKKO
+  nicht ändern, nur ihr Modus: **Aus**, **Ein** (dauerhaft) oder **Automatik** (nach den am myGEKKO
+  eingestellten Zeiten). Prüfe nach dem ersten Umschalten am myGEKKO, ob er den Modus so anzeigt.
+- **Zeitschaltuhren des Hubs:** Unter **Räume › Aktionen › Zeitschaltuhren › Neu** legst du eigene
+  Uhren an: zu einer Uhrzeit oder zum Sonnenauf-/-untergang (± Minuten), an gewählten Wochentagen,
+  mit einer oder mehreren Aktionen (Licht, Jalousien, Heizung, Geräte, Szenen, myGEKKO-Uhren).
+  Sie schalten, **solange der Hub läuft** – bei der virtuellen Maschine also nur, wenn sie gestartet
+  ist. War der Hub kurz weg (bis 10 Minuten), holt er eine verpasste Schaltung nach. Für Sonnenauf-
+  und -untergang trägst du unter **Geräte & Dienste › Allgemein › Ort & Zeit** die Zeitzone und den
+  Standort des Hauses ein (Breiten- und Längengrad, z. B. aus einer Karten-App; zwei Nachkommastellen
+  genügen). Der Standort bleibt auf dem Hub.
 - **Gesperrte Jalousien** (z. B. Windalarm) zeigt die App als gesperrt; Befehle lehnt der myGEKKO dann ab.
 - **Stockwerke:** Unter **Geräte & Dienste › Allgemein › Stockwerke** legst du fest, welcher Raum auf
   welchem Stockwerk liegt; die App gruppiert Räume und Menüs danach. Ohne diese Angabe erkennt sie

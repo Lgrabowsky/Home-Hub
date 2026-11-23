@@ -36,7 +36,7 @@ const HEARTBEAT_MS = 25_000;
 const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 const MAX_CLIENT_MESSAGE_BYTES = 4096;
 
-function canSee(user: UserRecord, entity: Entity): boolean {
+export function canSee(user: UserRecord, entity: Entity): boolean {
   const needed = viewPermissionFor(entity.kind);
   return needed === null || hasPermission(user, needed);
 }

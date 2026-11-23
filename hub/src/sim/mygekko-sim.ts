@@ -471,6 +471,8 @@ function fixed(key: string, name: string, page: string | undefined, value: strin
 export interface MyGekkoSimOptions {
   /** 0 (default) picks a free port. */
   port?: number;
+  /** Besides the garden gate, a drive gate and a door opener in "Zutritt" (the demo has them). */
+  moreAccessDoors?: boolean;
   username?: string;
   password?: string;
   gekkoName?: string;
@@ -608,7 +610,7 @@ class Simulator implements MyGekkoSim {
     this.blindTravelMs = options.blindTravelMs ?? 18_000;
     this.incompleteAnswers = options.cloud?.incompleteAnswers ?? 0;
     this.contactStyle = options.contacts ?? 'named';
-    this.buildHousehold();
+    this.buildHousehold(options.moreAccessDoors === true);
     this.server = http.createServer((req, res) => this.handle(req, res));
     this.server.on('connection', (socket) => {
       this.sockets.add(socket);
@@ -630,7 +632,7 @@ class Simulator implements MyGekkoSim {
 
   // --- Household ------------------------------------------------------------------
 
-  private buildHousehold(): void {
+  private buildHousehold(moreAccessDoors: boolean): void {
     const travel = () => this.blindTravelMs;
 
     this.lights.push(
@@ -774,6 +776,55 @@ class Simulator implements MyGekkoSim {
       ],
     });
 
+    /**
+     * A door opener (type 0: opens for a moment, or stays open on "hold open") or a gate drive
+     * (type 3: runs for `travelMs`, can be stopped half way).
+     */
+    const accessDoor = (key: string, name: string, page: string, type: number, travelMs: number): SimElement => {
+      let action = 0;
+      let from = 0;
+      let target = 0;
+      let startedAt = 0;
+      let closesAt = 0;
+      const level = (now: number) => (travelMs === 0 ? target : from + (target - from) * Math.min(1, (now - startedAt) / ((travelMs * Math.abs(target - from)) / 100 || 1)));
+      const moveTo = (value: number, now: number) => {
+        from = level(now);
+        target = value;
+        startedAt = now;
+      };
+      return {
+        key,
+        name,
+        page,
+        read: (now) => {
+          if (type === 0 && action === 1 && now >= closesAt) {
+            action = 0;
+            moveTo(0, now);
+          }
+          const current = Math.round(level(now));
+          const shown = action === 0 && current > 0 && current < 100 ? 3 : action;
+          return `${shown};0;${current > 0 ? 1 : 0};${current};${type};`;
+        },
+        write: (value, now) => {
+          if (!['-3', '-2', '-1', '1', '2'].includes(value)) return 400;
+          if (value === '1' || value === '2') {
+            action = Number(value);
+            closesAt = now + 6000;
+            moveTo(100, now);
+          } else if (value === '-2' || value === '-1') {
+            action = 0;
+            moveTo(0, now);
+          } else {
+            const current = level(now);
+            from = current;
+            target = current;
+            startedAt = now;
+            action = current > 0 && current < 100 ? 3 : action;
+          }
+          return 200;
+        },
+      };
+    };
     this.systems.set('accessdoors', {
       spec: SPECS.accessdoors,
       elements: [
@@ -790,6 +841,7 @@ class Simulator implements MyGekkoSim {
             return 200;
           },
         },
+        ...(moreAccessDoors ? [accessDoor('item1', 'Einfahrtstor', 'Außen', 3, 12_000), accessDoor('item2', 'Nebeneingang', 'Eingang', 0, 0)] : []),
         fixed('group0', 'Grp 1', undefined, '0'),
       ],
     });

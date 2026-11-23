@@ -1,4 +1,4 @@
-import { Box, DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
+import { Box, DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, Timer, UserRound, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { AuditEntry } from '@home-hub/shared';
@@ -61,6 +61,20 @@ function describe(entry: AuditEntry): Described {
       return { icon: DoorOpen, tone: 'warn', category: 'door', text: `${who} hat ${text(detail.door, 'eine Tür')} geöffnet${detail.relay ? ` (${text(detail.relay)})` : ''}` };
     case 'door.open_failed':
       return { icon: DoorOpen, tone: 'danger', category: 'door', text: `${who} konnte ${text(detail.door, 'eine Tür')} nicht öffnen` };
+    case 'access.command':
+      return {
+        icon: DoorOpen,
+        tone: detail.action === 'open' || detail.action === 'hold_open' ? 'warn' : 'neutral',
+        category: 'door',
+        text: `${who} hat ${text(detail.door, 'eine Tür')} ${text(detail.text, 'bedient')}`,
+      };
+    case 'timer.changed':
+      return {
+        icon: Timer,
+        tone: detail.change === 'deleted' ? 'neutral' : 'accent',
+        category: 'change',
+        text: `${who} hat die Zeitschaltuhr „${text(detail.name)}“ ${detail.change === 'created' ? 'angelegt' : detail.change === 'deleted' ? 'gelöscht' : 'geändert'}`,
+      };
     case 'house3d.uploaded':
       return { icon: Box, tone: 'accent', category: 'change', text: `${who} hat ein 3D-Modell hochgeladen${detail.file ? ` (${text(detail.file)})` : ''}` };
     case 'house3d.removed':

@@ -17,6 +17,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { LightEntity } from '@home-hub/shared';
 import { HomeNav } from '../components/home/categories.tsx';
 import { FloorSection } from '../components/home/FloorSection.tsx';
+import { FloorFilter, useFloorFilter } from '../components/home/FloorFilter.tsx';
 import { BlindGlyph } from '../components/home/glyphs.tsx';
 import { toast } from '../components/toast.tsx';
 import { Button, cx, EmptyState, PageHeader } from '../components/ui.tsx';
@@ -169,6 +170,8 @@ export function RoomsPage() {
   const house3d = useLabs((state) => state.house3d);
   const navigate = useNavigate();
   const floors = useFloors();
+  const floorFilter = useFloorFilter();
+  const shownFloors = floorFilter.selected ? floors.filter((floor) => floor.name === floorFilter.selected) : floors;
   const [arranging, setArranging] = useState(false);
   const hasOrder = useSession((state) => state.prefs.roomOrder.length > 0);
   const sensors = useSensors(
@@ -223,16 +226,19 @@ export function RoomsPage() {
           )}
         </div>
       ) : (
-        <HomeNav />
+        <>
+          <HomeNav />
+          <FloorFilter state={floorFilter} />
+        </>
       )}
       {floors.length === 0 && <EmptyState icon={Home} title="Noch keine Räume" text="Sobald Geräte eingerichtet sind, erscheinen sie hier nach Stockwerk und Raum sortiert." />}
-      {floors.map((floor, floorIndex) => (
+      {shownFloors.map((floor) => (
         <FloorSection key={floor.name || 'haus'} name={floor.name} meta={arranging ? undefined : floorMeta(floor.rooms)}>
           {arranging ? (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
-              onDragEnd={onDragEnd(floorIndex)}
+              onDragEnd={onDragEnd(floors.indexOf(floor))}
               accessibility={{ announcements: ANNOUNCEMENTS, screenReaderInstructions: { draggable: 'Leertaste zum Aufnehmen, Pfeiltasten zum Verschieben, Leertaste zum Ablegen, Escape zum Abbrechen.' } }}
             >
               <SortableContext items={floor.rooms.map((room) => room.id)} strategy={rectSortingStrategy}>

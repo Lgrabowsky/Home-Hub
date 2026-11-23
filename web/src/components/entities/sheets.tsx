@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronUp, Lock, Minus, Plus, Power, Square, Star, Wind } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { BlindEntity, ClimateEntity, Entity, LightEntity } from '@home-hub/shared';
+import type { BlindEntity, ClimateEntity, ClockEntity, ClockMode, Entity, LightEntity } from '@home-hub/shared';
+import { AccessControls } from './access.tsx';
 import { useEntity, useIsFavorite } from '../../hooks/entities.ts';
-import { blind, climate, light } from '../../lib/actions.ts';
+import { blind, climate, light, sendCommand } from '../../lib/actions.ts';
 import { formatNumber, formatPercent, formatTemperature } from '../../lib/format.ts';
 import { BlindGlyph, ClimateGlyph } from '../home/glyphs.tsx';
 import { useCan } from '../../store/session.ts';
-import { Button, cx, IconButton, Notice, Row, RowGroup, Sheet, Slider, Toggle } from '../ui.tsx';
+import { Button, cx, IconButton, Notice, Row, RowGroup, Segmented, Sheet, Slider, Toggle } from '../ui.tsx';
 
 /** "Show on the overview" switch that every detail sheet ends with. */
 export function FavoriteRow({ entity }: { entity: Entity }) {
@@ -46,8 +47,37 @@ export function EntitySheet({ entityId, onClose }: EntitySheetProps) {
       {shown.kind === 'light' && <LightControls entity={shown} />}
       {shown.kind === 'blind' && <BlindControls entity={shown} />}
       {shown.kind === 'climate' && <ClimateControls entity={shown} />}
+      {shown.kind === 'access' && <AccessControls entity={shown} />}
+      {shown.kind === 'clock' && <ClockControls entity={shown} />}
       <FavoriteRow entity={shown} />
     </Sheet>
+  );
+}
+
+// --- Clock (building controller) ---------------------------------------------------------------
+
+const CLOCK_LABELS: Record<ClockMode, string> = { off: 'Aus', on: 'Ein', auto: 'Automatik' };
+
+/** The controller's own time switch: only its mode can be changed from here, its times stay on the controller. */
+function ClockControls({ entity }: { entity: ClockEntity }) {
+  const can = useCan('home.control');
+  const modes = entity.features.modes;
+  if (modes.length === 0) return null;
+  return (
+    <div className="mt-1">
+      <Segmented<ClockMode>
+        value={entity.mode ?? 'off'}
+        onChange={(mode) => {
+          if (!can || !entity.available) return;
+          void sendCommand(entity, { action: 'set_clock_mode', value: mode }, { mode, enabled: mode !== 'off' });
+        }}
+        options={modes.map((mode) => ({ value: mode, label: CLOCK_LABELS[mode] }))}
+        className="w-full [&>button]:flex-1"
+      />
+      <p className="mt-2.5 text-sm text-muted">
+        „Automatik“ schaltet nach den Zeiten, die am myGEKKO eingestellt sind; „Ein“ schaltet dauerhaft ein. Die Zeiten selbst änderst du am myGEKKO – oder du legst eine Zeitschaltuhr des Hubs an (unter Aktionen).
+      </p>
+    </div>
   );
 }
 

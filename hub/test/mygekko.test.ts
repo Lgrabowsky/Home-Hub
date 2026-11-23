@@ -189,7 +189,7 @@ describe('entities', () => {
   it('publishes the whole household with the values the controller reports', async () => {
     const { state, gekko } = await boot();
 
-    expect(countByKind(state)).toEqual({ light: 14, blind: 10, switch: 6, climate: 7, action: 6, clock: 3, alarm: 1, sensor: 10, contact: 11 });
+    expect(countByKind(state)).toEqual({ light: 14, blind: 10, switch: 6, climate: 7, action: 6, clock: 3, alarm: 1, sensor: 10, contact: 11, access: 1 });
     for (const candidate of own(state)) expect(candidate.available, candidate.id).toBe(true);
 
     // Lights: a dimmer, a switch-only light, RGB, tunable white, groups.
@@ -306,6 +306,7 @@ describe('entities', () => {
       zone: 'Hülle',
       fault: false,
       changedAt: null,
+      linkedEntityId: null,
     });
     const types = Object.fromEntries(
       own(state)
@@ -325,7 +326,8 @@ describe('entities', () => {
       'Dachfenster Flur': 'window',
       Gartentor: 'door',
     });
-    expect(entity(state, 'gekko:contact/auto-accessdoors-item0', 'contact')).toMatchObject({ name: 'Gartentor', room: 'Außen', contactType: 'door', open: false });
+    // A contact read from an access door says which door it belongs to.
+    expect(entity(state, 'gekko:contact/auto-accessdoors-item0', 'contact')).toMatchObject({ name: 'Gartentor', room: 'Außen', contactType: 'door', open: false, linkedEntityId: 'gekko:accessdoors/item0' });
     // Ordinary logic elements are not contacts.
     expect(state.get('gekko:contact/auto-alarms-logics-item20')).toBeUndefined();
     expect(state.get('gekko:contact/auto-alarms-logics-item21')).toBeUndefined();
@@ -702,6 +704,29 @@ describe('commands', () => {
     expect(rig.sim.requests.command).toBe(0);
     expect(rig.sim.commands).toEqual([]);
     expect(health(rig.state).status).toBe('ok');
+  });
+
+  it('opens, holds open, stops and closes doors and gates of the access control, and switches clock modes', async () => {
+    const rig = await boot({ sim: { moreAccessDoors: true }, timing: QUIET });
+    const gate = entity(rig.state, 'gekko:accessdoors/item1', 'access');
+    expect(gate).toMatchObject({ name: 'Einfahrtstor', accessType: 'gate_operation', open: false, action: 'closed', level: 0 });
+    expect(gate.features).toEqual({ open: true, holdOpen: true, close: true, lock: true, stop: true });
+    expect(entity(rig.state, 'gekko:accessdoors/item2', 'access')).toMatchObject({ name: 'Nebeneingang', accessType: 'door' });
+
+    expect(await send(rig, 'gekko:accessdoors/item2', { action: 'open' })).toBe('accessdoors/item2=1 → 200');
+    expect(await send(rig, 'gekko:accessdoors/item1', { action: 'hold_open' })).toBe('accessdoors/item1=2 → 200');
+    expect(entity(rig.state, 'gekko:accessdoors/item1', 'access').action).toBe('hold_open');
+    expect(await send(rig, 'gekko:accessdoors/item1', { action: 'stop' })).toBe('accessdoors/item1=-3 → 200');
+    expect(await send(rig, 'gekko:accessdoors/item1', { action: 'close' })).toBe('accessdoors/item1=-2 → 200');
+    expect(await send(rig, 'gekko:accessdoors/item1', { action: 'lock' })).toBe('accessdoors/item1=-1 → 200');
+    // A door does not take what a light takes.
+    expect((await failure(rig.gekko.command('gekko:accessdoors/item1', { action: 'turn_on' }))).statusCode).toBe(400);
+
+    const clock = entity(rig.state, 'gekko:clocks/item0', 'clock');
+    expect(clock.features.modes).toEqual(['off', 'on', 'auto']);
+    expect(await send(rig, 'gekko:clocks/item0', { action: 'set_clock_mode', value: 'auto' })).toBe('clocks/item0=2 → 200');
+    expect(entity(rig.state, 'gekko:clocks/item0', 'clock')).toMatchObject({ mode: 'auto', enabled: true });
+    expect(await send(rig, 'gekko:clocks/item0', { action: 'set_clock_mode', value: 'off' })).toBe('clocks/item0=0 → 200');
   });
 
   it('shows the result of a command at once, before anything is read back', async () => {
@@ -1763,7 +1788,7 @@ describe('MyGekkoIntegration.test()', () => {
       details: [
         'Verbindung: direkt im Heimnetz über HTTP – dieser myGEKKO bietet kein HTTPS an, die Zugangsdaten gehen unverschlüsselt durchs Heimnetz.',
         'Gerät: Slide 2 (AC0DFE30D3A0).',
-        'Gefunden: 12 Lichter (+ 2 Gruppen), 9 Jalousien (+ 1 Gruppe), 5 Schaltgeräte (+ 1 Gruppe), 7 Raumregler, 6 Aktionen, 3 Zeitschaltuhren, 2 Energiezähler.',
+        'Gefunden: 12 Lichter (+ 2 Gruppen), 9 Jalousien (+ 1 Gruppe), 5 Schaltgeräte (+ 1 Gruppe), 7 Raumregler, 6 Aktionen, 3 Zeitschaltuhren, 1 Tür/Tor (Zutritt), 2 Energiezähler.',
         'Alarmanlage: 1 Zone (Hülle). Der Hub zeigt sie nur an und schaltet sie nie.',
         'Automatisch erkannte Kontakte: 11 (Gartentor, Fenster Küche, Fenster Bad, Terrassentür, Haustür, Fenster Büro und 5 weitere).',
         '7 Raumregler melden einen Fensterstatus. Als Kontakt erscheint ein Raumregler, sobald sein Fenster einmal geöffnet wurde.',
@@ -1781,7 +1806,7 @@ describe('MyGekkoIntegration.test()', () => {
     expect(result.ok).toBe(true);
     expect(result.details).toContain('Eigene Kontakt-Zuordnungen: 2.');
     expect(result.details).toContain('Die automatische Erkennung von Fenster- und Türkontakten ist ausgeschaltet.');
-    expect(result.details).toContain('Noch nicht in der App: Zutritt (1), Lüftung (1), Warmwasser (1).');
+    expect(result.details).toContain('Noch nicht in der App: Lüftung (1), Warmwasser (1).');
   });
 
   it('explains a rejected login and does not repeat it', async () => {

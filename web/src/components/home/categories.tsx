@@ -1,15 +1,16 @@
-import { Blinds, LayoutGrid, Lightbulb, PlayCircle, Plug, Thermometer, type LucideIcon } from 'lucide-react';
+import { Blinds, DoorOpen, LayoutGrid, Lightbulb, PlayCircle, Plug, Thermometer, type LucideIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import type { BlindEntity, Entity, EntityKind, LightEntity } from '@home-hub/shared';
 import { blind, sendCommand } from '../../lib/actions.ts';
+import { accessIsOpen } from '../entities/access.tsx';
 import { formatNumber } from '../../lib/format.ts';
 import { useHub } from '../../store/hub.ts';
 import { cx } from '../ui.tsx';
 
 /** The house's controls, sorted by function — the same menus the building controller has. */
 export interface Category {
-  id: 'licht' | 'jalousien' | 'klima' | 'geraete' | 'aktionen';
+  id: 'licht' | 'jalousien' | 'klima' | 'geraete' | 'zutritt' | 'aktionen';
   path: string;
   label: string;
   title: string;
@@ -22,6 +23,7 @@ export const CATEGORIES: Category[] = [
   { id: 'jalousien', path: '/jalousien', label: 'Jalousien', title: 'Jalousien', icon: Blinds, kinds: ['blind'] },
   { id: 'klima', path: '/klima', label: 'Klima', title: 'Heizung & Klima', icon: Thermometer, kinds: ['climate'] },
   { id: 'geraete', path: '/geraete', label: 'Geräte', title: 'Geräte & Steckdosen', icon: Plug, kinds: ['switch'] },
+  { id: 'zutritt', path: '/zutritt', label: 'Zutritt', title: 'Zutritt', icon: DoorOpen, kinds: ['access', 'door'] },
   { id: 'aktionen', path: '/aktionen', label: 'Aktionen', title: 'Aktionen', icon: PlayCircle, kinds: ['action', 'clock'] },
 ];
 
@@ -40,6 +42,9 @@ export interface HouseSummary {
   switchesOn: number;
   actions: number;
   activeActions: number;
+  /** Doors and gates of the access control, and how many of them are open. */
+  access: number;
+  accessOpen: number;
   /** Controller groups that act on the whole house ("Alle Lichter", "Alle Jalousien"). */
   lightGroup: LightEntity | null;
   blindGroup: BlindEntity | null;
@@ -66,6 +71,8 @@ export function useHouseSummary(): HouseSummary {
       averageTemperature: temperatures.length > 0 ? temperatures.reduce((sum, value) => sum + value, 0) / temperatures.length : null,
       switches: switches.length,
       switchesOn: switches.filter((entity) => entity.kind === 'switch' && entity.on).length,
+      access: all.filter((entity) => entity.kind === 'access').length,
+      accessOpen: all.filter((entity) => entity.kind === 'access' && accessIsOpen(entity)).length,
       actions: all.filter((entity) => entity.kind === 'action').length,
       activeActions: all.filter((entity) => entity.kind === 'action' && entity.active).length,
       lightGroup: (all.find((entity) => entity.kind === 'light' && entity.isGroup && entity.room === null) as LightEntity | undefined) ?? null,
@@ -103,6 +110,8 @@ function badge(category: Category['id'], summary: HouseSummary): string | null {
       return summary.averageTemperature !== null ? `${formatNumber(summary.averageTemperature)}°` : null;
     case 'geraete':
       return summary.switchesOn > 0 ? String(summary.switchesOn) : null;
+    case 'zutritt':
+      return summary.accessOpen > 0 ? String(summary.accessOpen) : null;
     case 'aktionen':
       return null;
   }

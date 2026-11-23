@@ -1,14 +1,16 @@
-import { CalendarClock, ChevronDown, ChevronUp, PlayCircle, Power, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, PlayCircle, Power, type LucideIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import type { BlindEntity, Entity, LightEntity } from '@home-hub/shared';
 import { EntityTile } from '../../components/entities/EntityTile.tsx';
 import { EntitySheet } from '../../components/entities/sheets.tsx';
 import { allBlinds, allLightsOff, CATEGORIES, HomeNav, useHouseSummary, type Category, type HouseSummary } from '../../components/home/categories.tsx';
 import { FloorSection, RoomHeading } from '../../components/home/FloorSection.tsx';
+import { FloorFilter, useFloorFilter } from '../../components/home/FloorFilter.tsx';
 import { EntityRow } from '../../components/home/rows.tsx';
-import { Button, cx, EmptyState, IconButton, PageHeader, Row, RowGroup, Section, TileGrid, Toggle, toneSoft, type Tone } from '../../components/ui.tsx';
+import { TimersSection } from './TimersSection.tsx';
+import { Button, cx, EmptyState, IconButton, PageHeader, Section, TileGrid, toneSoft, type Tone } from '../../components/ui.tsx';
 import { useAllEntities, useFloors } from '../../hooks/entities.ts';
-import { blind, sendCommand, toggleClock } from '../../lib/actions.ts';
+import { blind, sendCommand } from '../../lib/actions.ts';
 import { formatNumber } from '../../lib/format.ts';
 import { useCan } from '../../store/session.ts';
 
@@ -75,6 +77,7 @@ function CategoryHero({ category, summary, canControl }: { category: Category; s
       );
     case 'geraete':
       return <Hero icon={category.icon} tone="accent" figure={summary.switchesOn} caption={`von ${summary.switches} Geräten ${summary.switchesOn === 1 ? 'ist' : 'sind'} eingeschaltet`} />;
+    case 'zutritt':
     case 'aktionen':
       return null;
   }
@@ -139,36 +142,6 @@ function RoomCard({ title, id, meta, actions, entities, room, onDetails }: { tit
 
 const MASONRY = 'columns-1 gap-3 md:columns-2 xl:columns-3';
 
-function Clocks({ canControl }: { canControl: boolean }) {
-  const all = useAllEntities();
-  const clocks = all.filter((entity) => entity.kind === 'clock');
-  if (clocks.length === 0) return null;
-  return (
-    <Section title="Zeitschaltuhren">
-      <RowGroup>
-        {clocks.map((clock) => (
-          <Row
-            key={clock.id}
-            icon={CalendarClock}
-            tone={clock.enabled === false ? 'neutral' : 'accent'}
-            className={clock.available ? undefined : 'opacity-60'}
-            title={clock.name}
-            subtitle={!clock.available ? 'Nicht erreichbar' : [clock.room, clock.enabled === false ? 'Pausiert' : 'Aktiv'].filter(Boolean).join(' · ')}
-            trailing={
-              <Toggle
-                checked={clock.enabled !== false}
-                label={`${clock.name} ${clock.enabled === false ? 'aktivieren' : 'pausieren'}`}
-                disabled={!canControl || !clock.available || !clock.features.toggle}
-                onChange={() => void toggleClock(clock)}
-              />
-            }
-          />
-        ))}
-      </RowGroup>
-    </Section>
-  );
-}
-
 /** One function across the whole house — all lights, all blinds … — by storey and room. */
 export function CategoryPage({ id }: { id: Category['id'] }) {
   const category = CATEGORIES.find((entry) => entry.id === id)!;
@@ -177,6 +150,7 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
   const all = useAllEntities();
   const canControl = useCan('home.control');
   const [details, setDetails] = useState<string | null>(null);
+  const floorFilter = useFloorFilter();
 
   const { house, unassigned, layout } = useMemo(() => {
     // Timers are listed separately below; they do not belong to a room.
@@ -197,12 +171,14 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
 
   const empty = house.length === 0 && unassigned.length === 0 && layout.length === 0;
   const named = layout.some((floor) => floor.name);
+  const shownLayout = floorFilter.selected ? layout.filter((floor) => floor.name === floorFilter.selected) : layout;
 
   return (
     <>
       <PageHeader title={category.title} />
       <HomeNav />
       <CategoryHero category={category} summary={summary} canControl={canControl} />
+      {category.id !== 'aktionen' && layout.length > 1 && <FloorFilter state={floorFilter} />}
 
       {empty && category.id !== 'aktionen' && <EmptyState icon={category.icon} title={`Keine ${category.label === 'Licht' ? 'Lichter' : category.label}`} text="Sobald solche Geräte in der Gebäudesteuerung eingerichtet sind, erscheinen sie hier." />}
       {empty && category.id === 'aktionen' && summary.actions === 0 && (
@@ -225,7 +201,7 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
         </Section>
       )}
 
-      {layout.map((floor) => (
+      {shownLayout.map((floor) => (
         <FloorSection key={floor.name || 'haus'} name={named ? floor.name : ''}>
           <div className={MASONRY}>
             {floor.rooms.map((room) => (
@@ -250,7 +226,7 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
         </div>
       )}
 
-      {category.id === 'aktionen' && <Clocks canControl={canControl} />}
+      {category.id === 'aktionen' && <TimersSection canControl={canControl} />}
 
       <EntitySheet entityId={details} onClose={() => setDetails(null)} />
     </>

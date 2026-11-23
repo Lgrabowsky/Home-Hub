@@ -1,5 +1,6 @@
 import {
   clamp,
+  type AccessEntity,
   type ActionEntity,
   type AlarmEntity,
   type BlindEntity,
@@ -27,9 +28,20 @@ import { documentsCommand, filled, num, type GekkoTree, type TreeItem } from './
 export const SERVICE = 'mygekko';
 
 /** Systems that become entities of their own. */
-export const MAPPED_SYSTEMS = ['lights', 'blinds', 'loads', 'roomtemps', 'actions', 'clocks', 'alarmsystem', 'energycosts'] as const;
+export const MAPPED_SYSTEMS = ['lights', 'blinds', 'loads', 'roomtemps', 'actions', 'clocks', 'accessdoors', 'alarmsystem', 'energycosts'] as const;
 
 export const TARGET_RANGE = { min: 5, max: 30, step: 0.5 } as const;
+
+export const CLOCK_MODE_VALUES = { off: '0', on: '1', auto: '2' } as const;
+
+/**
+ * Access doors: `accessControllerActionState; elementInfo; accessState; gateRuntimeLevel; accessType`,
+ * commands `-3|-2|-1|1|2` (stop, close, lock, open, hold open).
+ */
+export const ACCESS_FIELDS = { state: 2, level: 3, type: 4 } as const;
+export const ACCESS_COMMANDS = { stop: '-3', close: '-2', lock: '-1', open: '1', hold_open: '2' } as const;
+const ACCESS_ACTIONS: Record<number, AccessEntity['action']> = { 0: 'closed', 1: 'open', 2: 'hold_open', 3: 'partially_open', 4: 'partially_hold_open' };
+const ACCESS_TYPES: Record<number, AccessEntity['accessType']> = { 0: 'door', 1: 'gate', 2: 'barrier', 3: 'gate_operation', 10: 'remote_door' };
 
 const METEO: Record<string, { name: string; sensorType: SensorEntity['sensorType'] }> = {
   temperature: { name: 'Außentemperatur', sensorType: 'temperature' },
@@ -157,6 +169,7 @@ export class EntityFactory {
     for (const item of each('roomtemps')) if (!item.isGroup) add(this.climate(item, fieldsOf(item)), item);
     for (const item of each('actions')) if (!item.isGroup) add(this.action(item, fieldsOf(item)), item);
     for (const item of each('clocks')) if (!item.isGroup) add(this.clock(item, fieldsOf(item)), item);
+    for (const item of each('accessdoors')) if (!item.isGroup) add(this.access(item, fieldsOf(item)), item);
     for (const item of each('alarmsystem')) if (!item.isGroup) for (const zone of this.alarmZones(item, fieldsOf(item))) add(zone);
     for (const item of each('energycosts')) if (!item.isGroup) add(this.energyMeter(item, fieldsOf(item)));
     for (const sensor of this.weather(input)) add(sensor);
@@ -288,12 +301,38 @@ export class EntityFactory {
 
   private clock(item: TreeItem, fields: string[] | undefined): ClockEntity {
     const state = num(fields?.[0]);
+    // currentState / scmd: 0 off, 1 on, 2 "onCoincidence" — switching by the times programmed on the controller.
+    const mode: ClockEntity['mode'] = state === 0 ? 'off' : state === 1 ? 'on' : state === 2 ? 'auto' : null;
+    const modes = (['off', 'on', 'auto'] as const).filter((m) => accepts(item, CLOCK_MODE_VALUES[m]));
     return {
       ...this.base(elementEntityId(item), 'clock', item.name, item.page, fields !== undefined),
-      // 0 off, 1 on, 2 on at coincidence.
       enabled: state === null ? null : state !== 0,
       active: null,
-      features: { toggle: accepts(item, '0') && accepts(item, '1') },
+      mode,
+      features: { toggle: accepts(item, '0') && accepts(item, '1'), modes: [...modes] },
+    };
+  }
+
+  /** Access control ("Zutritt"): door openers, gates and barriers. */
+  private access(item: TreeItem, fields: string[] | undefined): AccessEntity {
+    const f = fields ?? [];
+    const action = num(f[0]);
+    const state = num(f[ACCESS_FIELDS.state]);
+    const level = num(f[ACCESS_FIELDS.level]);
+    const type = num(f[ACCESS_FIELDS.type]);
+    return {
+      ...this.base(elementEntityId(item), 'access', item.name, item.page, fields !== undefined),
+      open: state === null ? null : state !== 0,
+      action: ACCESS_ACTIONS[action ?? -1] ?? 'unknown',
+      level: level === null ? null : percent(level),
+      accessType: ACCESS_TYPES[type ?? -1] ?? 'unknown',
+      features: {
+        open: accepts(item, ACCESS_COMMANDS.open),
+        holdOpen: accepts(item, ACCESS_COMMANDS.hold_open),
+        close: accepts(item, ACCESS_COMMANDS.close),
+        lock: accepts(item, ACCESS_COMMANDS.lock),
+        stop: accepts(item, ACCESS_COMMANDS.stop),
+      },
     };
   }
 
@@ -397,6 +436,8 @@ export class EntityFactory {
       zone: contact.zone,
       fault: false,
       changedAt: memory.changedAt,
+      // A contact read from an access door belongs to that door ("Zutritt" shows them together).
+      linkedEntityId: system === 'accessdoors' && item ? elementEntityId(item) : null,
     };
   }
 }

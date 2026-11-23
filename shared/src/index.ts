@@ -85,6 +85,8 @@ export interface UserPrefs {
   hiddenRooms: string[];
   /** Last selected music group. */
   lastMusicPlayerId?: string | null;
+  /** The start page as the user arranged it; null = the standard arrangement. */
+  home?: HomeWidget[] | null;
 }
 
 export const DEFAULT_PREFS: UserPrefs = {
@@ -92,7 +94,31 @@ export const DEFAULT_PREFS: UserPrefs = {
   roomOrder: [],
   hiddenRooms: [],
   lastMusicPlayerId: null,
+  home: null,
 };
+
+/** Size of a tile on the start page: one column, two columns, or two columns and taller. */
+export type HomeWidgetSize = 'small' | 'wide' | 'large';
+
+/** Overview cards of the house's functions. */
+export const HOME_FUNCTIONS = ['licht', 'jalousien', 'klima', 'sicherheit', 'zutritt', 'geraete', 'musik'] as const;
+export type HomeFunction = (typeof HOME_FUNCTIONS)[number];
+
+/** One tile of the start page. `key` tells tiles of the same kind apart. */
+export type HomeWidget = { key: string; size: HomeWidgetSize } & (
+  | { type: 'function'; function: HomeFunction }
+  | { type: 'entity'; entityId: string }
+  | { type: 'camera'; entityId: string }
+  | { type: 'room'; room: string }
+  | { type: 'scenes' }
+  | { type: 'favorites' }
+  | { type: 'rooms' }
+  | { type: 'weather' }
+  | { type: 'timers' }
+  | { type: 'house3d' }
+);
+
+export type HomeWidgetType = HomeWidget['type'];
 
 // ---------------------------------------------------------------------------
 // Services (integrations) and their health
@@ -138,7 +164,8 @@ export type EntityKind =
   | 'alarm'
   | 'sensor'
   | 'camera'
-  | 'door';
+  | 'door'
+  | 'access';
 
 interface BaseEntity {
   /** Globally unique, stable id, e.g. `gekko:lights/item3` or `cam:garten`. */
@@ -211,13 +238,18 @@ export interface ActionEntity extends BaseEntity {
   features: { start: boolean; stop: boolean };
 }
 
+/** myGEKKO clock: off, on permanently, or switching by its programmed times ("onCoincidence"). */
+export type ClockMode = 'off' | 'on' | 'auto';
+
 export interface ClockEntity extends BaseEntity {
   kind: 'clock';
   /** Timer enabled? null when the controller does not report it. */
   enabled: boolean | null;
   /** Output currently switched on by the clock. */
   active: boolean | null;
-  features: { toggle: boolean };
+  /** The mode as the controller reports it, null when unknown. */
+  mode: ClockMode | null;
+  features: { toggle: boolean; modes: ClockMode[] };
 }
 
 export type ContactType = 'window' | 'door' | 'garage' | 'motion' | 'other';
@@ -232,6 +264,8 @@ export interface ContactEntity extends BaseEntity {
   fault: boolean;
   /** When the contact last changed (ms), if known. */
   changedAt: number | null;
+  /** The access control element the contact reports for (`access` entity), if any. */
+  linkedEntityId?: string | null;
 }
 
 export type AlarmMode = 'disarmed' | 'armed' | 'unknown';
@@ -304,6 +338,23 @@ export interface DoorEntity extends BaseEntity {
   lastMotionAt: number | null;
 }
 
+/** What an access control element does (myGEKKO "Zutritt"). */
+export type AccessType = 'door' | 'gate' | 'barrier' | 'gate_operation' | 'remote_door' | 'unknown';
+export type AccessAction = 'closed' | 'open' | 'hold_open' | 'partially_open' | 'partially_hold_open' | 'unknown';
+
+/** A door opener, gate or barrier controlled by the building controller (myGEKKO "Zutritt"). */
+export interface AccessEntity extends BaseEntity {
+  kind: 'access';
+  /** Door or gate open (its own feedback), null when unknown. */
+  open: boolean | null;
+  /** What the controller is doing with it. */
+  action: AccessAction;
+  /** Gates: how far open, 0–100. */
+  level: number | null;
+  accessType: AccessType;
+  features: { open: boolean; holdOpen: boolean; close: boolean; lock: boolean; stop: boolean };
+}
+
 export type Entity =
   | LightEntity
   | BlindEntity
@@ -315,7 +366,8 @@ export type Entity =
   | AlarmEntity
   | SensorEntity
   | CameraEntity
-  | DoorEntity;
+  | DoorEntity
+  | AccessEntity;
 
 export type EntityOf<K extends EntityKind> = Extract<Entity, { kind: K }>;
 
@@ -339,7 +391,12 @@ export type EntityCommand =
   | { action: 'set_mode'; value: ClimateEntity['mode'] }
   | { action: 'run' }
   | { action: 'enable' }
-  | { action: 'disable' };
+  | { action: 'disable' }
+  | { action: 'set_clock_mode'; value: ClockMode }
+  | { action: 'open' }
+  | { action: 'hold_open' }
+  | { action: 'close' }
+  | { action: 'lock' };
 
 export type EntityCommandAction = EntityCommand['action'];
 
@@ -772,6 +829,11 @@ export interface GeneralSettings {
   requireTotp: boolean;
   /** Days a session stays valid without being used. */
   sessionDays: number;
+  /** Time zone the house lives in (IANA name), for the hub's time switches. */
+  timeZone: string;
+  /** Where the house stands, for sunrise and sunset; null when not set. */
+  latitude: number | null;
+  longitude: number | null;
 }
 
 export interface IntegrationSettingsMap {
@@ -820,6 +882,49 @@ export interface DiagnosticsReport {
   raw: Record<string, unknown>;
   /** What the machine the hub runs on lets the hub ask for. */
   host: { canReboot: boolean };
+}
+
+// ---------------------------------------------------------------------------
+// Time switches run by the hub itself
+// ---------------------------------------------------------------------------
+
+/** When a time switch fires: at a time of day, or relative to sunrise / sunset. */
+export type TimerAt = { kind: 'time'; time: string } | { kind: 'sunrise' | 'sunset'; offset: number };
+
+export interface TimerAction {
+  entityId: string;
+  command: EntityCommand;
+}
+
+export interface HubTimer {
+  id: string;
+  name: string;
+  enabled: boolean;
+  /** Weekdays it fires on: 1 = Monday … 7 = Sunday. */
+  days: number[];
+  at: TimerAt;
+  actions: TimerAction[];
+  /** Next time it will fire (ms), null when it never will (paused, no days). */
+  nextRunAt: number | null;
+  lastRunAt: number | null;
+  /** German summary of the last run, e.g. "Ausgeführt" or "Küche Decke: nicht erreichbar". */
+  lastResult: string | null;
+  lastOk: boolean | null;
+  updatedBy: string | null;
+}
+
+export type HubTimerInput = Pick<HubTimer, 'name' | 'enabled' | 'days' | 'at' | 'actions'>;
+
+export interface TimersResponse {
+  timers: HubTimer[];
+  timeZone: string;
+  /** Location for sunrise / sunset configured (otherwise the middle of Germany is assumed). */
+  located: boolean;
+  /** Today's sunrise and sunset at the house (ms), when the sun does rise and set. */
+  sunrise: number | null;
+  sunset: number | null;
+  /** May the signed-in user create and change time switches? */
+  canEdit: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -923,6 +1028,8 @@ export interface House3DState {
   demo: boolean;
 }
 
+export * from './sun.ts';
+
 // ---------------------------------------------------------------------------
 // Small helpers shared by both sides
 // ---------------------------------------------------------------------------
@@ -952,6 +1059,7 @@ export function viewPermissionFor(kind: EntityKind): Permission | null {
       return 'doors.view';
     case 'contact':
     case 'alarm':
+    case 'access':
       return 'security.view';
     default:
       return null;

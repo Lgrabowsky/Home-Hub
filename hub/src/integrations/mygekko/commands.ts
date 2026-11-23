@@ -1,6 +1,6 @@
 import { clamp, type ClimateEntity, type Entity, type EntityCommand } from '@home-hub/shared';
 import { HttpError } from '../../http/errors.ts';
-import { TARGET_RANGE, accepts } from './entities.ts';
+import { ACCESS_COMMANDS, CLOCK_MODE_VALUES, TARGET_RANGE, accepts } from './entities.ts';
 import type { TreeItem } from './protocol.ts';
 
 /**
@@ -164,12 +164,39 @@ function translate(entity: Entity, item: TreeItem, command: EntityCommand): Comm
       }
 
     case 'clock':
-      if (!entity.features.toggle) throw unsupported(`${name} lässt sich nicht schalten.`);
       switch (command.action) {
         case 'enable':
-          return { value: '1', optimistic: { enabled: true } };
+          if (!entity.features.toggle) throw unsupported(`${name} lässt sich nicht schalten.`);
+          return { value: '1', optimistic: { enabled: true, mode: 'on' } };
         case 'disable':
-          return { value: '0', optimistic: { enabled: false } };
+          if (!entity.features.toggle) throw unsupported(`${name} lässt sich nicht schalten.`);
+          return { value: '0', optimistic: { enabled: false, mode: 'off' } };
+        case 'set_clock_mode': {
+          const value = CLOCK_MODE_VALUES[command.value];
+          if (!value || !entity.features.modes.includes(command.value)) throw unsupported(`Diese Betriebsart gibt es bei ${name} nicht.`);
+          return { value, optimistic: { mode: command.value, enabled: command.value !== 'off' } };
+        }
+        default:
+          throw mismatch();
+      }
+
+    case 'access':
+      switch (command.action) {
+        case 'open':
+          if (!entity.features.open) throw unsupported(`${name} lässt sich nicht öffnen.`);
+          return { value: ACCESS_COMMANDS.open, optimistic: { action: 'open' } };
+        case 'hold_open':
+          if (!entity.features.holdOpen) throw unsupported(`${name} lässt sich nicht dauerhaft öffnen.`);
+          return { value: ACCESS_COMMANDS.hold_open, optimistic: { action: 'hold_open' } };
+        case 'close':
+          if (!entity.features.close) throw unsupported(`${name} lässt sich nicht schließen.`);
+          return { value: ACCESS_COMMANDS.close, optimistic: { action: 'closed' } };
+        case 'lock':
+          if (!entity.features.lock) throw unsupported(`${name} lässt sich nicht sperren.`);
+          return { value: ACCESS_COMMANDS.lock, optimistic: {} };
+        case 'stop':
+          if (!entity.features.stop) throw unsupported(`${name} lässt sich nicht anhalten.`);
+          return { value: ACCESS_COMMANDS.stop, optimistic: {} };
         default:
           throw mismatch();
       }

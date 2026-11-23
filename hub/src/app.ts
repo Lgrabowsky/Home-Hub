@@ -24,6 +24,7 @@ import { StateStore } from './state.ts';
 import { ImageProxy } from './util/images.ts';
 import { HostControl } from './system/host-control.ts';
 import { House3DStore } from './house3d/store.ts';
+import { TimerService } from './automation/timers.ts';
 
 export interface Hub {
   ctx: HubContext;
@@ -96,10 +97,14 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     tls,
     hostControl: new HostControl(config.hostControlDir),
     house3d: new House3DStore({ dataDir: config.dataDir, vault, settings, log: log.child({ mod: 'house3d' }), memoryOnly: config.demo }),
+    timers: new TimerService({ settings, integrations, state, log: log.child({ mod: 'timers' }) }),
   };
 
   // The demo shows a generated house with its devices already placed.
-  if (config.demo) ctx.house3d.loadDemo(demoHouseIfc(), DEMO_HOUSE_MARKERS);
+  if (config.demo) {
+    ctx.house3d.loadDemo(demoHouseIfc(), DEMO_HOUSE_MARKERS);
+    ctx.timers.seedDemo();
+  }
 
   const app = await buildServer(ctx);
   realtime.on('activity', (active) => integrations.setActive(active));
@@ -128,6 +133,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
       if (config.demo) demo = await startDemo(ctx);
       await integrations.start();
       await demo?.ready();
+      ctx.timers.start();
       const address = await app.listen({ host: config.host, port: ctx.tls ? config.tls.httpsPort : config.port });
       if (ctx.tls) {
         helper = await startCertificateHelper({ host: config.host, port: config.port, httpsPort: config.tls.httpsPort, tls: () => ctx.tls! });
@@ -151,6 +157,7 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
       if (stopped) return;
       stopped = true;
       if (maintenance) clearInterval(maintenance);
+      ctx.timers.stop();
       realtime.close();
       await helper?.close();
       await app.close();

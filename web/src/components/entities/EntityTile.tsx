@@ -9,6 +9,9 @@ import { Tile } from '../Tile.tsx';
 import { cx, type Tone } from '../ui.tsx';
 import { entityIcon } from './icons.ts';
 import { blindStateText, climateModeLabel } from './sheets.tsx';
+import { accessIsOpen, accessStateText } from './access.tsx';
+
+export const CLOCK_MODE_TEXT = { off: 'Aus', on: 'Dauerhaft ein', auto: 'Nach Schaltzeiten' } as const;
 
 /** One-line state of any entity, in words. Also used in lists and for screen readers. */
 export function entityStateText(entity: Entity): string {
@@ -24,6 +27,7 @@ export function entityStateText(entity: Entity): string {
     case 'action':
       return entity.active ? 'Aktiv' : 'Szene';
     case 'clock':
+      if (entity.mode) return CLOCK_MODE_TEXT[entity.mode];
       return entity.enabled === false ? 'Pausiert' : 'Zeitschaltuhr aktiv';
     case 'contact':
       return entity.open ? 'Offen' : 'Geschlossen';
@@ -35,6 +39,8 @@ export function entityStateText(entity: Entity): string {
       return entity.model ?? 'Kamera';
     case 'door':
       return entity.lastRingAt ? `Geklingelt ${formatAgo(entity.lastRingAt)}` : 'Türstation';
+    case 'access':
+      return accessStateText(entity);
   }
 }
 
@@ -47,6 +53,7 @@ export function entityTone(entity: Entity): Tone {
     case 'climate':
       return entity.cooling ? 'cool' : 'warm';
     case 'contact':
+    case 'access':
       return 'warn';
     case 'alarm':
       return entity.triggered ? 'danger' : entity.breached ? 'warn' : 'ok';
@@ -76,6 +83,8 @@ export function entityIsActive(entity: Entity): boolean {
       return entity.open;
     case 'alarm':
       return entity.triggered || entity.breached || entity.mode === 'armed';
+    case 'access':
+      return accessIsOpen(entity);
     default:
       return false;
   }
@@ -157,6 +166,9 @@ export function EntityTile({ entity, onDetails, showRoom }: EntityTileProps) {
 
     case 'action':
       return <Tile {...common} subtitle={entity.active ? 'Aktiv' : 'Tippen zum Starten'} pressLabel={`Szene ${entity.name} starten`} onPress={() => void runAction(entity)} />;
+
+    case 'access':
+      return <Tile {...common} pressLabel={`${entity.name}: öffnen und schließen`} onPress={() => onDetails(entity.id)} />;
 
     case 'clock':
       return <Tile {...common} pressLabel={`${entity.name} ${entity.enabled === false ? 'aktivieren' : 'pausieren'}`} onPress={entity.features.toggle ? () => void toggleClock(entity) : undefined} />;

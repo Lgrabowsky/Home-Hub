@@ -28,6 +28,16 @@ const deviceId = z
   .trim()
   .regex(/^[a-z0-9][a-z0-9-]{0,31}$/, 'Die Kennung darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.');
 const name = z.string().trim().min(1, 'Name fehlt.').max(60);
+
+/** Whether the runtime knows the IANA time zone (e.g. "Europe/Berlin"). */
+export function isTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('de-DE', { timeZone: zone });
+    return true;
+  } catch {
+    return false;
+  }
+}
 const room = z.string().trim().max(60).default('');
 const secret = z.string().max(500).default('');
 
@@ -48,6 +58,14 @@ const schemas = {
       .default([]),
     requireTotp: z.boolean().default(true),
     sessionDays: z.number().int().min(1).max(365).default(30),
+    timeZone: z
+      .string()
+      .trim()
+      .max(60)
+      .refine(isTimeZone, 'Unbekannte Zeitzone (z. B. Europe/Berlin).')
+      .default('Europe/Berlin'),
+    latitude: z.number().min(-90, 'Breitengrad zwischen −90 und 90.').max(90, 'Breitengrad zwischen −90 und 90.').nullable().default(null),
+    longitude: z.number().min(-180, 'Längengrad zwischen −180 und 180.').max(180, 'Längengrad zwischen −180 und 180.').nullable().default(null),
   }),
 
   mygekko: z
@@ -208,6 +226,9 @@ export function maskSecrets<K extends SettingsKey>(key: K, value: IntegrationSet
 const FIELD_LABELS: Record<string, string> = {
   hubName: 'Name',
   sessionDays: 'Angemeldet bleiben',
+  timeZone: 'Zeitzone',
+  latitude: 'Breitengrad',
+  longitude: 'Längengrad',
   floors: 'Stockwerke',
   rooms: 'Räume',
   host: 'Adresse',

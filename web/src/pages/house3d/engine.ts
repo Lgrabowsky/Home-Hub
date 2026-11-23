@@ -28,7 +28,7 @@ import {
 } from 'three';
 import type { House3DLevel, House3DView } from '@home-hub/shared';
 import type { ParsedModel } from './data.ts';
-import { daylight, sunPosition } from './sun.ts';
+import { daylight, sunPosition } from '@home-hub/shared';
 
 /**
  * The 3D house: WebGL scene, daylight, how the house opens, and the gestures.

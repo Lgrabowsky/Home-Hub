@@ -16,7 +16,7 @@ import { useHub } from '../../store/hub.ts';
 import { useIsAdmin } from '../../store/session.ts';
 import { useHouse3D, useModel, type ParsedModel } from './data.ts';
 import { HouseEngine, type EngineStatus, type PickResult } from './engine.ts';
-import { sunTimes } from './sun.ts';
+import { sunTimes } from '@home-hub/shared';
 
 /** Name of a storey as the household calls it. */
 function levelName(level: House3DLevel, names: Record<string, string>): string {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { slugify } from '@home-hub/shared';
+import { slugify, type TimersResponse } from '@home-hub/shared';
 import { hubState } from './helpers.ts';
 
 test.describe('rooms and devices', () => {
@@ -56,6 +56,73 @@ test.describe('rooms and devices', () => {
     const upstairs = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Obergeschoss' }) });
     await expect(upstairs.getByRole('link', { name: 'Bad öffnen' })).toBeVisible();
     await expect(upstairs.getByRole('link', { name: 'Küche öffnen' })).toHaveCount(0);
+  });
+
+  test('the rooms can be narrowed down to one storey', async ({ page }) => {
+    await page.goto('/raeume');
+    await page.getByRole('tab', { name: 'Obergeschoss', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Bad öffnen' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Küche öffnen' })).toHaveCount(0);
+    // Remembered on this device …
+    await page.reload();
+    await expect(page.getByRole('tab', { name: 'Obergeschoss', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('link', { name: 'Küche öffnen' })).toHaveCount(0);
+    // … until "Alle" is chosen again.
+    await page.getByRole('tab', { name: 'Alle', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Küche öffnen' })).toBeVisible();
+  });
+
+  test('a timer of the hub is set up, paused, run and deleted; a clock of the controller changes its mode', async ({ page, request }) => {
+    const timers = async () => ((await (await request.get('/api/timers')).json()) as TimersResponse).timers;
+    const lamp = async () => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'light' && entity.name === 'Stehlampe' && entity.room === 'Wohnzimmer');
+    const before = await lamp();
+    const wasOn = before?.kind === 'light' && before.on === true;
+
+    await page.goto('/aktionen');
+    await page.getByRole('button', { name: 'Neu' }).click();
+    const editor = page.getByRole('dialog', { name: 'Neue Zeitschaltuhr' });
+    await editor.getByPlaceholder('z. B. Jalousien morgens hoch').fill('Stehlampe abends');
+    await editor.getByLabel('Uhrzeit').fill('21:30');
+    await editor.getByRole('button', { name: 'Werktags' }).click();
+    await editor.getByRole('button', { name: 'Aktion hinzufügen' }).click();
+    const picker = page.getByRole('dialog', { name: 'Gerät wählen' });
+    await picker.getByLabel('Gerät oder Raum suchen').fill('Stehlampe Wohnzimmer');
+    await picker.getByRole('button', { name: /Stehlampe/ }).first().click();
+    await editor.getByRole('button', { name: wasOn ? 'Aus' : 'Ein', exact: true }).click();
+    await editor.getByRole('button', { name: 'Speichern' }).click();
+    await expect(page.getByText('Zeitschaltuhr gespeichert')).toBeVisible();
+    await expect(page.getByText('Mo–Fr · 21:30 Uhr').first()).toBeVisible();
+    await expect.poll(async () => (await timers()).find((timer) => timer.name === 'Stehlampe abends')).toMatchObject({
+      enabled: true,
+      days: [1, 2, 3, 4, 5],
+      at: { kind: 'time', time: '21:30' },
+      actions: [{ command: { action: wasOn ? 'turn_off' : 'turn_on' } }],
+    });
+
+    // Paused with the switch in the list.
+    await page.getByRole('switch', { name: 'Stehlampe abends pausieren' }).click();
+    await expect.poll(async () => (await timers()).find((timer) => timer.name === 'Stehlampe abends')?.enabled).toBe(false);
+
+    // Run once by hand: the lamp follows.
+    await page.getByRole('button', { name: 'Stehlampe abends bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Jetzt ausführen' }).click();
+    await expect(page.getByText('Ausgeführt')).toBeVisible();
+    await expect.poll(lamp, { timeout: 20_000 }).toMatchObject({ on: !wasOn });
+
+    // Deleted.
+    await page.getByRole('button', { name: 'Zeitschaltuhr löschen' }).click();
+    await page.getByRole('dialog', { name: 'Zeitschaltuhr löschen?' }).getByRole('button', { name: 'Löschen' }).click();
+    await expect.poll(async () => (await timers()).some((timer) => timer.name === 'Stehlampe abends')).toBe(false);
+
+    // A clock of the controller: its switching times stay on the controller, its mode is chosen here.
+    await page.getByRole('button', { name: /^Zirkulation/ }).click();
+    await page.getByRole('tab', { name: 'Automatik' }).click();
+    await expect
+      .poll(async () => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'clock' && entity.name === 'Zirkulation'), { timeout: 20_000 })
+      .toMatchObject({ mode: 'auto' });
+
+    await page.goto('/einstellungen/protokoll');
+    await expect(page.getByText('erika hat die Zeitschaltuhr „Stehlampe abends“ angelegt').first()).toBeVisible();
   });
 
   test('the light menu switches a lamp of any room', async ({ page, request }) => {

@@ -13,6 +13,7 @@ import { ConnectPage, LoadingPage, LockedPage, OutdatedPage, UnreachablePage } f
 import { OverviewPage } from './pages/OverviewPage.tsx';
 import { RoomPage } from './pages/RoomPage.tsx';
 import { CategoryPage } from './pages/home/CategoryPage.tsx';
+import { AccessPage } from './pages/home/AccessPage.tsx';
 import { RoomsPage } from './pages/RoomsPage.tsx';
 import { useSession } from './store/session.ts';
 
@@ -55,7 +56,7 @@ function SignedIn() {
           <Route path="raeume" element={<RoomsPage />} />
           <Route path="raeume/:roomId" element={<RoomPage />} />
           {CATEGORIES.map((category) => (
-            <Route key={category.id} path={category.path.slice(1)} element={<CategoryPage key={category.id} id={category.id} />} />
+            <Route key={category.id} path={category.path.slice(1)} element={category.id === 'zutritt' ? <AccessPage /> : <CategoryPage key={category.id} id={category.id} />} />
           ))}
           <Route path="sicherheit" element={<Suspense fallback={<PageFallback />}><SecurityPage /></Suspense>} />
           <Route path="sicherheit/kamera/:id" element={<Suspense fallback={<PageFallback />}><CameraPage /></Suspense>} />

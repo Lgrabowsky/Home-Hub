@@ -1,39 +1,22 @@
-import {
-  AlertTriangle,
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Lightbulb,
-  Music2,
-  PlayCircle,
-  Power,
-  Settings2,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  Star,
-  Thermometer,
-  Wind,
-  type LucideIcon,
-} from 'lucide-react';
+import { closestCenter, DndContext, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type Announcements, type DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { AlertTriangle, Bell, Check, LayoutGrid, Maximize2, Pencil, Plus, RotateCcw, Settings2, ShieldAlert, Sparkles, Thermometer, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SERVICE_LABELS, type ActionEntity, type Entity } from '@home-hub/shared';
-import { EntityTile } from '../components/entities/EntityTile.tsx';
+import { HOME_FUNCTIONS, SERVICE_LABELS, type Entity, type HomeWidget } from '@home-hub/shared';
 import { EntitySheet } from '../components/entities/sheets.tsx';
-import { HubImage } from '../components/HubImage.tsx';
-import { allBlinds, allLightsOff, useHouseSummary } from '../components/home/categories.tsx';
-import { BlindGlyph, BulbGlyph, ClimateGlyph, SwitchGlyph } from '../components/home/glyphs.tsx';
-import { Button, Card, cx, EmptyState, Notice, Section, TileGrid, toneSoft, toneVar, type Tone } from '../components/ui.tsx';
-import { useFavorites, useFloors } from '../hooks/entities.ts';
-import { runAction } from '../lib/actions.ts';
-import { formatAgo, formatNumber, formatTemperature, greeting } from '../lib/format.ts';
+import { entityIcon } from '../components/entities/icons.ts';
+import { FULL_WIDTH, FUNCTION_LABELS, SECTION_TITLES, SIZE_LABELS, sizesFor, spanClass, useDefaultHome, WidgetView, widgetKey, widgetName } from '../components/home/widgets.tsx';
+import { toast } from '../components/toast.tsx';
+import { Button, ConfirmDialog, cx, EmptyState, IconButton, Notice, Row, RowGroup, Sheet, TextInput, toneSoft, type Tone } from '../components/ui.tsx';
+import { useRooms } from '../hooks/entities.ts';
+import { formatAgo, formatTemperature, greeting } from '../lib/format.ts';
 import { useHub } from '../store/hub.ts';
+import { useLabs } from '../store/labs.ts';
 import { useCan, useIsAdmin, useSession } from '../store/session.ts';
 
 const DATE = new Intl.DateTimeFormat('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'de', { numeric: true });
 
 /** Re-renders once a minute so "vor 5 Min." stays truthful. */
 function useMinuteTick(): number {
@@ -47,102 +30,83 @@ function useMinuteTick(): number {
 
 function Chip({ icon: Icon, tone, children, onClick }: { icon: LucideIcon; tone: Tone; children: ReactNode; onClick(): void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cx('flex h-10 shrink-0 items-center gap-2 rounded-full pl-3 pr-4 text-sm font-medium transition active:scale-[0.97]', toneSoft[tone])}
-    >
+    <button type="button" onClick={onClick} className={cx('flex h-10 shrink-0 items-center gap-2 rounded-full pl-3 pr-4 text-sm font-medium transition active:scale-[0.97]', toneSoft[tone])}>
       <Icon className="size-4.5" aria-hidden />
       <span className="whitespace-nowrap text-fg">{children}</span>
     </button>
   );
 }
 
-/** One function of the house: its state in large, a link to its menu and the most common action right on it. */
-function ControlCard({
-  to,
-  title,
-  visual,
-  figure,
-  caption,
-  glow,
-  children,
-}: {
-  to: string;
-  title: string;
-  visual: ReactNode;
-  figure: ReactNode;
-  caption: ReactNode;
-  glow?: Tone;
-  children?: ReactNode;
-}) {
+/** Whether a tile still points at something that exists (in normal view broken tiles are left out). */
+function present(widget: HomeWidget, entities: Record<string, Entity>, roomNames: Set<string>, labs: boolean): boolean {
+  switch (widget.type) {
+    case 'entity':
+    case 'camera':
+      return Boolean(entities[widget.entityId]);
+    case 'room':
+      return roomNames.has(widget.room);
+    case 'house3d':
+      return labs;
+    default:
+      return true;
+  }
+}
+
+function TileTitle({ widget }: { widget: HomeWidget }) {
+  const title = SECTION_TITLES[widget.type];
+  if (!title) return null;
+  return <h2 className="mb-2.5 mt-3 px-1 text-[13px] font-semibold uppercase tracking-wide text-muted">{title}</h2>;
+}
+
+const ANNOUNCEMENTS: Announcements = {
+  onDragStart: () => 'Kachel aufgenommen.',
+  onDragOver: ({ over }) => (over ? 'Kachel über einer anderen Stelle.' : undefined),
+  onDragEnd: () => 'Kachel abgelegt.',
+  onDragCancel: () => 'Verschieben abgebrochen.',
+};
+
+/** A tile in edit mode: drag it anywhere, change its size, take it off. */
+function EditableTile({ widget, onSize, onRemove, onDetails }: { widget: HomeWidget; onSize(): void; onRemove(): void; onDetails(id: string): void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.key });
+  const sizes = sizesFor(widget.type);
+  const name = useHub((state) => widgetName(widget, state.entities));
   return (
-    <div
-      className="panel relative flex min-h-[9.75rem] flex-col rounded-tile p-3.5 transition-[background] duration-500"
-      style={glow ? { background: `radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, ${toneVar[glow]} 15%, transparent), transparent 65%), var(--hh-panel), var(--hh-raised)` } : undefined}
-    >
-      <Link to={to} aria-label={`${title} öffnen`} className="absolute inset-0 rounded-tile transition hover:bg-fg/[0.03] active:bg-fg/[0.06]" />
-      <div className="pointer-events-none relative flex items-start justify-between gap-2">
-        {visual}
-        <span className="pt-1 text-[13px] font-medium text-muted">{title}</span>
-      </div>
-      <div className="relative mt-auto flex items-end justify-between gap-2 pt-3">
-        <div className="pointer-events-none min-w-0">
-          <p className="text-[26px] font-semibold leading-none tracking-tight tabular-nums">{figure}</p>
-          <p className="mt-1 truncate text-[13px] text-muted">{caption}</p>
+    <div ref={setNodeRef} className={cx(spanClass(widget), 'relative', isDragging && 'z-20')} style={{ transform: CSS.Translate.toString(transform), transition }}>
+      <TileTitle widget={widget} />
+      <div
+        {...attributes}
+        {...listeners}
+        aria-roledescription="verschiebbare Kachel"
+        aria-label={name}
+        className={cx('relative h-full touch-manipulation rounded-tile outline-none focus-visible:ring-2 focus-visible:ring-accent', isDragging ? 'cursor-grabbing' : 'cursor-grab')}
+      >
+        <div className={cx('pointer-events-none h-full select-none transition-[transform,box-shadow] duration-200 [&_[data-quick]]:invisible', isDragging ? 'scale-[1.03] shadow-float' : '')} style={{ borderRadius: 'inherit' }} aria-hidden>
+          <WidgetView widget={widget} onDetails={onDetails} />
         </div>
-        {children && <div className="flex shrink-0 gap-1.5">{children}</div>}
+        <span className="pointer-events-none absolute inset-0 rounded-tile outline-2 outline-dashed outline-accent/40" aria-hidden />
       </div>
-    </div>
-  );
-}
-
-function QuickButton({ icon: Icon, label, onClick, tone }: { icon: LucideIcon; label: string; onClick(): void; tone?: Tone }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={cx('relative z-10 flex size-10 items-center justify-center rounded-full transition active:scale-90', tone ? toneSoft[tone] : 'bg-sunken text-muted hover:text-fg')}
-    >
-      <Icon className="size-5" aria-hidden />
-    </button>
-  );
-}
-
-function SnapshotCard({ entity }: { entity: Extract<Entity, { kind: 'camera' | 'door' }> }) {
-  const deviceId = entity.id.slice(entity.id.indexOf(':') + 1);
-  const isDoor = entity.kind === 'door';
-  const state = !entity.available
-    ? 'Nicht erreichbar'
-    : isDoor
-      ? entity.lastRingAt
-        ? `Geklingelt ${formatAgo(entity.lastRingAt)}`
-        : 'Türstation'
-      : (entity.room ?? 'Kamera');
-  return (
-    <Link
-      to={isDoor ? `/sicherheit/tuer/${deviceId}` : `/sicherheit/kamera/${deviceId}`}
-      className={cx(
-        'relative block aspect-video w-64 shrink-0 snap-start overflow-hidden rounded-tile bg-surface shadow-tile transition active:scale-[0.99] sm:w-auto',
-        !entity.available && 'opacity-60',
+      {/* Remove at the corner, size at the bottom: neither hides the tile's title. */}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`${name} entfernen`}
+        className="absolute -right-2 -top-2 z-10 flex size-7 items-center justify-center rounded-full bg-danger text-white shadow-float"
+        style={SECTION_TITLES[widget.type] ? { top: '2rem' } : undefined}
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+      {sizes.length > 1 && (
+        <button
+          type="button"
+          onClick={onSize}
+          aria-label={`${name}: Größe ändern, jetzt ${SIZE_LABELS[widget.size]}`}
+          className="absolute bottom-2 right-2 z-10 flex h-8 items-center gap-1 rounded-full bg-raised/95 px-2.5 text-xs font-semibold text-fg shadow-float ring-1 ring-line backdrop-blur"
+        >
+          <Maximize2 className="size-3.5" aria-hidden />
+          {SIZE_LABELS[widget.size]}
+        </button>
       )}
-    >
-      <HubImage
-        src={entity.available ? `/api/${isDoor ? 'doors' : 'cameras'}/${deviceId}/snapshot` : null}
-        alt={entity.name}
-        refreshMs={10_000}
-        className="absolute inset-0 size-full"
-      />
-      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-3.5 pb-2.5 pt-8 text-white">
-        <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold">
-          {isDoor && <Bell className="size-4 shrink-0" aria-hidden />}
-          {entity.name}
-        </span>
-        <span className="block truncate text-[13px] text-white/75">{state}</span>
-      </span>
-    </Link>
+    </div>
   );
 }
 
@@ -150,59 +114,89 @@ export function OverviewPage() {
   const navigate = useNavigate();
   const now = useMinuteTick();
   const user = useSession((state) => state.user);
+  const saved = useSession((state) => state.prefs.home ?? null);
   const entities = useHub((state) => state.entities);
   const services = useHub((state) => state.services);
   const music = useHub((state) => state.music);
-  const favorites = useFavorites();
-  const floors = useFloors();
-  const summary = useHouseSummary();
+  const labs = useLabs((state) => state.house3d);
+  const rooms = useRooms();
+  const defaults = useDefaultHome();
   const isAdmin = useIsAdmin();
   const canSecurity = useCan('security.view');
-  const canControl = useCan('home.control');
   const [details, setDetails] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<HomeWidget[]>([]);
+  const [catalog, setCatalog] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const data = useMemo(() => {
     const all = Object.values(entities);
-    const contacts = all.filter((e) => e.kind === 'contact');
-    const openContacts = contacts.filter((e) => e.kind === 'contact' && e.open);
-    const alarms = all.filter((e) => e.kind === 'alarm');
-    const alarmTriggered = alarms.some((e) => e.kind === 'alarm' && e.triggered);
-    const alarmBreached = alarms.find((e) => e.kind === 'alarm' && e.breached);
-    const scenes = all.filter((e): e is ActionEntity => e.kind === 'action' && e.available).sort(byName);
-    const media = all.filter((e): e is Extract<Entity, { kind: 'camera' | 'door' }> => e.kind === 'camera' || e.kind === 'door').sort((a, b) => (a.kind === b.kind ? byName(a, b) : a.kind === 'door' ? -1 : 1));
+    const alarmTriggered = all.some((e) => e.kind === 'alarm' && e.triggered);
     const lastRing = all
       .filter((e) => e.kind === 'door' && e.lastRingAt !== null)
       .map((e) => ({ door: e, at: e.kind === 'door' ? (e.lastRingAt ?? 0) : 0 }))
       .sort((a, b) => b.at - a.at)[0];
     const outside = entities['gekko:meteo/temperature'];
-    return { all, contacts, openContacts, alarms, alarmTriggered, alarmBreached, scenes, media, lastRing, outside };
+    return { all, alarmTriggered, lastRing, outside };
   }, [entities]);
 
-  const playing = music.groups.filter((group) => group.state === 'playing');
   const problems = Object.values(services).filter((service) => service && (service.status === 'offline' || service.status === 'degraded'));
   const nothingConfigured = data.all.length === 0 && music.players.length === 0 && Object.values(services).every((service) => !service || service.status === 'unconfigured');
-
-  const favoriteIds = new Set(favorites.map((entity) => entity.id));
-  const favoriteScenes = data.scenes.filter((scene) => favoriteIds.has(scene.id));
-  const scenes = (favoriteScenes.length > 0 ? favoriteScenes : data.scenes).slice(0, 8);
-  const pinned = favorites.filter((entity) => entity.kind !== 'action');
   const recentRing = data.lastRing && now - data.lastRing.at < 30 * 60_000 ? data.lastRing : null;
   const outsideTemperature = data.outside?.kind === 'sensor' && typeof data.outside.value === 'number' ? data.outside.value : null;
+  const roomNames = useMemo(() => new Set(rooms.flatMap((room) => [room.name, room.id])), [rooms]);
+
+  const widgets = editing ? draft : (saved ?? defaults).filter((widget) => present(widget, entities, roomNames, labs));
+
+  const startEditing = () => {
+    setDraft(saved ?? defaults);
+    setEditing(true);
+  };
+  const finish = async () => {
+    setEditing(false);
+    try {
+      await useSession.getState().savePrefs({ home: draft });
+    } catch {
+      toast.error('Die Startseite konnte nicht gespeichert werden.');
+    }
+  };
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setDraft((current) => arrayMove(current, current.findIndex((w) => w.key === active.id), current.findIndex((w) => w.key === over.id)));
+  };
+  const cycleSize = (key: string) =>
+    setDraft((current) =>
+      current.map((widget) => {
+        if (widget.key !== key) return widget;
+        const sizes = sizesFor(widget.type);
+        const next = sizes[(sizes.indexOf(widget.size) + 1) % sizes.length] ?? widget.size;
+        return { ...widget, size: next };
+      }),
+    );
 
   const header = (
-    <header className="mb-5 pt-1">
-      <h1 className="text-[26px] font-bold leading-tight tracking-tight">
-        {greeting(new Date(now))}
-        {user ? `, ${user.displayName.split(' ')[0]}` : ''}
-      </h1>
-      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-muted">
-        <span>{DATE.format(now)}</span>
-        {outsideTemperature !== null && (
-          <span className="inline-flex items-center gap-1 tabular-nums">
-            · <Thermometer className="size-4" aria-hidden /> {formatTemperature(outsideTemperature)} draußen
-          </span>
-        )}
-      </p>
+    <header className="mb-5 flex items-start gap-3 pt-1">
+      <div className="min-w-0 flex-1">
+        <h1 className="text-[26px] font-bold leading-tight tracking-tight">
+          {greeting(new Date(now))}
+          {user ? `, ${user.displayName.split(' ')[0]}` : ''}
+        </h1>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-muted">
+          <span>{DATE.format(now)}</span>
+          {outsideTemperature !== null && (
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              · <Thermometer className="size-4" aria-hidden /> {formatTemperature(outsideTemperature)} draußen
+            </span>
+          )}
+        </p>
+      </div>
+      {!nothingConfigured && !editing && <IconButton icon={Pencil} label="Startseite bearbeiten" onClick={startEditing} className="-mr-2 mt-0.5" />}
     </header>
   );
 
@@ -213,11 +207,7 @@ export function OverviewPage() {
         <EmptyState
           icon={Sparkles}
           title="Willkommen in deinem Home Hub"
-          text={
-            isAdmin
-              ? 'Noch ist nichts verbunden. Richte als Erstes deine Geräte ein – Gebäudesteuerung, Türstationen, Kameras und Lautsprecher.'
-              : 'Noch sind keine Geräte eingerichtet. Bitte einen Administrator, das zu erledigen.'
-          }
+          text={isAdmin ? 'Noch ist nichts verbunden. Richte als Erstes deine Geräte ein – Gebäudesteuerung, Türstationen, Kameras und Lautsprecher.' : 'Noch sind keine Geräte eingerichtet. Bitte einen Administrator, das zu erledigen.'}
           action={
             isAdmin ? (
               <Button variant="primary" icon={Settings2} onClick={() => navigate('/einstellungen/dienste')}>
@@ -230,12 +220,45 @@ export function OverviewPage() {
     );
   }
 
+  const grid = (
+    <div className="grid grid-flow-row-dense grid-cols-2 gap-2.5 sm:grid-cols-4">
+      {widgets.map((widget) =>
+        editing ? (
+          <EditableTile key={widget.key} widget={widget} onSize={() => cycleSize(widget.key)} onRemove={() => setDraft((current) => current.filter((w) => w.key !== widget.key))} onDetails={setDetails} />
+        ) : (
+          <div key={widget.key} className={spanClass(widget)}>
+            <TileTitle widget={widget} />
+            <WidgetView widget={widget} onDetails={setDetails} />
+          </div>
+        ),
+      )}
+    </div>
+  );
+
   return (
     <>
       {header}
 
-      {/* Only what is urgent gets a chip; everything else is in the cards below. */}
-      {((canSecurity && data.alarmTriggered) || recentRing) && (
+      {editing && (
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 mb-5 rounded-tile bg-raised/95 p-2.5 shadow-float backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => setConfirmReset(true)}>
+              Standard
+            </Button>
+            <span className="flex-1" />
+            <Button size="sm" icon={Plus} onClick={() => setCatalog(true)}>
+              Kachel
+            </Button>
+            <Button size="sm" variant="primary" icon={Check} onClick={() => void finish()}>
+              Fertig
+            </Button>
+          </div>
+          <p className="px-1.5 pb-0.5 pt-2 text-[13px] text-muted">Kachel gedrückt halten und ziehen, um sie zu verschieben.</p>
+        </div>
+      )}
+
+      {/* Only what is urgent gets a chip; everything else is in the tiles below. */}
+      {!editing && ((canSecurity && data.alarmTriggered) || recentRing) && (
         <div className="no-scrollbar -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
           {canSecurity && data.alarmTriggered && (
             <Chip icon={ShieldAlert} tone="danger" onClick={() => navigate('/sicherheit')}>
@@ -250,7 +273,7 @@ export function OverviewPage() {
         </div>
       )}
 
-      {problems.length > 0 && (
+      {!editing && problems.length > 0 && (
         <div className="mb-6 space-y-2">
           {problems.map(
             (service) =>
@@ -268,185 +291,149 @@ export function OverviewPage() {
         </div>
       )}
 
-      <Section title="Dein Zuhause">
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {summary.lights.length > 0 && (
-            <ControlCard
-              to="/licht"
-              title="Licht"
-              glow={summary.lightsOn.length > 0 ? 'warm' : undefined}
-              visual={<BulbGlyph entity={{ on: summary.lightsOn.length > 0, brightness: null, color: null }} />}
-              figure={summary.lightsOn.length > 0 ? `${summary.lightsOn.length} an` : 'Alle aus'}
-              caption={summary.lightsOn.length > 0 ? summary.lightsOn.map((entity) => entity.room ?? entity.name).filter((room, index, list) => list.indexOf(room) === index).join(', ') : `${summary.lights.length} Lichter`}
-            >
-              {canControl && summary.lightsOn.length > 0 && <QuickButton icon={Power} tone="warm" label="Alle Lichter ausschalten" onClick={() => allLightsOff(summary)} />}
-            </ControlCard>
-          )}
-          {summary.blinds.length > 0 && (
-            <ControlCard
-              to="/jalousien"
-              title="Jalousien"
-              glow={summary.blindsMoving > 0 ? 'cool' : undefined}
-              visual={
-                <BlindGlyph
-                  entity={{
-                    position: summary.blinds.reduce((sum, entity) => sum + (entity.position ?? 0), 0) / summary.blinds.length,
-                    motion: summary.blindsMoving > 0 ? 'down' : 'stopped',
-                    tilt: null,
-                  }}
-                />
-              }
-              figure={summary.blindsMoving > 0 ? 'fahren' : summary.blindsClosed === 0 ? 'offen' : `${summary.blindsClosed} zu`}
-              caption={`von ${summary.blinds.length}`}
-            >
-              {canControl && (
-                <>
-                  <QuickButton icon={ChevronUp} label="Alle Jalousien hochfahren" onClick={() => allBlinds(summary, 'up')} />
-                  <QuickButton icon={ChevronDown} label="Alle Jalousien herunterfahren" onClick={() => allBlinds(summary, 'down')} />
-                </>
-              )}
-            </ControlCard>
-          )}
-          {summary.climateCount > 0 && (
-            <ControlCard
-              to="/klima"
-              title="Klima"
-              glow={summary.heating > 0 ? 'warm' : undefined}
-              visual={<ClimateGlyph heating={summary.heating > 0} cooling={false} />}
-              figure={summary.averageTemperature === null ? '–' : `${formatNumber(summary.averageTemperature)}°`}
-              caption={summary.heating > 0 ? `${summary.heating} ${summary.heating === 1 ? 'Raum heizt' : 'Räume heizen'}` : 'im Schnitt'}
-            />
-          )}
-          {canSecurity && (data.contacts.length > 0 || data.alarms.length > 0) && (
-            <ControlCard
-              to="/sicherheit"
-              title="Fenster & Türen"
-              glow={data.openContacts.length > 0 || data.alarmBreached ? 'warn' : undefined}
-              visual={
-                <span className={cx('flex size-10 items-center justify-center rounded-full', data.openContacts.length > 0 || data.alarmBreached ? toneSoft.warn : toneSoft.ok)}>
-                  {data.openContacts.length > 0 || data.alarmBreached ? <Wind className="size-5" aria-hidden /> : <ShieldCheck className="size-5" aria-hidden />}
-                </span>
-              }
-              figure={data.contacts.length > 0 ? (data.openContacts.length > 0 ? `${data.openContacts.length} offen` : 'Alle zu') : data.alarmBreached ? 'Offen' : 'Alle zu'}
-              caption={data.openContacts.length > 0 ? data.openContacts.map((entity) => entity.name).join(', ') : data.contacts.length > 0 ? `${data.contacts.length} Kontakte` : 'Hülle'}
-            />
-          )}
-          {summary.switches > 0 && (
-            <ControlCard
-              to="/geraete"
-              title="Geräte"
-              glow={summary.switchesOn > 0 ? 'accent' : undefined}
-              visual={<SwitchGlyph entity={{ on: summary.switchesOn > 0, variant: 'socket' }} />}
-              figure={summary.switchesOn > 0 ? `${summary.switchesOn} an` : 'Alle aus'}
-              caption="Geräte & Steckdosen"
-            />
-          )}
-          {music.players.length > 0 && (
-            <ControlCard
-              to="/musik"
-              title="Musik"
-              glow={playing.length > 0 ? 'music' : undefined}
-              visual={
-                <span className={cx('flex size-10 items-center justify-center rounded-full', playing.length > 0 ? toneSoft.music : 'bg-sunken text-muted')}>
-                  <Music2 className={cx('size-5', playing.length > 0 && 'animate-pulse')} aria-hidden />
-                </span>
-              }
-              figure={playing.length > 0 ? 'Spielt' : 'Ruhe'}
-              caption={playing.length > 0 ? `${playing[0]!.name}${playing.length > 1 ? ` +${playing.length - 1}` : ''} · ${playing[0]!.track?.title ?? ''}` : `${music.players.length} Lautsprecher`}
-            />
-          )}
-        </div>
-      </Section>
+      {widgets.length === 0 && !editing && (
+        <EmptyState icon={LayoutGrid} title="Deine Startseite ist leer" text="Füge Kacheln hinzu: Bereiche, Räume, Geräte, Kameras, Szenen …" action={<Button icon={Pencil} onClick={startEditing}>Bearbeiten</Button>} />
+      )}
 
-      {scenes.length > 0 && (
-        <Section
-          title="Szenen"
-          action={
-            <Link to="/aktionen" className="flex items-center text-sm text-muted hover:text-fg">
-              Alle <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          }
+      {editing ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={onDragEnd}
+          accessibility={{ announcements: ANNOUNCEMENTS, screenReaderInstructions: { draggable: 'Leertaste zum Aufnehmen, Pfeiltasten zum Verschieben, Leertaste zum Ablegen.' } }}
         >
-          <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
-            {scenes.map((scene) => (
-              <button
-                key={scene.id}
-                type="button"
-                disabled={!canControl}
-                onClick={() => void runAction(scene)}
-                className={cx(
-                  'flex h-12 shrink-0 items-center gap-2.5 rounded-control bg-surface pl-3.5 pr-4.5 font-medium shadow-tile transition hover:bg-raised active:scale-[0.97] disabled:opacity-60',
-                  scene.active && 'ring-1 ring-accent/50',
-                )}
-              >
-                <PlayCircle className="size-5 text-accent" aria-hidden />
-                <span className="whitespace-nowrap">{scene.name}</span>
-              </button>
-            ))}
-          </div>
-        </Section>
+          <SortableContext items={widgets.map((widget) => widget.key)} strategy={rectSortingStrategy}>
+            {grid}
+          </SortableContext>
+        </DndContext>
+      ) : (
+        grid
       )}
-
-      <Section title="Favoriten">
-        {pinned.length > 0 ? (
-          <TileGrid>
-            {pinned.map((entity) => (
-              <EntityTile key={entity.id} entity={entity} onDetails={setDetails} showRoom />
-            ))}
-          </TileGrid>
-        ) : (
-          <Card className="flex flex-wrap items-center gap-x-3.5 gap-y-3 p-4">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-warm/15 text-warm">
-              <Star className="size-5" aria-hidden />
-            </span>
-            <p className="min-w-0 flex-1 basis-52 text-sm text-muted">
-              Hier erscheinen deine wichtigsten Geräte. Tippe bei einem Gerät auf das Regler-Symbol und wähle „Auf der Übersicht zeigen“.
-            </p>
-            <Button size="sm" className="ml-auto" onClick={() => navigate('/raeume')}>
-              Zu den Räumen
-            </Button>
-          </Card>
-        )}
-      </Section>
-
-      {data.media.length > 0 && (
-        <Section title="Kameras & Türen">
-          <div className="no-scrollbar -mx-4 flex snap-x gap-2.5 overflow-x-auto px-4 sm:mx-0 sm:grid sm:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))] sm:px-0">
-            {data.media.map((entity) => (
-              <SnapshotCard key={entity.id} entity={entity} />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {floors.length > 0 && (
-        <Section
-          title="Räume"
-          action={
-            <Link to="/raeume" className="flex items-center text-sm text-muted hover:text-fg">
-              Alle <ChevronRight className="size-4" aria-hidden />
-            </Link>
-          }
-        >
-          {floors.map((floor) => (
-            <div key={floor.name || 'haus'} className="mb-3">
-              {floor.name && floors.length > 1 && <p className="mb-1.5 px-1 text-[13px] text-muted">{floor.name}</p>}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
-                {floor.rooms.map((room) => (
-                  <Link key={room.id} to={`/raeume/${room.id}`} className="panel flex items-center gap-2 rounded-2xl px-3.5 py-3 transition hover:bg-raised active:scale-[0.99]">
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">{room.name}</span>
-                    {room.openContacts > 0 && <span className="size-2 shrink-0 rounded-full bg-warn" title={`${room.openContacts} offen`} />}
-                    {room.lightsOn > 0 && <Lightbulb className="size-4 shrink-0 text-warm" aria-label={`${room.lightsOn} an`} />}
-                    {room.temperature !== null && <span className="shrink-0 text-[13px] tabular-nums text-muted">{formatNumber(room.temperature)}°</span>}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </Section>
-      )}
+      {editing && widgets.length === 0 && <p className="mt-2 text-center text-sm text-muted">Noch keine Kacheln – füge mit „Kachel“ welche hinzu.</p>}
 
       <EntitySheet entityId={details} onClose={() => setDetails(null)} />
+      <WidgetCatalog
+        open={catalog}
+        onClose={() => setCatalog(false)}
+        current={draft}
+        onAdd={(widget) => {
+          setDraft((current) => [...current, widget]);
+          setCatalog(false);
+          toast.success('Kachel hinzugefügt');
+        }}
+      />
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        title="Standard-Startseite?"
+        text="Deine Anordnung wird durch die Standard-Startseite ersetzt."
+        confirmLabel="Zurücksetzen"
+        onConfirm={async () => {
+          setDraft(defaults);
+          setEditing(false);
+          await useSession.getState().savePrefs({ home: null });
+        }}
+      />
     </>
+  );
+}
+
+/** "+ Kachel": everything that can go on the start page. */
+function WidgetCatalog({ open, onClose, current, onAdd }: { open: boolean; onClose(): void; current: HomeWidget[]; onAdd(widget: HomeWidget): void }) {
+  const entities = useHub((state) => state.entities);
+  const music = useHub((state) => state.music);
+  const labs = useLabs((state) => state.house3d);
+  const canSecurity = useCan('security.view');
+  const rooms = useRooms();
+  const [query, setQuery] = useState('');
+  const all = Object.values(entities);
+  const has = (type: HomeWidget['type']) => current.some((widget) => widget.type === type);
+  const hasFunction = (fn: string) => current.some((widget) => widget.type === 'function' && widget.function === fn);
+  const kinds = new Set(all.map((entity) => entity.kind));
+  const functionAvailable: Record<string, boolean> = {
+    licht: kinds.has('light'),
+    jalousien: kinds.has('blind'),
+    klima: kinds.has('climate'),
+    sicherheit: canSecurity && (kinds.has('contact') || kinds.has('alarm')),
+    zutritt: kinds.has('access'),
+    geraete: kinds.has('switch'),
+    musik: music.players.length > 0,
+  };
+  const overviews: { type: HomeWidget['type']; label: string; size: HomeWidget['size']; show: boolean }[] = [
+    { type: 'scenes', label: 'Szenen', size: 'wide', show: kinds.has('action') },
+    { type: 'favorites', label: 'Favoriten', size: 'wide', show: true },
+    { type: 'rooms', label: 'Alle Räume', size: 'wide', show: true },
+    { type: 'weather', label: 'Wetter', size: 'small', show: Boolean(entities['gekko:meteo/temperature']) },
+    { type: 'timers', label: 'Nächste Zeitschaltuhren', size: 'wide', show: true },
+    { type: 'house3d', label: '3D-Haus', size: 'small', show: labs },
+  ];
+  const media = all.filter((entity) => entity.kind === 'camera' || entity.kind === 'door');
+  const q = query.trim().toLowerCase();
+  const devices = all
+    .filter((entity) => entity.kind !== 'camera' && entity.kind !== 'door' && (q === '' || `${entity.name} ${entity.room ?? ''}`.toLowerCase().includes(q)))
+    .sort((a, b) => `${a.room ?? ''} ${a.name}`.localeCompare(`${b.room ?? ''} ${b.name}`, 'de'))
+    .slice(0, q === '' ? 40 : 100);
+  const plus = <Plus className="size-4.5 text-faint" aria-hidden />;
+
+  return (
+    <Sheet open={open} onClose={onClose} title="Kachel hinzufügen">
+      <div className="flex flex-col gap-5">
+        <div>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Bereiche</p>
+          <RowGroup>
+            {HOME_FUNCTIONS.filter((fn) => functionAvailable[fn] && !hasFunction(fn)).map((fn) => (
+              <Row key={fn} title={FUNCTION_LABELS[fn]} trailing={plus} onClick={() => onAdd({ key: widgetKey('fn'), size: 'small', type: 'function', function: fn })} />
+            ))}
+            {HOME_FUNCTIONS.every((fn) => !functionAvailable[fn] || hasFunction(fn)) && <p className="px-4 py-3 text-sm text-muted">Alle Bereiche sind schon auf der Startseite.</p>}
+          </RowGroup>
+        </div>
+        <div>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Übersichten</p>
+          <RowGroup>
+            {overviews
+              .filter((entry) => entry.show && !has(entry.type))
+              .map((entry) => (
+                <Row key={entry.type} title={entry.label} trailing={plus} onClick={() => onAdd({ key: widgetKey(entry.type), size: entry.size, type: entry.type } as HomeWidget)} />
+              ))}
+          </RowGroup>
+        </div>
+        {rooms.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Räume</p>
+            <RowGroup>
+              {rooms.map((room) => (
+                <Row key={room.id} title={room.name} trailing={plus} onClick={() => onAdd({ key: widgetKey('room'), size: 'small', type: 'room', room: room.name })} />
+              ))}
+            </RowGroup>
+          </div>
+        )}
+        {media.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Kameras & Türstationen</p>
+            <RowGroup>
+              {media.map((entity) => (
+                <Row key={entity.id} icon={entityIcon(entity)} title={entity.name} trailing={plus} onClick={() => onAdd({ key: widgetKey('cam'), size: 'wide', type: 'camera', entityId: entity.id })} />
+              ))}
+            </RowGroup>
+          </div>
+        )}
+        <div>
+          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Einzelne Geräte</p>
+          <TextInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Gerät oder Raum suchen" aria-label="Gerät oder Raum suchen" className="mb-2" />
+          <RowGroup>
+            {devices.map((entity) => (
+              <Row
+                key={entity.id}
+                icon={entityIcon(entity)}
+                title={entity.name}
+                subtitle={entity.room ?? undefined}
+                trailing={plus}
+                onClick={() => onAdd({ key: widgetKey('dev'), size: 'small', type: 'entity', entityId: entity.id })}
+              />
+            ))}
+          </RowGroup>
+        </div>
+      </div>
+    </Sheet>
   );
 }

@@ -1,31 +1,19 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
-import type { EntityCommand, HubState, MediaConfig } from '@home-hub/shared';
+import { hasPermission, type EntityCommand, type HubState, type MediaConfig } from '@home-hub/shared';
 import type { HubContext } from '../../context.ts';
-import { filterState } from '../../realtime.ts';
+import { canSee, filterState } from '../../realtime.ts';
+import { forbidden, notFound } from '../errors.ts';
 import { actor, auth, parseBody } from '../server.ts';
+import { commandSchema } from '../commands.ts';
 
-const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-const percent = z.number().min(0).max(100);
-
-const commandSchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('turn_on') }),
-  z.object({ action: z.literal('turn_off') }),
-  z.object({ action: z.literal('toggle') }),
-  z.object({ action: z.literal('set_brightness'), value: percent }),
-  z.object({ action: z.literal('set_color'), value: color }),
-  z.object({ action: z.literal('set_color_temp'), value: z.number().min(0).max(100) }),
-  z.object({ action: z.literal('up') }),
-  z.object({ action: z.literal('down') }),
-  z.object({ action: z.literal('stop') }),
-  z.object({ action: z.literal('set_position'), value: percent }),
-  z.object({ action: z.literal('set_tilt'), value: percent }),
-  z.object({ action: z.literal('set_target'), value: z.number().min(4).max(35) }),
-  z.object({ action: z.literal('set_mode'), value: z.enum(['off', 'comfort', 'reduced', 'manual', 'standby', 'unknown']) }),
-  z.object({ action: z.literal('run') }),
-  z.object({ action: z.literal('enable') }),
-  z.object({ action: z.literal('disable') }),
-]);
+/** What a command on a door or gate did, for the audit log. */
+const ACCESS_WORDS: Partial<Record<EntityCommand['action'], string>> = {
+  open: 'geöffnet',
+  hold_open: 'dauerhaft geöffnet',
+  close: 'geschlossen',
+  lock: 'gesperrt',
+  stop: 'angehalten',
+};
 
 export function registerHomeRoutes(app: FastifyInstance, ctx: HubContext): void {
   /** Full state, filtered to what the user may see. The apps normally get it over the WebSocket. */
@@ -37,6 +25,21 @@ export function registerHomeRoutes(app: FastifyInstance, ctx: HubContext): void 
     async (request) => {
       const command = parseBody(commandSchema, request.body) as EntityCommand;
       const entity = ctx.integrations.entity(request.params.id);
+      const { user } = auth(request);
+      if (!canSee(user, entity)) throw notFound('Dieses Gerät gibt es nicht (mehr).');
+      // Doors and gates: only for whoever may open doors, and every use is on record.
+      if (entity.kind === 'access') {
+        if (!hasPermission(user, 'doors.open')) throw forbidden('Du darfst keine Türen öffnen.');
+        try {
+          await ctx.integrations.entityCommand(entity.id, command);
+        } catch (err) {
+          if (command.action === 'open' || command.action === 'hold_open') ctx.audit.record('door.open_failed', actor(request), { door: entity.name });
+          throw err;
+        }
+        ctx.audit.record('access.command', actor(request), { door: entity.name, action: command.action, text: ACCESS_WORDS[command.action] ?? command.action });
+        ctx.log.info({ user: actor(request).username, entity: entity.id, action: command.action }, 'access command');
+        return { ok: true };
+      }
       await ctx.integrations.entityCommand(entity.id, command);
       ctx.log.info({ user: actor(request).username, entity: entity.id, action: command.action }, 'entity command');
       return { ok: true };
