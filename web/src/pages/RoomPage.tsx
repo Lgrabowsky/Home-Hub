@@ -1,17 +1,18 @@
-import { ChevronDown, ChevronUp, Home, Music2, Power } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Music2, Pencil, Power } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { BlindEntity, Entity, EntityKind, LightEntity } from '@home-hub/shared';
+import { slugify, type BlindEntity, type Entity, type EntityKind, type LightEntity } from '@home-hub/shared';
 import { ClimateGlyph } from '../components/home/glyphs.tsx';
 import { EntityTile } from '../components/entities/EntityTile.tsx';
 import { EntitySheet } from '../components/entities/sheets.tsx';
+import { RoomEditor } from '../components/layout/RoomEditor.tsx';
 import { Tile } from '../components/Tile.tsx';
 import { Button, EmptyState, IconButton, PageHeader, Section, TileGrid } from '../components/ui.tsx';
 import { useFloors, useRooms } from '../hooks/entities.ts';
 import { blind, sendCommand } from '../lib/actions.ts';
 import { formatNumber } from '../lib/format.ts';
 import { useHub } from '../store/hub.ts';
-import { useCan } from '../store/session.ts';
+import { useCan, useIsAdmin } from '../store/session.ts';
 
 const SECTIONS: { title: string; kinds: EntityKind[]; permission?: 'security.view' }[] = [
   { title: 'Licht', kinds: ['light'] },
@@ -32,7 +33,9 @@ export function RoomPage() {
   const room = rooms.find((entry) => entry.id === roomId);
   const groups = useHub((state) => state.music.groups);
   const canControl = useCan('home.control');
+  const isAdmin = useIsAdmin();
   const [details, setDetails] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const sections = useMemo(() => {
     if (!room) return [];
@@ -57,7 +60,18 @@ export function RoomPage() {
 
   return (
     <>
-      <PageHeader title={room.name} back="/raeume" subtitle={floor || undefined} />
+      <PageHeader
+        title={room.name}
+        back="/raeume"
+        subtitle={floor || undefined}
+        actions={
+          isAdmin && (
+            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(true)}>
+              Bearbeiten
+            </Button>
+          )
+        }
+      />
 
       {(room.temperature !== null || lightsOn.length > 0 || blinds.length > 1) && (
         <div className="panel mb-7 flex flex-wrap items-center gap-x-5 gap-y-4 rounded-tile p-5">
@@ -128,6 +142,7 @@ export function RoomPage() {
       {sections.length === 0 && room.players.length === 0 && <EmptyState icon={Home} title="In diesem Raum gibt es noch keine Geräte" />}
 
       <EntitySheet entityId={details} onClose={() => setDetails(null)} />
+      <RoomEditor room={editing ? room.name : null} onClose={() => setEditing(false)} onRenamed={(name) => navigate(`/raeume/${slugify(name)}`, { replace: true })} />
     </>
   );
 }

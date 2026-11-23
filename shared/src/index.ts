@@ -1,3 +1,5 @@
+import type { HouseLayout } from './layout.ts';
+
 /**
  * Shared contract between the hub (server) and the clients (web / Android).
  *
@@ -177,6 +179,10 @@ interface BaseEntity {
   /** false while the backing device is unreachable. */
   available: boolean;
   service: ServiceId;
+  /** Name and room as recognised automatically, when the household changed either (see HouseLayout). */
+  auto?: { name: string; room: string | null };
+  /** Hidden by the household: not shown in the app, still switched by timers. */
+  hidden?: true;
 }
 
 export interface LightEntity extends BaseEntity {
@@ -600,6 +606,8 @@ export interface HubState {
   hubName: string;
   /** How the rooms are arranged; empty = the app groups by itself. */
   floors: Floor[];
+  /** The household's own names, rooms and order (only what differs from the automatic arrangement). */
+  layout?: HouseLayout;
   services: Record<ServiceId, ServiceHealth>;
   entities: Record<string, Entity>;
   music: MusicState;
@@ -1029,22 +1037,12 @@ export interface House3DState {
 }
 
 export * from './sun.ts';
+export * from './text.ts';
+export * from './layout.ts';
 
 // ---------------------------------------------------------------------------
 // Small helpers shared by both sides
 // ---------------------------------------------------------------------------
-
-export function slugify(input: string): string {
-  return (
-    input
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .replace(/ß/g, 'ss')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'x'
-  );
-}
 
 export function hasPermission(user: Pick<UserInfo, 'role' | 'permissions'>, permission: Permission): boolean {
   return user.role === 'admin' || user.permissions.includes(permission);

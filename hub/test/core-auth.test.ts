@@ -257,19 +257,29 @@ describe('settings', () => {
     expect(invalid.statusCode).toBe(400);
   });
 
-  it('stores the storeys and hands them to every app', async () => {
+  it('stores the arrangement of the house and hands it to every app', async () => {
     const { client } = await setupAdmin(hub);
     await hub.start();
     const floors = [
       { name: 'Erdgeschoss', rooms: ['Küche', 'Wohnzimmer'] },
       { name: 'Obergeschoss', rooms: ['Bad'] },
     ];
-    const saved = await client.put('/api/admin/settings/general', { hubName: 'Zuhause', requireTotp: false, sessionDays: 30, floors });
+    const layout = { floors, rooms: { kuche: 'Kochen' }, devices: {}, order: {}, cameraLights: {} };
+    const saved = await client.put('/api/layout', { layout, change: 'Test' });
     expect(saved.statusCode).toBe(200);
     await expect.poll(async () => ((await client.get('/api/state')).json() as { floors: unknown }).floors).toEqual(floors);
+    expect(((await client.get('/api/state')).json() as { layout: unknown }).layout).toEqual(layout);
 
-    const nameless = await client.put('/api/admin/settings/general', { hubName: 'Zuhause', requireTotp: false, sessionDays: 30, floors: [{ name: ' ', rooms: [] }] });
-    expect(nameless.statusCode).toBe(400);
+    expect((await client.put('/api/layout', { layout: { ...layout, floors: [{ name: ' ', rooms: [] }] } })).statusCode).toBe(400);
+    expect((await client.put('/api/layout', { layout: { ...layout, floors: [floors[0], floors[0]] } })).statusCode).toBe(400);
+
+    // Members read it, only administrators change it.
+    await client.put('/api/admin/settings/general', { hubName: 'Zuhause', requireTotp: false, sessionDays: 30 });
+    await client.post('/api/users', { username: 'mia', role: 'member', password: 'a long member password' });
+    const member = new Client(hub);
+    await member.post('/api/auth/login', { username: 'mia', password: 'a long member password', client: 'web' });
+    expect(((await member.get('/api/layout')).json() as { layout: unknown }).layout).toEqual(layout);
+    expect((await member.put('/api/layout', { layout })).statusCode).toBe(403);
   });
 
   it('never writes credentials to the log', async () => {

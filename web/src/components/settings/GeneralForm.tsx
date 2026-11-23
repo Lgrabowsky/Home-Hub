@@ -1,8 +1,8 @@
-import { ShieldAlert } from 'lucide-react';
+import { LayoutGrid, ShieldAlert } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { Card, Field, Notice, RowGroup, Section, TextInput } from '../ui.tsx';
 import type { FormProps } from './meta.ts';
-import { FloorsEditor } from './FloorsEditor.tsx';
 import { NumberInput, SwitchRow } from './parts.tsx';
 
 /** A coordinate in decimal degrees; empty = not set. A comma works as decimal separator. */
@@ -52,8 +52,10 @@ export function GeneralForm({ value, onChange }: FormProps<'general'>) {
         </Card>
       </Section>
 
-      <Section title="Stockwerke">
-        <FloorsEditor floors={value.floors} onChange={(floors) => onChange({ ...value, floors })} />
+      <Section title="Stockwerke und Räume">
+        <Notice icon={LayoutGrid}>
+          Bereiche (z. B. Erdgeschoss, Treppenhaus), Räume und die Namen der Geräte bearbeitest du jetzt direkt in der App: <Link to="/raeume" className="font-medium text-accent hover:underline">Räume › Bearbeiten</Link>.
+        </Notice>
       </Section>
 
       <Section title="Anmeldung">

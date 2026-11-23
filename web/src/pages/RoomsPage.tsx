@@ -11,22 +11,24 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowUpDown, Box, Check, GripVertical, Home, Lightbulb, Music2, RotateCcw, Wind } from 'lucide-react';
-import { useState } from 'react';
+import { Box, Check, ChevronDown, ChevronUp, GripVertical, Home, Lightbulb, Music2, Pencil, Plus, RotateCcw, Trash2, Wind } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import type { LightEntity } from '@home-hub/shared';
+import { addArea, addRoom, moveArea, orderRooms, removeArea, renameArea, resetLayout, roomKey, type LightEntity } from '@home-hub/shared';
 import { HomeNav } from '../components/home/categories.tsx';
 import { FloorSection } from '../components/home/FloorSection.tsx';
 import { FloorFilter, useFloorFilter } from '../components/home/FloorFilter.tsx';
 import { BlindGlyph } from '../components/home/glyphs.tsx';
-import { toast } from '../components/toast.tsx';
-import { Button, cx, EmptyState, PageHeader } from '../components/ui.tsx';
+import { NameDialog } from '../components/layout/NameDialog.tsx';
+import { RoomEditor } from '../components/layout/RoomEditor.tsx';
+import { Button, ConfirmDialog, cx, EmptyState, IconButton, PageHeader } from '../components/ui.tsx';
 import { useFloors, type RoomSummary } from '../hooks/entities.ts';
 import { sendCommand } from '../lib/actions.ts';
 import { formatNumber, formatPercent } from '../lib/format.ts';
+import { editableLayout, saveLayout } from '../lib/layout.ts';
 import { useHub } from '../store/hub.ts';
 import { useLabs } from '../store/labs.ts';
-import { useCan, useSession } from '../store/session.ts';
+import { useCan, useIsAdmin } from '../store/session.ts';
 
 /** Switches every lamp of a room at once — off when any is on, otherwise on. */
 function RoomLightButton({ room }: { room: RoomSummary }) {
@@ -132,22 +134,31 @@ function RoomCard({ room, arranging = false }: { room: RoomSummary; arranging?: 
   );
 }
 
-/** A room card that can be picked up and moved while the page is in "Anordnen" mode. */
-function SortableRoom({ room }: { room: RoomSummary }) {
+/** A room card that can be picked up and moved, or tapped to edit it, while the page is being edited. */
+function SortableRoom({ room, onEdit }: { room: RoomSummary; onEdit(): void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: room.id, data: { name: room.name } });
+  // Letting go after a drag must not count as a tap.
+  const droppedAt = useRef(0);
+  const wasDragging = useRef(false);
+  useEffect(() => {
+    if (wasDragging.current && !isDragging) droppedAt.current = Date.now();
+    wasDragging.current = isDragging;
+  }, [isDragging]);
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      aria-label={`${room.name} verschieben`}
-      aria-roledescription="verschiebbarer Raum"
-      className={cx('touch-manipulation rounded-tile outline-none focus-visible:ring-2 focus-visible:ring-accent', isDragging ? 'relative z-10 cursor-grabbing' : 'cursor-grab')}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-    >
-      <div className={cx('transition-[transform,box-shadow] duration-200', isDragging ? 'scale-[1.04] shadow-float' : 'outline-1 outline-dashed outline-line')} style={{ borderRadius: 'inherit' }}>
-        <RoomCard room={room} arranging />
+    <div ref={setNodeRef} className={cx('relative', isDragging && 'z-10')} style={{ transform: CSS.Translate.toString(transform), transition }}>
+      <div
+        {...attributes}
+        {...listeners}
+        onClick={() => Date.now() - droppedAt.current > 400 && onEdit()}
+        aria-label={`${room.name} verschieben`}
+        aria-roledescription="verschiebbarer Raum"
+        className={cx('touch-manipulation rounded-tile outline-none focus-visible:ring-2 focus-visible:ring-accent', isDragging ? 'cursor-grabbing' : 'cursor-grab')}
+      >
+        <div className={cx('transition-[transform,box-shadow] duration-200', isDragging ? 'scale-[1.04] shadow-float' : 'outline-1 outline-dashed outline-accent/40')} style={{ borderRadius: 'inherit' }}>
+          <RoomCard room={room} arranging />
+        </div>
       </div>
+      <IconButton icon={Pencil} size="sm" variant="filled" label={`${room.name} bearbeiten`} onClick={onEdit} className="absolute right-2 top-2 z-10" />
     </div>
   );
 }
@@ -166,14 +177,45 @@ function floorMeta(rooms: RoomSummary[]): string | undefined {
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }
 
+type NameAsk = { kind: 'area' } | { kind: 'rename-area'; area: string } | { kind: 'room'; area: string } | null;
+
+/** Edit controls of an area: move up and down, rename, remove. */
+function AreaActions({ area, first, last, onAsk }: { area: string; first: boolean; last: boolean; onAsk(ask: NameAsk): void }) {
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  return (
+    <span className="flex items-center gap-0.5">
+      <IconButton icon={ChevronUp} size="sm" label={`${area} nach oben`} disabled={first} onClick={() => void saveLayout(moveArea(editableLayout(), area, -1), `Bereich „${area}“ verschoben`)} />
+      <IconButton icon={ChevronDown} size="sm" label={`${area} nach unten`} disabled={last} onClick={() => void saveLayout(moveArea(editableLayout(), area, 1), `Bereich „${area}“ verschoben`)} />
+      <IconButton icon={Pencil} size="sm" label={`${area} umbenennen`} onClick={() => onAsk({ kind: 'rename-area', area })} />
+      <IconButton icon={Trash2} size="sm" label={`${area} entfernen`} onClick={() => setConfirmRemove(true)} />
+      <ConfirmDialog
+        open={confirmRemove}
+        onClose={() => setConfirmRemove(false)}
+        title={`Bereich „${area}“ entfernen?`}
+        text="Seine Räume bleiben erhalten und werden wieder automatisch einem Bereich zugeordnet."
+        confirmLabel="Entfernen"
+        danger
+        onConfirm={async () => {
+          await saveLayout(removeArea(editableLayout(), area), `Bereich „${area}“ entfernt`);
+        }}
+      />
+    </span>
+  );
+}
+
 export function RoomsPage() {
   const house3d = useLabs((state) => state.house3d);
   const navigate = useNavigate();
-  const floors = useFloors();
+  const isAdmin = useIsAdmin();
+  const [editing, setEditing] = useState(false);
+  const floors = useFloors({ withEmpty: editing });
   const floorFilter = useFloorFilter();
-  const shownFloors = floorFilter.selected ? floors.filter((floor) => floor.name === floorFilter.selected) : floors;
-  const [arranging, setArranging] = useState(false);
-  const hasOrder = useSession((state) => state.prefs.roomOrder.length > 0);
+  const shownFloors = floorFilter.selected && !editing ? floors.filter((floor) => floor.name === floorFilter.selected) : floors;
+  const [editRoom, setEditRoom] = useState<string | null>(null);
+  const [ask, setAsk] = useState<NameAsk>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const layout = useHub((state) => state.layout);
+  const customised = layout.floors !== null || Object.keys(layout.rooms).length > 0 || Object.keys(layout.devices).length > 0 || Object.keys(layout.order).length > 0;
   const sensors = useSensors(
     // Mouse: a small movement picks a card up. Touch: a short hold, so the page still scrolls.
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -181,16 +223,18 @@ export function RoomsPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const save = (roomOrder: string[]) => void useSession.getState().savePrefs({ roomOrder }).catch(() => toast.error('Die Reihenfolge konnte nicht gespeichert werden.'));
-
   const onDragEnd = (floorIndex: number) => (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const ids = floors[floorIndex]!.rooms.map((room) => room.id);
-    const moved = arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
-    // The order is kept for the whole house: this storey's rooms in their new order, the others as shown.
-    save(floors.flatMap((floor, index) => (index === floorIndex ? moved : floor.rooms.map((room) => room.id))));
+    const floor = floors[floorIndex]!;
+    const ids = floor.rooms.map((room) => room.id);
+    const moved = arrayMove(floor.rooms, ids.indexOf(String(active.id)), ids.indexOf(String(over.id)));
+    void saveLayout(orderRooms(editableLayout(), floor.name || 'Räume', moved.map((room) => room.name)), `Räume in „${floor.name || 'Räume'}“ sortiert`);
   };
+
+  const areaNames = floors.map((floor) => floor.name);
+  const nameTaken = (name: string) => (areaNames.includes(name) ? 'Diesen Bereich gibt es schon.' : null);
+  const roomTaken = (name: string) => (floors.some((floor) => floor.rooms.some((room) => roomKey(room.name) === roomKey(name))) ? 'Diesen Raum gibt es schon.' : null);
 
   return (
     <>
@@ -198,32 +242,34 @@ export function RoomsPage() {
         title="Räume"
         actions={
           <>
-            {house3d && !arranging && (
+            {house3d && !editing && (
               <Button size="sm" variant="ghost" icon={Box} onClick={() => navigate('/haus3d')}>
                 3D
               </Button>
             )}
-            {floors.length > 0 &&
-              (arranging ? (
-                <Button size="sm" variant="primary" icon={Check} onClick={() => setArranging(false)}>
-                  Fertig
-                </Button>
-              ) : (
-                <Button size="sm" variant="ghost" icon={ArrowUpDown} onClick={() => setArranging(true)}>
-                  Anordnen
-                </Button>
-              ))}
+            {isAdmin && !editing && (
+              <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(true)}>
+                Bearbeiten
+              </Button>
+            )}
           </>
         }
       />
-      {arranging ? (
-        <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 px-1">
-          <p className="flex-1 text-sm text-muted">Räume halten und an die gewünschte Stelle ziehen. Die Reihenfolge gilt für dich auf allen Geräten.</p>
-          {hasOrder && (
-            <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => save([])}>
-              Alphabetisch
+      {editing ? (
+        <div className="sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-30 mb-6 rounded-tile bg-raised/95 p-2.5 shadow-float backdrop-blur-md">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" icon={RotateCcw} disabled={!customised} onClick={() => setConfirmReset(true)}>
+              Zurücksetzen
             </Button>
-          )}
+            <span className="flex-1" />
+            <Button size="sm" icon={Plus} onClick={() => setAsk({ kind: 'area' })}>
+              Bereich
+            </Button>
+            <Button size="sm" variant="primary" icon={Check} onClick={() => setEditing(false)}>
+              Fertig
+            </Button>
+          </div>
+          <p className="px-1.5 pb-0.5 pt-2 text-[13px] text-muted">Räume antippen zum Bearbeiten, gedrückt halten und ziehen zum Sortieren. Gilt für alle im Haushalt.</p>
         </div>
       ) : (
         <>
@@ -232,9 +278,13 @@ export function RoomsPage() {
         </>
       )}
       {floors.length === 0 && <EmptyState icon={Home} title="Noch keine Räume" text="Sobald Geräte eingerichtet sind, erscheinen sie hier nach Stockwerk und Raum sortiert." />}
-      {shownFloors.map((floor) => (
-        <FloorSection key={floor.name || 'haus'} name={floor.name} meta={arranging ? undefined : floorMeta(floor.rooms)}>
-          {arranging ? (
+      {shownFloors.map((floor, index) => (
+        <FloorSection
+          key={floor.name || 'haus'}
+          name={floor.name}
+          meta={editing ? floor.name && <AreaActions area={floor.name} first={index === 0} last={index === shownFloors.length - 1} onAsk={setAsk} /> : floorMeta(floor.rooms)}
+        >
+          {editing ? (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -244,8 +294,16 @@ export function RoomsPage() {
               <SortableContext items={floor.rooms.map((room) => room.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]">
                   {floor.rooms.map((room) => (
-                    <SortableRoom key={room.id} room={room} />
+                    <SortableRoom key={room.id} room={room} onEdit={() => setEditRoom(room.name)} />
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => setAsk({ kind: 'room', area: floor.name || 'Räume' })}
+                    className="flex min-h-[9.5rem] flex-col items-center justify-center gap-1.5 rounded-tile border border-dashed border-line text-sm font-medium text-muted transition hover:border-accent hover:text-accent"
+                  >
+                    <Plus className="size-5" aria-hidden />
+                    Raum{floor.name ? ` in ${floor.name}` : ''}
+                  </button>
                 </div>
               </SortableContext>
             </DndContext>
@@ -258,6 +316,51 @@ export function RoomsPage() {
           )}
         </FloorSection>
       ))}
+
+      <RoomEditor room={editRoom} onClose={() => setEditRoom(null)} />
+      <NameDialog
+        open={ask?.kind === 'area'}
+        title="Neuer Bereich"
+        label="Name"
+        placeholder="z. B. Dachgeschoss, Treppenhaus"
+        confirmLabel="Anlegen"
+        validate={nameTaken}
+        onClose={() => setAsk(null)}
+        onConfirm={(name) => saveLayout(addArea(editableLayout(), name), `Bereich „${name}“ angelegt`)}
+      />
+      <NameDialog
+        open={ask?.kind === 'rename-area'}
+        title="Bereich umbenennen"
+        label="Name"
+        initial={ask?.kind === 'rename-area' ? ask.area : ''}
+        validate={(name) => (ask?.kind === 'rename-area' && name === ask.area ? null : nameTaken(name))}
+        onClose={() => setAsk(null)}
+        onConfirm={(name) => (ask?.kind === 'rename-area' ? saveLayout(renameArea(editableLayout(), ask.area, name), `Bereich „${ask.area}“ heißt jetzt „${name}“`) : undefined)}
+      />
+      <NameDialog
+        open={ask?.kind === 'room'}
+        title={ask?.kind === 'room' ? `Neuer Raum in ${ask.area}` : 'Neuer Raum'}
+        label="Name"
+        placeholder="z. B. Treppenhaus"
+        confirmLabel="Anlegen"
+        validate={roomTaken}
+        onClose={() => setAsk(null)}
+        onConfirm={async (name) => {
+          if (ask?.kind !== 'room') return;
+          if (await saveLayout(addRoom(editableLayout(), ask.area, name), `Raum „${name}“ angelegt`)) setEditRoom(name);
+        }}
+      />
+      <ConfirmDialog
+        open={confirmReset}
+        onClose={() => setConfirmReset(false)}
+        title="Alles zurücksetzen?"
+        text="Bereiche, Räume, Namen, Reihenfolge und ausgeblendete Geräte werden wieder so, wie der Hub sie erkannt hat. Die Lichter der Kameras bleiben."
+        confirmLabel="Zurücksetzen"
+        danger
+        onConfirm={async () => {
+          await saveLayout(resetLayout(useHub.getState().layout), 'Alles zurückgesetzt');
+        }}
+      />
     </>
   );
 }

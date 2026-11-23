@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { slugify, type Entity, type EntityKind, type EntityOf, type MusicPlayer } from '@home-hub/shared';
+import { roomKey, shownRoom, slugify, sortByLayout, type Entity, type EntityKind, type EntityOf, type Floor, type HouseLayout, type MusicPlayer } from '@home-hub/shared';
 import { useHub } from '../store/hub.ts';
 import { useSession } from '../store/session.ts';
 
@@ -68,101 +68,102 @@ function emptyRoom(name: string): RoomSummary {
 }
 
 /**
- * Rooms as the user sees them. A room is whatever name the devices agree on:
- * the myGEKKO page of lights and blinds, the room configured for a camera or
- * door, the Sonos room of a speaker — matched ignoring case and accents.
- *
- * Contacts often live on a page of their own on the controller ("Türen und
- * Fenster"); when such a contact names a real room ("Fenster Küche") it is
- * shown in that room.
+ * Rooms as the user sees them: whatever room the devices are in — as the hub
+ * recognised it (myGEKKO page, camera and speaker rooms; contacts go to the room
+ * their name mentions) or as the household arranged it. Devices inside a room
+ * follow the household's order, then their names.
  */
+export function buildRooms(list: Iterable<Entity>, players: readonly MusicPlayer[], layout: HouseLayout): RoomSummary[] {
+  const rooms = new Map<string, RoomSummary>();
+  const room = (name: string): RoomSummary => {
+    const id = slugify(name);
+    let entry = rooms.get(id);
+    if (!entry) rooms.set(id, (entry = emptyRoom(name)));
+    return entry;
+  };
+  const closing: Map<string, number[]> = new Map();
+  for (const entity of list) {
+    if (!entity.room || ('isGroup' in entity && entity.isGroup)) continue;
+    const entry = room(entity.room);
+    entry.entities.push(entity);
+    if (entity.kind === 'light') {
+      entry.lightCount++;
+      if (entity.on) entry.lightsOn++;
+    } else if (entity.kind === 'blind') {
+      entry.blindCount++;
+      if (entity.motion !== 'stopped') entry.blindsMoving = true;
+      if (entity.position !== null) closing.set(entry.id, [...(closing.get(entry.id) ?? []), entity.position]);
+    } else if (entity.kind === 'climate' && entry.temperature === null) {
+      entry.temperature = entity.temperature;
+      entry.target = entity.target;
+      entry.heating = entity.heating;
+    } else if (entity.kind === 'contact' && entity.open) {
+      entry.openContacts++;
+    }
+  }
+  for (const player of players) {
+    if (player.room) room(shownRoom(player.room, layout)).players.push(player);
+  }
+  return [...rooms.values()]
+    .map((entry) => {
+      const values = closing.get(entry.id);
+      return {
+        ...entry,
+        blindClosed: values && values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
+        entities: sortByLayout(entry.entities, layout.order[roomKey(entry.name)]),
+        players: entry.players.sort(byName),
+      };
+    })
+    .sort(byName);
+}
+
 export function useRooms(): RoomSummary[] {
   const entities = useHub((state) => state.entities);
   const players = useHub((state) => state.music.players);
-  const order = useSession((state) => state.prefs.roomOrder);
-  return useMemo(() => {
-    const all = Object.values(entities).filter((entity) => entity.room && !('isGroup' in entity && entity.isGroup));
-    // Rooms that have something besides contacts are "real" rooms.
-    const realRooms = new Map<string, string>();
-    for (const entity of all) if (entity.kind !== 'contact') realRooms.set(fold(entity.room!), entity.room!);
-    for (const player of players) if (player.room) realRooms.set(fold(player.room), player.room);
-
-    const rooms = new Map<string, RoomSummary>();
-    const room = (name: string): RoomSummary => {
-      const id = slugify(name);
-      let entry = rooms.get(id);
-      if (!entry) rooms.set(id, (entry = emptyRoom(name)));
-      return entry;
-    };
-    const roomFor = (entity: Entity): string => {
-      const own = entity.room!;
-      if (entity.kind !== 'contact' || realRooms.has(fold(own))) return own;
-      const name = fold(entity.name);
-      const match = [...realRooms.values()].filter((candidate) => name.includes(fold(candidate))).sort((a, b) => b.length - a.length)[0];
-      return match ?? own;
-    };
-    const closing: Map<string, number[]> = new Map();
-    for (const entity of all) {
-      const entry = room(roomFor(entity));
-      entry.entities.push(entity);
-      if (entity.kind === 'light') {
-        entry.lightCount++;
-        if (entity.on) entry.lightsOn++;
-      } else if (entity.kind === 'blind') {
-        entry.blindCount++;
-        if (entity.motion !== 'stopped') entry.blindsMoving = true;
-        if (entity.position !== null) closing.set(entry.id, [...(closing.get(entry.id) ?? []), entity.position]);
-      } else if (entity.kind === 'climate' && entry.temperature === null) {
-        entry.temperature = entity.temperature;
-        entry.target = entity.target;
-        entry.heating = entity.heating;
-      } else if (entity.kind === 'contact' && entity.open) {
-        entry.openContacts++;
-      }
-    }
-    for (const player of players) {
-      if (player.room) room(player.room).players.push(player);
-    }
-    const position = (id: string) => {
-      const index = order.indexOf(id);
-      return index < 0 ? Number.MAX_SAFE_INTEGER : index;
-    };
-    return [...rooms.values()]
-      .map((entry) => {
-        const values = closing.get(entry.id);
-        return {
-          ...entry,
-          blindClosed: values && values.length > 0 ? values.reduce((sum, value) => sum + value, 0) / values.length : null,
-          entities: entry.entities.sort(byName),
-          players: entry.players.sort(byName),
-        };
-      })
-      .sort((a, b) => position(a.id) - position(b.id) || byName(a, b));
-  }, [entities, players, order]);
+  const layout = useHub((state) => state.layout);
+  return useMemo(() => buildRooms(Object.values(entities), players, layout), [entities, players, layout]);
 }
 
-/** Rooms grouped by storey: as configured on the hub, otherwise recognised from the names. */
-export function groupByFloor<T extends { name: string }>(rooms: T[], floors: { name: string; rooms: string[] }[]): { name: string; rooms: T[] }[] {
+/** Rooms nobody arranged yet land here. */
+export const OTHER_ROOMS = 'Weitere Räume';
+
+/**
+ * Rooms grouped by area: as the household arranged them (in that order),
+ * otherwise recognised from the names. With `empty`, areas and rooms of the
+ * arrangement that hold nothing (yet) are listed too — for the editor.
+ */
+export function groupByFloor<T extends { name: string }>(rooms: T[], floors: readonly Floor[], empty?: (name: string) => T): { name: string; rooms: T[] }[] {
+  const configured = new Map<string, { floor: string; index: number }>();
+  for (const floor of floors) floor.rooms.forEach((name, index) => configured.has(fold(name)) || configured.set(fold(name), { floor: floor.name, index }));
   const groups = new Map<string, T[]>();
   const add = (floor: string, room: T) => groups.set(floor, [...(groups.get(floor) ?? []), room]);
-  const configured = new Map<string, string>();
-  for (const floor of floors) for (const name of floor.rooms) configured.set(fold(name), floor.name);
-  const rest: T[] = [];
+  const present = new Set<string>();
   for (const room of rooms) {
-    const floor = configured.get(fold(room.name)) ?? FLOOR_PATTERNS.find((entry) => entry.pattern.test(room.name.trim()))?.name;
-    if (floor) add(floor, room);
-    else rest.push(room);
+    present.add(fold(room.name));
+    const floor = configured.get(fold(room.name))?.floor ?? FLOOR_PATTERNS.find((entry) => entry.pattern.test(room.name.trim()))?.name ?? OTHER_ROOMS;
+    add(floor, room);
   }
-  const ordered = [...floors.map((floor) => floor.name), ...FLOOR_PATTERNS.map((entry) => entry.name)];
-  const result = [...new Set(ordered)].filter((name) => groups.has(name)).map((name) => ({ name, rooms: groups.get(name)! }));
-  if (rest.length > 0) result.push({ name: result.length > 0 ? 'Weitere Räume' : '', rooms: rest });
+  if (empty) {
+    for (const floor of floors) {
+      if (!groups.has(floor.name)) groups.set(floor.name, []);
+      for (const name of floor.rooms) if (!present.has(fold(name))) add(floor.name, empty(name));
+    }
+  }
+  const position = (room: T) => configured.get(fold(room.name))?.index ?? Number.MAX_SAFE_INTEGER;
+  const ordered = [...new Set([...floors.map((floor) => floor.name), ...FLOOR_PATTERNS.map((entry) => entry.name), OTHER_ROOMS])];
+  const result = ordered
+    .filter((name) => groups.has(name) && (empty || groups.get(name)!.length > 0))
+    .map((name) => ({ name, rooms: [...groups.get(name)!].sort((a, b) => position(a) - position(b) || byName(a, b)) }));
+  // A house without any recognisable areas is just "the rooms".
+  if (result.length === 1 && result[0]!.name === OTHER_ROOMS && floors.length === 0) result[0]!.name = '';
   return result;
 }
 
-export function useFloors(): FloorGroup[] {
+export function useFloors(options: { withEmpty?: boolean } = {}): FloorGroup[] {
   const rooms = useRooms();
   const floors = useHub((state) => state.floors);
-  return useMemo(() => groupByFloor(rooms, floors), [rooms, floors]);
+  const withEmpty = options.withEmpty ?? false;
+  return useMemo(() => groupByFloor(rooms, floors, withEmpty ? emptyRoom : undefined), [rooms, floors, withEmpty]);
 }
 
 /** Entities the user pinned to the overview, in the order they were pinned. */

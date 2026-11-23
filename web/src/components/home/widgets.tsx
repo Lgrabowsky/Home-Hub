@@ -1,7 +1,7 @@
 import { Bell, Box, CalendarClock, ChevronDown, ChevronRight, ChevronUp, CloudRain, DoorOpen, Lightbulb, Music2, PlayCircle, Power, ShieldCheck, Star, Thermometer, Wind, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HOME_FUNCTIONS, type ActionEntity, type Entity, type HomeFunction, type HomeWidget, type HomeWidgetSize, type HomeWidgetType } from '@home-hub/shared';
+import { HOME_FUNCTIONS, roomKey, shownRoom, type ActionEntity, type Entity, type HomeFunction, type HomeWidget, type HomeWidgetSize, type HomeWidgetType } from '@home-hub/shared';
 import { useTimers, describeAt } from '../../pages/home/TimersSection.tsx';
 import { EntityTile } from '../entities/EntityTile.tsx';
 import { HubImage } from '../HubImage.tsx';
@@ -306,7 +306,7 @@ function TimersCard() {
     .sort((a, b) => a.nextRunAt! - b.nextRunAt!)
     .slice(0, 3);
   return (
-    <Link to="/aktionen" className="panel flex h-full min-h-[9.75rem] flex-col rounded-tile p-3.5 transition hover:bg-raised">
+    <Link to="/uhren" className="panel flex h-full min-h-[9.75rem] flex-col rounded-tile p-3.5 transition hover:bg-raised">
       <div className="flex items-start justify-between gap-2">
         <IconBubble icon={CalendarClock} tone="accent" />
         <span className="pt-1 text-[13px] font-medium text-muted">Zeitschaltuhren</span>
@@ -344,6 +344,7 @@ function EmptyTile({ text }: { text: string }) {
 /** One tile of the start page. */
 export function WidgetView({ widget, onDetails }: { widget: HomeWidget; onDetails(id: string): void }) {
   const entities = useHub((state) => state.entities);
+  const layout = useHub((state) => state.layout);
   const floors = useFloors();
   const house3d = useLabs((state) => state.house3d);
   switch (widget.type) {
@@ -358,7 +359,9 @@ export function WidgetView({ widget, onDetails }: { widget: HomeWidget; onDetail
       return entity && (entity.kind === 'camera' || entity.kind === 'door') ? <SnapshotCard entity={entity} large={widget.size === 'large'} /> : <EmptyTile text="Diese Kamera gibt es nicht mehr." />;
     }
     case 'room': {
-      const room = floors.flatMap((floor) => floor.rooms).find((entry) => entry.name === widget.room || entry.id === widget.room);
+      // A room renamed or merged since the tile was placed is found under its new name.
+      const wanted = roomKey(shownRoom(widget.room, layout));
+      const room = floors.flatMap((floor) => floor.rooms).find((entry) => roomKey(entry.name) === wanted || entry.id === widget.room);
       return room ? <RoomTile room={room} /> : <EmptyTile text={`Raum „${widget.room}“ nicht gefunden.`} />;
     }
     case 'scenes':

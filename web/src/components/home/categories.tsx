@@ -1,4 +1,4 @@
-import { Blinds, DoorOpen, LayoutGrid, Lightbulb, PlayCircle, Plug, Thermometer, type LucideIcon } from 'lucide-react';
+import { Blinds, CalendarClock, DoorOpen, LayoutGrid, Lightbulb, PlayCircle, Plug, Thermometer, type LucideIcon } from 'lucide-react';
 import { useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import type { BlindEntity, Entity, EntityKind, LightEntity } from '@home-hub/shared';
@@ -10,12 +10,14 @@ import { cx } from '../ui.tsx';
 
 /** The house's controls, sorted by function — the same menus the building controller has. */
 export interface Category {
-  id: 'licht' | 'jalousien' | 'klima' | 'geraete' | 'zutritt' | 'aktionen';
+  id: 'licht' | 'jalousien' | 'klima' | 'geraete' | 'zutritt' | 'aktionen' | 'uhren';
   path: string;
   label: string;
   title: string;
   icon: LucideIcon;
   kinds: EntityKind[];
+  /** Shown even when no device of its kinds exists (the hub's own time switches). */
+  always?: boolean;
 }
 
 export const CATEGORIES: Category[] = [
@@ -24,7 +26,8 @@ export const CATEGORIES: Category[] = [
   { id: 'klima', path: '/klima', label: 'Klima', title: 'Heizung & Klima', icon: Thermometer, kinds: ['climate'] },
   { id: 'geraete', path: '/geraete', label: 'Geräte', title: 'Geräte & Steckdosen', icon: Plug, kinds: ['switch'] },
   { id: 'zutritt', path: '/zutritt', label: 'Zutritt', title: 'Zutritt', icon: DoorOpen, kinds: ['access', 'door'] },
-  { id: 'aktionen', path: '/aktionen', label: 'Aktionen', title: 'Aktionen', icon: PlayCircle, kinds: ['action', 'clock'] },
+  { id: 'aktionen', path: '/aktionen', label: 'Aktionen', title: 'Aktionen', icon: PlayCircle, kinds: ['action'] },
+  { id: 'uhren', path: '/uhren', label: 'Uhren', title: 'Zeitschaltuhren', icon: CalendarClock, kinds: ['clock'], always: true },
 ];
 
 export const HOME_PATHS = ['/raeume', ...CATEGORIES.map((category) => category.path)];
@@ -113,6 +116,7 @@ function badge(category: Category['id'], summary: HouseSummary): string | null {
     case 'zutritt':
       return summary.accessOpen > 0 ? String(summary.accessOpen) : null;
     case 'aktionen':
+    case 'uhren':
       return null;
   }
 }
@@ -124,7 +128,7 @@ export function HomeNav() {
   const present = useMemo(() => new Set(Object.values(entities).map((entity) => entity.kind)), [entities]);
   const items = [
     { path: '/raeume', label: 'Räume', icon: LayoutGrid, badge: null as string | null },
-    ...CATEGORIES.filter((category) => category.kinds.some((kind) => present.has(kind))).map((category) => ({ path: category.path, label: category.label, icon: category.icon, badge: badge(category.id, summary) })),
+    ...CATEGORIES.filter((category) => category.always || category.kinds.some((kind) => present.has(kind))).map((category) => ({ path: category.path, label: category.label, icon: category.icon, badge: badge(category.id, summary) })),
   ];
   return (
     <nav aria-label="Bereiche" className="no-scrollbar -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 md:mx-0 md:px-0">

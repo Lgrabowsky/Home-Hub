@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronUp, Lock, Minus, Plus, Power, Square, Star, Wind } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, Lock, Minus, Pencil, Plus, Power, Square, Star, Wind } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { BlindEntity, ClimateEntity, ClockEntity, ClockMode, Entity, LightEntity } from '@home-hub/shared';
 import { AccessControls } from './access.tsx';
@@ -6,16 +6,24 @@ import { useEntity, useIsFavorite } from '../../hooks/entities.ts';
 import { blind, climate, light, sendCommand } from '../../lib/actions.ts';
 import { formatNumber, formatPercent, formatTemperature } from '../../lib/format.ts';
 import { BlindGlyph, ClimateGlyph } from '../home/glyphs.tsx';
-import { useCan } from '../../store/session.ts';
+import { useCan, useIsAdmin } from '../../store/session.ts';
+import { DeviceEditor } from '../layout/DeviceEditor.tsx';
 import { Button, cx, IconButton, Notice, Row, RowGroup, Segmented, Sheet, Slider, Toggle } from '../ui.tsx';
 
 /** "Show on the overview" switch that every detail sheet ends with. */
 export function FavoriteRow({ entity }: { entity: Entity }) {
   const [isFavorite, toggle] = useIsFavorite(entity.id);
+  const isAdmin = useIsAdmin();
+  const [editing, setEditing] = useState(false);
   return (
-    <RowGroup className="mt-5 bg-sunken shadow-none">
-      <Row icon={Star} tone={isFavorite ? 'warm' : 'neutral'} title="Auf der Übersicht zeigen" trailing={<Toggle checked={isFavorite} onChange={toggle} label="Auf der Übersicht zeigen" tone="warm" />} />
-    </RowGroup>
+    <>
+      <RowGroup className="mt-5 bg-sunken shadow-none">
+        <Row icon={Star} tone={isFavorite ? 'warm' : 'neutral'} title="Auf der Übersicht zeigen" trailing={<Toggle checked={isFavorite} onChange={toggle} label="Auf der Übersicht zeigen" tone="warm" />} />
+        {/* Administrators: own name, room and visibility for everybody. */}
+        {isAdmin && <Row icon={Pencil} title="Name, Raum, Sichtbarkeit" subtitle="Für alle im Haushalt" trailing={<ChevronRight className="size-4.5 text-faint" aria-hidden />} onClick={() => setEditing(true)} />}
+      </RowGroup>
+      {editing && <DeviceEditor entityId={entity.id} onClose={() => setEditing(false)} />}
+    </>
   );
 }
 
@@ -75,7 +83,7 @@ function ClockControls({ entity }: { entity: ClockEntity }) {
         className="w-full [&>button]:flex-1"
       />
       <p className="mt-2.5 text-sm text-muted">
-        „Automatik“ schaltet nach den Zeiten, die am myGEKKO eingestellt sind; „Ein“ schaltet dauerhaft ein. Die Zeiten selbst änderst du am myGEKKO – oder du legst eine Zeitschaltuhr des Hubs an (unter Aktionen).
+        „Automatik“ schaltet nach den Zeiten, die am myGEKKO eingestellt sind; „Ein“ schaltet dauerhaft ein. Die Zeiten selbst änderst du am myGEKKO – oder du legst eine Zeitschaltuhr des Hubs an (unter Uhren).
       </p>
     </div>
   );

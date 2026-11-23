@@ -17,6 +17,7 @@ import type { LiveStatus } from '../../lib/live.ts';
 import { haptic } from '../../lib/platform.ts';
 import { onHubEvent, useHub } from '../../store/hub.ts';
 import { useCan } from '../../store/session.ts';
+import { CameraLights } from '../../components/layout/CameraLights.tsx';
 
 const EVENT_META: Record<DoorEventType, { icon: LucideIcon; tone: Tone; label(event: DoorEvent): string }> = {
   doorbell: { icon: Bell, tone: 'accent', label: () => 'Geklingelt' },
@@ -298,6 +299,7 @@ export function DoorPage() {
               )}
             </div>
           </div>
+          <CameraLights camera={door} />
           <FavoriteRow entity={door} />
         </div>
 

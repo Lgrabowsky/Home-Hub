@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { slugify, type TimersResponse } from '@home-hub/shared';
+import type { HouseLayout, TimersResponse } from '@home-hub/shared';
 import { hubState } from './helpers.ts';
 
 test.describe('rooms and devices', () => {
@@ -78,7 +78,7 @@ test.describe('rooms and devices', () => {
     const before = await lamp();
     const wasOn = before?.kind === 'light' && before.on === true;
 
-    await page.goto('/aktionen');
+    await page.goto('/uhren');
     await page.getByRole('button', { name: 'Neu' }).click();
     const editor = page.getByRole('dialog', { name: 'Neue Zeitschaltuhr' });
     await editor.getByPlaceholder('z. B. Jalousien morgens hoch').fill('Stehlampe abends');
@@ -162,10 +162,10 @@ test.describe('rooms and devices', () => {
     await expect.poll(moving, { timeout: 20_000 }).toBeGreaterThan(1);
   });
 
-  test('room tiles can be rearranged and the order is kept', async ({ page, request }) => {
-    const order = async () => ((await (await request.get('/api/auth/me')).json()) as { prefs: { roomOrder: string[] } }).prefs.roomOrder;
+  test('room tiles can be rearranged for the whole household', async ({ page, request }) => {
+    const order = async () => ((await (await request.get('/api/layout')).json()) as { layout: HouseLayout }).layout.floors?.find((floor) => floor.name === 'Erdgeschoss')?.rooms ?? [];
     await page.goto('/raeume');
-    await page.getByRole('button', { name: 'Anordnen' }).click();
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
     const downstairs = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Erdgeschoss' }) });
     const cards = downstairs.getByRole('button', { name: / verschieben$/ });
     const first = (await cards.first().getAttribute('aria-label'))!.replace(' verschieben', '');
@@ -180,17 +180,19 @@ test.describe('rooms and devices', () => {
     await page.waitForTimeout(400);
     await page.keyboard.press('Space');
     await expect(cards.first()).toHaveAttribute('aria-label', `${second} verschieben`);
-    await expect.poll(async () => (await order()).slice(0, 2)).toEqual([second, first].map(slugify));
+    await expect.poll(async () => (await order()).slice(0, 2)).toEqual([second, first]);
     await page.getByRole('button', { name: 'Fertig' }).click();
 
-    // Kept after a reload, and on the overview too.
+    // Kept after a reload.
     await page.reload();
     const tiles = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Erdgeschoss' }) }).getByRole('link', { name: / öffnen$/ });
     await expect(tiles.first()).toHaveAttribute('aria-label', `${second} öffnen`);
 
-    // Back to alphabetical.
-    await page.getByRole('button', { name: 'Anordnen' }).click();
-    await page.getByRole('button', { name: 'Alphabetisch' }).click();
-    await expect.poll(order).toEqual([]);
+    // Back to the arrangement the hub started with.
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Zurücksetzen' }).click();
+    await page.getByRole('dialog', { name: 'Alles zurücksetzen?' }).getByRole('button', { name: 'Zurücksetzen' }).click();
+    await page.getByRole('button', { name: 'Fertig' }).click();
+    await expect(tiles.first()).toHaveAttribute('aria-label', `${first} öffnen`);
   });
 });

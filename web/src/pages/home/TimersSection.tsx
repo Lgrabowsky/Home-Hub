@@ -144,7 +144,7 @@ export function TimersSection({ canControl }: { canControl: boolean }) {
   return (
     <>
       <Section
-        title="Zeitschaltuhren"
+        title="Zeitschaltuhren des Hubs"
         action={
           data?.canEdit && (
             <Button size="sm" variant="ghost" icon={Plus} onClick={() => setEditing('new')}>

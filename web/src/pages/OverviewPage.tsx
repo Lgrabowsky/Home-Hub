@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, Bell, Check, LayoutGrid, Maximize2, Pencil, Plus, RotateCcw, Settings2, ShieldAlert, Sparkles, Thermometer, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HOME_FUNCTIONS, SERVICE_LABELS, type Entity, type HomeWidget } from '@home-hub/shared';
+import { HOME_FUNCTIONS, roomKey, SERVICE_LABELS, shownRoom, type Entity, type HomeWidget, type HouseLayout } from '@home-hub/shared';
 import { EntitySheet } from '../components/entities/sheets.tsx';
 import { entityIcon } from '../components/entities/icons.ts';
 import { FULL_WIDTH, FUNCTION_LABELS, SECTION_TITLES, SIZE_LABELS, sizesFor, spanClass, useDefaultHome, WidgetView, widgetKey, widgetName } from '../components/home/widgets.tsx';
@@ -38,13 +38,13 @@ function Chip({ icon: Icon, tone, children, onClick }: { icon: LucideIcon; tone:
 }
 
 /** Whether a tile still points at something that exists (in normal view broken tiles are left out). */
-function present(widget: HomeWidget, entities: Record<string, Entity>, roomNames: Set<string>, labs: boolean): boolean {
+function present(widget: HomeWidget, entities: Record<string, Entity>, roomNames: Set<string>, labs: boolean, layout: HouseLayout): boolean {
   switch (widget.type) {
     case 'entity':
     case 'camera':
       return Boolean(entities[widget.entityId]);
     case 'room':
-      return roomNames.has(widget.room);
+      return roomNames.has(roomKey(shownRoom(widget.room, layout))) || roomNames.has(widget.room);
     case 'house3d':
       return labs;
     default:
@@ -149,9 +149,10 @@ export function OverviewPage() {
   const nothingConfigured = data.all.length === 0 && music.players.length === 0 && Object.values(services).every((service) => !service || service.status === 'unconfigured');
   const recentRing = data.lastRing && now - data.lastRing.at < 30 * 60_000 ? data.lastRing : null;
   const outsideTemperature = data.outside?.kind === 'sensor' && typeof data.outside.value === 'number' ? data.outside.value : null;
+  const houseLayout = useHub((state) => state.layout);
   const roomNames = useMemo(() => new Set(rooms.flatMap((room) => [room.name, room.id])), [rooms]);
 
-  const widgets = editing ? draft : (saved ?? defaults).filter((widget) => present(widget, entities, roomNames, labs));
+  const widgets = editing ? draft : (saved ?? defaults).filter((widget) => present(widget, entities, roomNames, labs, houseLayout));
 
   const startEditing = () => {
     setDraft(saved ?? defaults);

@@ -25,6 +25,7 @@ import { ImageProxy } from './util/images.ts';
 import { HostControl } from './system/host-control.ts';
 import { House3DStore } from './house3d/store.ts';
 import { TimerService } from './automation/timers.ts';
+import { LayoutService } from './layout.ts';
 
 export interface Hub {
   ctx: HubContext;
@@ -98,7 +99,10 @@ export async function createHub(config: HubConfig, options: { log?: Logger } = {
     hostControl: new HostControl(config.hostControlDir),
     house3d: new House3DStore({ dataDir: config.dataDir, vault, settings, log: log.child({ mod: 'house3d' }), memoryOnly: config.demo }),
     timers: new TimerService({ settings, integrations, state, log: log.child({ mod: 'timers' }) }),
+    layout: new LayoutService({ settings, state, log: log.child({ mod: 'layout' }) }),
   };
+  // Before the integrations report: every device arrives with the household's names and rooms.
+  ctx.layout.load();
 
   // The demo shows a generated house with its devices already placed.
   if (config.demo) {

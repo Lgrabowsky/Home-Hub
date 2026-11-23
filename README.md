@@ -17,12 +17,12 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
 | Bereich | Funktionen |
 | --- | --- |
 | **Startseite** | Frei gestaltbar: Kacheln für Bereiche, Räume, Kameras, einzelne Geräte, Szenen, Wetter und Zeitschaltuhren – verschieben, in drei Größen, für jede Person eigen und auf allen Geräten gleich |
-| **Räume** (myGEKKO) | Lichter (schalten, dimmen, Farbe), Jalousien und Rollläden (Position, Lamellen), Heizung je Raum, Steckdosen und Geräte, Szenen/Aktionen, Wetterwerte – wahlweise nach Stockwerk und Raum (auf ein Stockwerk eingrenzbar) oder wie am myGEKKO nach Funktion (Licht, Jalousien, Klima, Geräte & Steckdosen, Zutritt, Aktionen), jeweils mit „Alle aus“ / „Alle hoch“ |
+| **Räume** (myGEKKO) | Lichter (schalten, dimmen, Farbe), Jalousien und Rollläden (Position, Lamellen), Heizung je Raum, Steckdosen und Geräte, Szenen/Aktionen, Wetterwerte – wahlweise nach Stockwerk und Raum (auf ein Stockwerk eingrenzbar) oder wie am myGEKKO nach Funktion (Licht, Jalousien, Klima, Geräte & Steckdosen, Zutritt, Aktionen, Uhren), jeweils mit „Alle aus“ / „Alle hoch“. Bereiche, Räume und Geräte lassen sich umbenennen, zusammenführen, neu zuordnen, sortieren und ausblenden – und jederzeit auf die automatische Erkennung zurücksetzen |
 | **Zutritt** | Alle Türen und Tore an einem Ort: Türöffner und Tore der myGEKKO-Zutrittskontrolle öffnen (Schiebe-Bestätigung), dauerhaft öffnen, anhalten, schließen, sperren; Türstationen; Türkontakte – nur mit dem Recht „Türen öffnen“, jede Bedienung im Protokoll |
 | **Zeitschaltuhren** | Eigene Zeitschaltuhren des Hubs (Uhrzeit oder Sonnenauf-/-untergang ± Minuten, Wochentage, mehrere Aktionen) und die Uhren des myGEKKO (Aus / Ein / Automatik) |
 | **Sicherheit** | Alle Fenster- und Türkontakte auf einen Blick („2 von 14 offen“), Zustand der Alarmüberwachung (Hülle), Live-Bilder aller Kameras und Türstationen |
 | **Türstationen** (DoorBird) | Live-Video, Gegensprechen, Tür öffnen (mit Schiebe-Bestätigung), Licht, Verlauf mit Bildern (Klingeln, Bewegung, Öffnungen), Klingel-Meldung in der App |
-| **Kameras** (Reolink) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer, Sirene |
+| **Kameras** (Reolink) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer, Sirene, zugeordnete Lichter direkt unter dem Bild schalten |
 | **Musik** (Sonos + Spotify) | Was läuft wo, Lautstärke, Räume gruppieren, Sonos-Favoriten, in Spotify suchen und stöbern und auf jedem Lautsprecher abspielen |
 | **Verwaltung** | Benutzer und Rechte (z. B. „darf die Tür öffnen“), Geräte einrichten, Protokoll, Diagnose |
 | **3D-Haus** (Labs) | Das eigene Haus als 3D-Modell aus einer IFC-Datei: drehen, Geschosse öffnen, Geräte an ihrer Stelle bedienen, Licht und Schatten nach der echten Tageszeit – [Anleitung](docs/3D-HAUS.md) |

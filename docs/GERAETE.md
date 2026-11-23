@@ -51,7 +51,7 @@ Gut zu wissen:
 - **Zeitschaltuhren des myGEKKO:** Ihre Schaltzeiten lassen sich über die Schnittstelle des myGEKKO
   nicht ändern, nur ihr Modus: **Aus**, **Ein** (dauerhaft) oder **Automatik** (nach den am myGEKKO
   eingestellten Zeiten). Prüfe nach dem ersten Umschalten am myGEKKO, ob er den Modus so anzeigt.
-- **Zeitschaltuhren des Hubs:** Unter **Räume › Aktionen › Zeitschaltuhren › Neu** legst du eigene
+- **Zeitschaltuhren des Hubs:** Unter **Räume › Uhren › Neu** legst du eigene
   Uhren an: zu einer Uhrzeit oder zum Sonnenauf-/-untergang (± Minuten), an gewählten Wochentagen,
   mit einer oder mehreren Aktionen (Licht, Jalousien, Heizung, Geräte, Szenen, myGEKKO-Uhren).
   Sie schalten, **solange der Hub läuft** – bei der virtuellen Maschine also nur, wenn sie gestartet
@@ -60,11 +60,24 @@ Gut zu wissen:
   Standort des Hauses ein (Breiten- und Längengrad, z. B. aus einer Karten-App; zwei Nachkommastellen
   genügen). Der Standort bleibt auf dem Hub.
 - **Gesperrte Jalousien** (z. B. Windalarm) zeigt die App als gesperrt; Befehle lehnt der myGEKKO dann ab.
-- **Stockwerke:** Unter **Geräte & Dienste › Allgemein › Stockwerke** legst du fest, welcher Raum auf
-  welchem Stockwerk liegt; die App gruppiert Räume und Menüs danach. Ohne diese Angabe erkennt sie
-  Stockwerke an Raumnamen wie „EG Küche“ oder „OG Bad“. Kontakte, die am myGEKKO auf einer eigenen
-  Seite liegen („Türen und Fenster“), erscheinen in dem Raum, der in ihrem Namen vorkommt
-  („Fenster Küche“ → Küche).
+- **Räume und Stockwerke erkennt der Hub selbst:** Räume aus den Seiten des myGEKKO (und den Räumen
+  von Kameras und Lautsprechern), Stockwerke an Raumnamen wie „EG Küche“ oder „OG Bad“. Kontakte, die
+  am myGEKKO auf einer eigenen Seite liegen („Türen und Fenster“), erscheinen in dem Raum, der in
+  ihrem Namen vorkommt („Fenster Küche“ → Küche).
+- **Selbst anordnen** (Administratoren, gilt für alle im Haushalt): **Räume › Bearbeiten**.
+  - Eigene **Bereiche** anlegen (z. B. Dachgeschoss, Treppenhaus), umbenennen, sortieren, entfernen.
+  - **Räume** antippen: umbenennen, einem Bereich zuordnen, mit einem anderen Raum zusammenführen,
+    Geräte aus anderen Räumen hierher holen und die Geräte sortieren. „+ Raum“ legt einen neuen,
+    leeren Raum an.
+  - **Geräte** umbenennen, in einen anderen Raum legen oder ausblenden – im Raum, im Fenster eines
+    Geräts („Name, Raum, Sichtbarkeit“) oder in den Menüs **Licht, Jalousien, Klima, Geräte,
+    Aktionen › Bearbeiten** (dort auch sortieren und mit dem Auge aus- und einblenden). Ausgeblendete
+    Geräte schalten Zeitschaltuhren weiterhin.
+  - **Zurücksetzen** geht für ein Gerät, für einen Raum (Name, Geräte, Reihenfolge – ein selbst
+    angelegter Raum verschwindet, seine Geräte kehren zurück) oder für alles. Was du nicht geändert
+    hast, ordnet der Hub weiter automatisch ein – auch neue Geräte.
+- **Lichter für Kameras:** Auf der Seite einer Kamera oder Türstation ordnest du unter **Licht ›
+  Lichter zuordnen** Lampen zu; sie erscheinen dort als normale Lichtschalter, damit die Kamera Licht hat.
 
 ### Fenster- und Türkontakte
 

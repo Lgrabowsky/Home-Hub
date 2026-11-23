@@ -1,4 +1,4 @@
-import { Box, DoorOpen, KeyRound, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, Timer, UserRound, type LucideIcon } from 'lucide-react';
+import { Box, DoorOpen, KeyRound, LayoutGrid, LogIn, LogOut, RotateCw, ScrollText, Settings2, ShieldAlert, ShieldCheck, Timer, UserRound, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { AuditEntry } from '@home-hub/shared';
@@ -68,6 +68,8 @@ function describe(entry: AuditEntry): Described {
         category: 'door',
         text: `${who} hat ${text(detail.door, 'eine Tür')} ${text(detail.text, 'bedient')}`,
       };
+    case 'layout.changed':
+      return { icon: LayoutGrid, tone: 'accent', category: 'change', text: `${who} hat Räume und Geräte geändert${detail.change ? `: ${text(detail.change)}` : ''}` };
     case 'timer.changed':
       return {
         icon: Timer,

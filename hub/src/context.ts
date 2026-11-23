@@ -18,6 +18,7 @@ import type { TlsMaterial } from './security/tls.ts';
 import type { HostControl } from './system/host-control.ts';
 import type { House3DStore } from './house3d/store.ts';
 import type { TimerService } from './automation/timers.ts';
+import type { LayoutService } from './layout.ts';
 
 /** Everything the HTTP layer and the integrations share. */
 export interface HubContext {
@@ -49,4 +50,5 @@ export interface HubContext {
   house3d: House3DStore;
   /** The hub's own time switches. */
   timers: TimerService;
+  layout: LayoutService;
 }

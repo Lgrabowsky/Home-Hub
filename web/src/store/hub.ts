@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Entity, Floor, HubEvent, HubState, MusicState, ServiceHealth, ServiceId } from '@home-hub/shared';
+import { EMPTY_LAYOUT, applyLayout, realRooms, recognisedNameOf, recognisedRoomOf, type Entity, type Floor, type HouseLayout, type HubEvent, type HubState, type MusicState, type ServiceHealth, type ServiceId } from '@home-hub/shared';
 
 /**
  * Live picture of the house as pushed by the hub. Components read from here;
@@ -24,7 +24,11 @@ interface HubStore {
   floors: Floor[];
   /** Hub clock minus device clock (ms) — used to extrapolate playback positions. */
   clockOffset: number;
+  /** What the app shows. Devices the household hid are kept apart in `hidden` (for the editors). */
   entities: Record<string, Entity>;
+  hidden: Record<string, Entity>;
+  /** The household's names, rooms and order (see HouseLayout). */
+  layout: HouseLayout;
   services: Partial<Record<ServiceId, ServiceHealth>>;
   music: MusicState;
   /** A doorbell that is ringing right now (drives the full-screen overlay). */
@@ -35,6 +39,8 @@ interface HubStore {
   applyEntities(changed: Entity[], removed: string[]): void;
   setMusic(music: MusicState): void;
   setServices(services: ServiceHealth[]): void;
+  /** Optimistic change of the layout while it is being saved; the hub's next snapshot replaces it. */
+  setLayout(layout: HouseLayout): void;
   /** Optimistic local change right after the user acted; the hub's next update replaces it. */
   patchEntity(id: string, partial: Partial<Entity>): void;
   patchMusic(update: (music: MusicState) => MusicState): void;
@@ -90,6 +96,13 @@ function freshRing(entities: Iterable<Entity>, serverNow: number, current: Activ
   return newest;
 }
 
+function split(list: Iterable<Entity>): { shown: Record<string, Entity>; hidden: Record<string, Entity> } {
+  const shown: Record<string, Entity> = {};
+  const hidden: Record<string, Entity> = {};
+  for (const entity of list) (entity.hidden ? hidden : shown)[entity.id] = entity;
+  return { shown, hidden };
+}
+
 export const useHub = create<HubStore>((set) => ({
   link: 'connecting',
   loaded: false,
@@ -97,6 +110,8 @@ export const useHub = create<HubStore>((set) => ({
   floors: [],
   clockOffset: 0,
   entities: {},
+  hidden: {},
+  layout: EMPTY_LAYOUT,
   services: {},
   music: EMPTY_MUSIC,
   ring: null,
@@ -105,13 +120,16 @@ export const useHub = create<HubStore>((set) => ({
 
   applySnapshot: (state) =>
     set((store) => {
-      const ring = freshRing(Object.values(state.entities), state.serverTime, store.ring);
+      const { shown, hidden } = split(Object.values(state.entities));
+      const ring = freshRing(Object.values(shown), state.serverTime, store.ring);
       return {
         loaded: true,
         hubName: state.hubName,
         floors: state.floors ?? [],
+        layout: state.layout ?? EMPTY_LAYOUT,
         clockOffset: state.serverTime - Date.now(),
-        entities: state.entities,
+        entities: shown,
+        hidden,
         services: state.services,
         music: state.music,
         ...(ring ? { ring } : {}),
@@ -121,13 +139,31 @@ export const useHub = create<HubStore>((set) => ({
   applyEntities: (changed, removed) =>
     set((store) => {
       const entities = { ...store.entities };
-      for (const entity of changed) entities[entity.id] = entity;
-      for (const id of removed) delete entities[id];
-      const ring = freshRing(changed, Date.now() + store.clockOffset, store.ring);
-      return ring ? { entities, ring } : { entities };
+      const hidden = { ...store.hidden };
+      for (const entity of changed) {
+        delete entities[entity.id];
+        delete hidden[entity.id];
+        (entity.hidden ? hidden : entities)[entity.id] = entity;
+      }
+      for (const id of removed) {
+        delete entities[id];
+        delete hidden[id];
+      }
+      const ring = freshRing(changed.filter((entity) => !entity.hidden), Date.now() + store.clockOffset, store.ring);
+      return ring ? { entities, hidden, ring } : { entities, hidden };
     }),
 
   setMusic: (music) => set({ music }),
+
+  setLayout: (layout) =>
+    set((store) => {
+      // Same as the hub does: from what was recognised, with the new arrangement on top.
+      const recognised = [...Object.values(store.entities), ...Object.values(store.hidden)].map((entity) => ({ ...entity, name: recognisedNameOf(entity), room: recognisedRoomOf(entity) }));
+      const real = realRooms(recognised, store.music.players.map((player) => player.room));
+      const { shown, hidden } = split(recognised.map((entity) => applyLayout(entity, layout, real)));
+      // Without own areas the hub falls back to its basic ones; the next snapshot brings them.
+      return { layout, floors: layout.floors ?? (store.layout.floors === null ? store.floors : []), entities: shown, hidden };
+    }),
 
   setServices: (services) =>
     set((store) => {
@@ -150,7 +186,7 @@ export const useHub = create<HubStore>((set) => ({
     set({ ring });
   },
 
-  reset: () => set({ link: 'connecting', loaded: false, entities: {}, services: {}, music: EMPTY_MUSIC, ring: null }),
+  reset: () => set({ link: 'connecting', loaded: false, entities: {}, hidden: {}, layout: EMPTY_LAYOUT, services: {}, music: EMPTY_MUSIC, ring: null }),
 }));
 
 // --- Transient events (doorbell, door opened, history changed) ----------------------

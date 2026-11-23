@@ -15,6 +15,7 @@ import type { LiveStatus } from '../../lib/live.ts';
 import { haptic } from '../../lib/platform.ts';
 import { useHub } from '../../store/hub.ts';
 import { useCan } from '../../store/session.ts';
+import { CameraLights } from '../../components/layout/CameraLights.tsx';
 
 export function CameraPage() {
   const { id = '' } = useParams();
@@ -172,6 +173,7 @@ export function CameraPage() {
             </div>
           )}
 
+          <CameraLights camera={camera} />
           <FavoriteRow entity={camera} />
         </div>
       </div>

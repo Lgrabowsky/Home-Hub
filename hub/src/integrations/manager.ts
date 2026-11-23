@@ -81,7 +81,7 @@ export class IntegrationManager {
 
   private applyGeneral(): void {
     const general = this.deps.settings.get('general');
-    this.deps.state.setLayout(general.hubName, general.floors);
+    this.deps.state.setHubName(general.hubName);
   }
 
   private depsFor(key: DeviceKey): IntegrationDeps {

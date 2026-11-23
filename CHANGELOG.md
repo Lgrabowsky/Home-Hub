@@ -5,6 +5,22 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.4.0
+
+- **Räume selbst anordnen:** **Räume › Bearbeiten** (Administratoren, gilt für alle im Haushalt) –
+  eigene Bereiche wie Dachgeschoss oder Treppenhaus anlegen, Räume umbenennen, zusammenführen, neu
+  anlegen, einem Bereich zuordnen und sortieren, Geräte einzeln in andere Räume legen.
+- **Geräte umbenennen und ausblenden** – im Raum, im Fenster jedes Geräts oder in den Menüs
+  Licht, Jalousien, Klima, Geräte und Aktionen (**Bearbeiten**: sortieren, mit dem Auge aus- und
+  einblenden, umbenennen, verschieben).
+- **Zurücksetzen** für ein Gerät, einen Raum oder alles: die automatische Erkennung bleibt erhalten
+  und ordnet alles, was du nicht geändert hast, weiter selbst ein.
+- **Aktionen und Uhren** sind jetzt getrennte Menüs.
+- **Lichter für Kameras:** einer Kamera oder Türstation Lichter zuordnen und sie direkt unter dem
+  Kamerabild schalten.
+- Die Stockwerk-Einstellung unter Allgemein entfällt; die dort eingetragenen Stockwerke bleiben die
+  Grundeinteilung. Braucht einen Hub ab Version 0.4.0.
+
 ## 0.3.0
 
 - **Startseite selbst gestalten:** Stift oben rechts auf der Übersicht › Kacheln gedrückt halten und

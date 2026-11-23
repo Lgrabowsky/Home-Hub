@@ -298,7 +298,8 @@ describe('entities', () => {
       id: 'gekko:contact/auto-alarms-logics-item0',
       kind: 'contact',
       name: 'Fenster Küche',
-      room: 'Türen und Fenster',
+      // On the controller it lives on the page "Türen und Fenster"; its name says which room it belongs to.
+      room: 'Küche',
       available: true,
       service: 'mygekko',
       open: false,
