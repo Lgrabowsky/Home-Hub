@@ -101,7 +101,7 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
 
   // --- myGEKKO -----------------------------------------------------------------------------------
 
-  const gekko: MyGekkoSim = await startMyGekkoSim({ blindTravelMs: 12_000, moreAccessDoors: true });
+  const gekko: MyGekkoSim = await startMyGekkoSim({ blindTravelMs: 12_000, moreAccessDoors: true, moreAlarmZones: true });
   closers.push(() => gekko.close());
   settings.override('mygekko', {
     enabled: true,

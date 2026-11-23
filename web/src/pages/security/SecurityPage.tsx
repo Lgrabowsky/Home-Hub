@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AlarmEntity, CameraEntity, ContactEntity, DoorEntity } from '@home-hub/shared';
 import { contactIcon } from '../../components/entities/icons.ts';
+import { LightWatchRow, purposeOf } from '../../components/security/LightWatch.tsx';
 import { HubImage } from '../../components/HubImage.tsx';
 import { Badge, Card, cx, EmptyState, PageHeader, Row, RowGroup, Section, Segmented } from '../../components/ui.tsx';
 import { useEntities } from '../../hooks/entities.ts';
@@ -39,7 +40,8 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
   const [filter, setFilter] = useState<Filter>('all');
   const open = contacts.filter((contact) => contact.open && contact.available);
   const triggered = alarms.filter((alarm) => alarm.triggered);
-  const breachedZones = alarms.filter((alarm) => alarm.breached);
+  // Only the zones of windows and doors: "Status Beleuchtung" or the smoke detectors say nothing about them.
+  const breachedZones = alarms.filter((alarm) => alarm.breached && purposeOf(alarm) === 'contacts');
   // The controller knows that something in the zone is open, but no individual contact says so.
   const unknownOpen = breachedZones.length > 0 && open.length === 0;
 
@@ -112,17 +114,24 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
 
       {alarms.length > 0 && (
         <RowGroup>
-          {alarms.map((alarm) => (
-            <Row
-              key={alarm.id}
-              icon={alarm.triggered ? ShieldAlert : ShieldCheck}
-              tone={alarm.triggered ? 'danger' : alarm.breached ? 'warn' : 'ok'}
-              title={alarm.name}
-              subtitle={<span className="whitespace-normal">{alarm.stateText}</span>}
-              trailing={<Badge tone={alarm.mode === 'armed' ? 'accent' : 'neutral'}>{alarm.mode === 'armed' ? 'Scharf' : alarm.mode === 'disarmed' ? 'Unscharf' : 'Unbekannt'}</Badge>}
-            />
-          ))}
+          {alarms.map((alarm) =>
+            purposeOf(alarm) === 'lights' ? (
+              <LightWatchRow key={alarm.id} alarm={alarm} />
+            ) : (
+              <Row
+                key={alarm.id}
+                icon={alarm.triggered ? ShieldAlert : ShieldCheck}
+                tone={alarm.triggered ? 'danger' : alarm.breached ? 'warn' : 'ok'}
+                title={alarm.name}
+                subtitle={<span className="whitespace-normal">{alarm.stateText}</span>}
+                trailing={<Badge tone={alarm.mode === 'armed' ? 'accent' : 'neutral'}>{alarm.mode === 'armed' ? 'Scharf' : alarm.mode === 'disarmed' ? 'Unscharf' : 'Unbekannt'}</Badge>}
+              />
+            ),
+          )}
         </RowGroup>
+      )}
+      {alarms.some((alarm) => alarm.mode === 'disarmed') && (
+        <p className="px-1 text-xs text-faint">„Unscharf“ heißt: Die Alarmanlage löst keinen Alarm aus – auch wenn alles geschlossen ist. Geschlossene Fenster allein schalten sie nicht scharf; das geschieht am myGEKKO.</p>
       )}
 
       {contacts.length > 0 && (

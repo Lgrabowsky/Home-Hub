@@ -473,6 +473,8 @@ export interface MyGekkoSimOptions {
   port?: number;
   /** Besides the garden gate, a drive gate and a door opener in "Zutritt" (the demo has them). */
   moreAccessDoors?: boolean;
+  /** Besides "Hülle", the zones "Rauchmelder" and "Status Beleuchtung" (any light on) — as installers set them up. */
+  moreAlarmZones?: boolean;
   username?: string;
   password?: string;
   gekkoName?: string;
@@ -610,7 +612,7 @@ class Simulator implements MyGekkoSim {
     this.blindTravelMs = options.blindTravelMs ?? 18_000;
     this.incompleteAnswers = options.cloud?.incompleteAnswers ?? 0;
     this.contactStyle = options.contacts ?? 'named';
-    this.buildHousehold(options.moreAccessDoors === true);
+    this.buildHousehold(options.moreAccessDoors === true, options.moreAlarmZones === true);
     this.server = http.createServer((req, res) => this.handle(req, res));
     this.server.on('connection', (socket) => {
       this.sockets.add(socket);
@@ -632,7 +634,7 @@ class Simulator implements MyGekkoSim {
 
   // --- Household ------------------------------------------------------------------
 
-  private buildHousehold(moreAccessDoors: boolean): void {
+  private buildHousehold(moreAccessDoors: boolean, moreAlarmZones: boolean): void {
     const travel = () => this.blindTravelMs;
 
     this.lights.push(
@@ -866,6 +868,20 @@ class Simulator implements MyGekkoSim {
             return value === '1' && this.arm() ? 200 : 444;
           },
         },
+        ...(moreAlarmZones
+          ? ([
+              { key: 'item1', name: 'Rauchmelder', page: '...', extra: { zone1: 'Rauchmelder' }, read: () => '0;1;1;0;1;', write: () => 444 },
+              {
+                key: 'item2',
+                name: 'Status Beleuchtung',
+                page: '...',
+                extra: { zone1: 'Status Beleuchtung' },
+                // A "detector" per light: tripped while it is on.
+                read: () => `0;1;0;${this.lights.some((entry) => entry.on) ? 2 : 0};1;`,
+                write: () => 444,
+              },
+            ] as SimElement[])
+          : []),
         fixed('group0', 'Grp 1', undefined, '0', true),
       ],
     });

@@ -37,6 +37,8 @@ export interface HouseLayout {
    * gates on "zutritt" (entity ids). Missing = the order of the house.
    */
   pageOrder?: Record<string, string[]>;
+  /** Lights the lighting watch of the alarm system leaves out (entity ids). */
+  lightWatchExcluded?: string[];
 }
 
 export const EMPTY_LAYOUT: HouseLayout = { floors: null, rooms: {}, devices: {}, order: {}, cameraLights: {} };
@@ -241,9 +243,18 @@ export function resetDevice(layout: HouseLayout, entityId: string): HouseLayout 
   return next;
 }
 
-/** Back to the automatic arrangement for everything; the lights of the cameras stay. */
+/** Back to the automatic arrangement for everything; the lights of the cameras and of the lighting watch stay. */
 export function resetLayout(layout: HouseLayout): HouseLayout {
-  return { ...clone(EMPTY_LAYOUT), cameraLights: clone(layout).cameraLights };
+  const kept = clone(layout);
+  return { ...clone(EMPTY_LAYOUT), cameraLights: kept.cameraLights, ...(kept.lightWatchExcluded ? { lightWatchExcluded: kept.lightWatchExcluded } : {}) };
+}
+
+/** Lights the lighting watch leaves out. */
+export function setLightWatchExcluded(layout: HouseLayout, ids: readonly string[]): HouseLayout {
+  const next = clone(layout);
+  if (ids.length > 0) next.lightWatchExcluded = [...new Set(ids)];
+  else delete next.lightWatchExcluded;
+  return next;
 }
 
 /** Puts a room into an area (created when missing), at the end or at `index`. */

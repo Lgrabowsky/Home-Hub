@@ -1,4 +1,5 @@
 import {
+  alarmPurpose,
   clamp,
   type AccessEntity,
   type ActionEntity,
@@ -355,13 +356,17 @@ export class EntityFactory {
       const triggered = alarm === 3;
       // 2 = "alarmButUnsharp": a detector of the zone is tripped while the zone is disarmed.
       const breached = alarm === 2;
+      const zoneName = (zone === 1 ? item.zone1 : item.zone2) ?? (zones.length > 1 ? `${item.name} · Zone ${zone}` : item.name);
+      // Installers use zones for more than windows: "Status Beleuchtung" reports lights that are on.
+      const purpose = alarmPurpose(`${zoneName} ${item.name}`);
+      const tripped = { contacts: 'mindestens ein Kontakt offen', lights: 'mindestens ein Licht an', smoke: 'ein Melder hat ausgelöst', motion: 'Bewegung erkannt', other: 'ein Melder hat ausgelöst' }[purpose];
+      const calm = { contacts: 'alles geschlossen', lights: 'alle Lichter aus', smoke: 'alles ruhig', motion: 'keine Bewegung', other: 'alles ruhig' }[purpose];
       let stateText: string;
       if (triggered) stateText = 'ALARM';
       else if (mode === 'unknown') stateText = 'Status unbekannt';
       else if (deviceStatus === 0) stateText = 'Ausgeschaltet';
       else if (mode === 'armed') stateText = 'Scharf';
-      else stateText = breached ? 'Unscharf · mindestens ein Kontakt offen' : 'Unscharf · alles geschlossen';
-      const zoneName = (zone === 1 ? item.zone1 : item.zone2) ?? (zones.length > 1 ? `${item.name} · Zone ${zone}` : item.name);
+      else stateText = `Unscharf · ${breached ? tripped : calm}`;
       return {
         ...this.base(`${elementEntityId(item)}#${zone}`, 'alarm', zoneName, item.page, fields !== undefined),
         system: item.name,
@@ -369,6 +374,7 @@ export class EntityFactory {
         triggered,
         breached,
         stateText,
+        purpose,
       };
     });
   }

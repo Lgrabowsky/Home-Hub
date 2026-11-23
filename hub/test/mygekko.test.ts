@@ -5,6 +5,7 @@ import https from 'node:https';
 import net, { type AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ContactMapping, Entity, EntityCommand, EntityKind, EntityOf, MyGekkoSettings, ServiceHealth } from '@home-hub/shared';
+import { alarmPurpose } from '@home-hub/shared';
 import { HttpError } from '../src/http/errors.ts';
 import { MyGekkoIntegration, type MyGekkoOptions, type MyGekkoTiming } from '../src/integrations/mygekko.ts';
 import { forgetRejections } from '../src/integrations/mygekko/lockout.ts';
@@ -269,6 +270,7 @@ describe('entities', () => {
       triggered: false,
       breached: false,
       stateText: 'Unscharf · alles geschlossen',
+      purpose: 'contacts',
     });
     expect(state.get('gekko:alarmsystem/item0#2')).toBeUndefined();
 
@@ -289,6 +291,15 @@ describe('entities', () => {
     expect(diagnostics.unmapped).toEqual({ trends: 1, vents: 1, hotwater_systems: 1 });
     expect(diagnostics.transport).toBe('http');
     expect(diagnostics.controller).toMatchObject({ name: 'Musterhaus', firmware: '879015' });
+  });
+
+  it('knows from their names what the zones of the alarm system watch', () => {
+    expect(alarmPurpose('Hülle Alarmanlage')).toBe('contacts');
+    expect(alarmPurpose('Erdgeschoss Alarm Haus')).toBe('contacts');
+    expect(alarmPurpose('Status Beleuchtung Alarmanlage')).toBe('lights');
+    expect(alarmPurpose('Rauchmelder')).toBe('smoke');
+    expect(alarmPurpose('Bewegungsmelder Garten')).toBe('motion');
+    expect(alarmPurpose('Wassermelder Keller')).toBe('other');
   });
 
   it('leaves the window and door contacts to the KNX bus once contacts are set up there', async () => {

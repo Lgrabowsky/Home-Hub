@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { demo, expectVideoPlaying, hubState } from './helpers.ts';
+import { APP_HEADERS, demo, expectVideoPlaying, hubState } from './helpers.ts';
 
 test.describe('windows, doors and cameras', () => {
   test('an opened window shows up at once and disappears when it is closed', async ({ page, request }) => {
@@ -88,6 +88,46 @@ test.describe('windows, doors and cameras', () => {
     await page.goto('/einstellungen/protokoll');
     await expect(page.getByText('erika hat Nebeneingang geöffnet').first()).toBeVisible();
     await expect(page.getByText('erika hat Einfahrtstor dauerhaft geöffnet').first()).toBeVisible();
+  });
+
+  test('the lighting zone shows the lights that are on, switches them off, and leaves out the excluded ones', async ({ page, request }) => {
+    const light = async (name: string, room: string) => Object.values((await hubState(request)).entities).find((entity) => entity.kind === 'light' && entity.name === name && entity.room === room)!;
+    const turnOn = async (name: string, room: string) => {
+      const target = await light(name, room);
+      expect((await request.post(`/api/entities/${encodeURIComponent(target.id)}/command`, { headers: APP_HEADERS, data: { action: 'turn_on' } })).ok()).toBe(true);
+    };
+    await turnOn('Stehlampe', 'Wohnzimmer');
+    await turnOn('Flur', 'Flur');
+
+    await page.goto('/sicherheit');
+    // Lights on are no open window: the summary is about windows and doors only.
+    await expect(page.getByText('Mindestens ein Kontakt ist offen')).toHaveCount(0);
+    await expect(page.getByText(/Fenster und Türen überwacht|von \d+ offen/).first()).toBeVisible();
+
+    const row = page.getByRole('button', { name: /^Status Beleuchtung/ });
+    await expect(row).toContainText('an:');
+    await row.click();
+    const sheet = page.getByRole('dialog', { name: 'Status Beleuchtung' });
+    await expect(sheet.getByText('Stehlampe')).toBeVisible();
+    // Only lights that are on: switched off, it is gone.
+    await sheet.getByRole('switch', { name: 'Flur ausschalten' }).click();
+    await expect(sheet.getByRole('switch', { name: /^Flur / })).toHaveCount(0);
+    await expect.poll(async () => (await light('Flur', 'Flur')).kind === 'light' && ((await light('Flur', 'Flur')) as { on: boolean }).on, { timeout: 20_000 }).toBe(false);
+
+    // Left out in the settings: no longer listed.
+    await sheet.getByRole('button', { name: 'Lichter von der Überwachung ausnehmen' }).click();
+    await expect(page).toHaveURL(/lichtueberwachung$/);
+    await page.getByLabel('Licht oder Raum suchen').fill('Stehlampe');
+    await page.getByRole('switch', { name: 'Stehlampe überwachen' }).click();
+    await expect.poll(async () => ((await (await request.get('/api/layout')).json()) as { layout: { lightWatchExcluded?: string[] } }).layout.lightWatchExcluded).toEqual([(await light('Stehlampe', 'Wohnzimmer')).id]);
+    await page.goto('/sicherheit');
+    await page.getByRole('button', { name: /^Status Beleuchtung/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Status Beleuchtung' }).getByText('Stehlampe')).toHaveCount(0);
+
+    // Watched again (the demo as it was).
+    await page.goto('/einstellungen/lichtueberwachung');
+    await page.getByRole('switch', { name: 'Stehlampe überwachen' }).click();
+    await expect.poll(async () => ((await (await request.get('/api/layout')).json()) as { layout: { lightWatchExcluded?: string[] } }).layout.lightWatchExcluded).toBeUndefined();
   });
 
   test('cameras show live video, can be turned and jump to stored positions', async ({ page, request }) => {

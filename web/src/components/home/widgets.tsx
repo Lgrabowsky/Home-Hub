@@ -14,6 +14,7 @@ import { formatAgo, formatNumber, formatTemperature } from '../../lib/format.ts'
 import { useHub } from '../../store/hub.ts';
 import { useLabs } from '../../store/labs.ts';
 import { useCan } from '../../store/session.ts';
+import { purposeOf } from '../security/LightWatch.tsx';
 
 /**
  * The tiles of the start page. Each person arranges them as they like
@@ -146,7 +147,8 @@ function FunctionCard({ fn }: { fn: HomeFunction }) {
     case 'sicherheit': {
       const contacts = all.filter((e) => e.kind === 'contact');
       const open = contacts.filter((e) => e.kind === 'contact' && e.open);
-      const breached = all.some((e) => e.kind === 'alarm' && e.breached);
+      // Only zones of windows and doors (not the lighting or smoke detector zones).
+      const breached = all.some((e) => e.kind === 'alarm' && e.breached && purposeOf(e) === 'contacts');
       const warn = open.length > 0 || breached;
       return (
         <ControlCard

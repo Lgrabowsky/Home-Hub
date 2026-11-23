@@ -1,4 +1,4 @@
-import { Activity, Box, ChevronRight, FlaskConical, HardDrive, LogOut, MonitorSmartphone, Palette, ScrollText, Server, ShieldCheck, Users } from 'lucide-react';
+import { Activity, Box, ChevronRight, FlaskConical, HardDrive, Lightbulb, LogOut, MonitorSmartphone, Palette, ScrollText, Server, ShieldCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ROLE_LABELS } from '@home-hub/shared';
@@ -106,6 +106,7 @@ export function SettingsList() {
               onClick={() => navigate('/einstellungen/dienste')}
             />
             <Row icon={Users} tone="accent" title="Benutzer" subtitle="Wer darf was" trailing={chevron} onClick={() => navigate('/einstellungen/benutzer')} />
+            <Row icon={Lightbulb} tone="accent" title="Licht-Überwachung" subtitle="Welche Lichter dabei nicht zählen" trailing={chevron} onClick={() => navigate('/einstellungen/lichtueberwachung')} />
             <Row icon={ScrollText} tone="accent" title="Protokoll" subtitle="Anmeldungen, Türöffnungen, Änderungen" trailing={chevron} onClick={() => navigate('/einstellungen/protokoll')} />
             <Row icon={Activity} tone="accent" title="Diagnose" subtitle="Zustand aller Verbindungen" trailing={chevron} onClick={() => navigate('/einstellungen/diagnose')} />
             <Row icon={Box} tone="accent" title="3D-Haus" subtitle="Labs · IFC-Modell, Ausrichtung, Farben" trailing={chevron} onClick={() => navigate('/einstellungen/haus3d')} />

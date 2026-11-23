@@ -30,3 +30,20 @@ export function knxContactNames(contacts: readonly { id: string; name: string; r
   }
   return names;
 }
+
+/** What a zone of the alarm system watches. */
+export type AlarmPurpose = 'contacts' | 'lights' | 'smoke' | 'motion' | 'other';
+
+/**
+ * Recognised from the zone's (and system's) name: "Hülle" holds the window and door contacts,
+ * "Status Beleuchtung" the lights, "Rauchmelder" the smoke detectors …
+ */
+export function alarmPurpose(name: string): AlarmPurpose {
+  const text = slugify(name);
+  if (/beleuchtung|licht|lampe|leuchte/.test(text)) return 'lights';
+  if (/rauch|brand|feuer|smoke|fire|hitze|gasmelder/.test(text)) return 'smoke';
+  if (/bewegung|praesenz|prasenz|presence|motion/.test(text)) return 'motion';
+  if (/wasser|leck|leckage|sabotage|stoerung|storung|technik|frost/.test(text)) return 'other';
+  // Everything else is what alarm systems are mostly for: windows and doors ("Hülle", "Erdgeschoss" …).
+  return 'contacts';
+}

@@ -59,6 +59,12 @@ Gut zu wissen:
   und -untergang trägst du unter **Geräte & Dienste › Allgemein › Ort & Zeit** die Zeitzone und den
   Standort des Hauses ein (Breiten- und Längengrad, z. B. aus einer Karten-App; zwei Nachkommastellen
   genügen). Der Standort bleibt auf dem Hub.
+- **Zonen der Alarmanlage:** Der Hub erkennt am Namen, was eine Zone überwacht: Fenster und Türen
+  („Hülle“, „Erdgeschoss“ …), Licht („Status Beleuchtung“), Rauch („Rauchmelder“), Bewegung. Nur die
+  Zonen der Fenster und Türen zählen für „offen/geschlossen“ unter Sicherheit. Die Licht-Zone zeigt die
+  eingeschalteten Lichter und schaltet sie aus; welche Lichter dabei nicht zählen, legst du unter
+  **Einstellungen › Licht-Überwachung** fest. „Unscharf“ heißt: Die Zone löst keinen Alarm aus –
+  scharf geschaltet wird sie am myGEKKO.
 - **Gesperrte Jalousien** (z. B. Windalarm) zeigt die App als gesperrt; Befehle lehnt der myGEKKO dann ab.
 - **Räume und Stockwerke erkennt der Hub selbst:** Räume aus den Seiten des myGEKKO (und den Räumen
   von Kameras und Lautsprechern), Stockwerke an Raumnamen wie „EG Küche“ oder „OG Bad“. Kontakte, die

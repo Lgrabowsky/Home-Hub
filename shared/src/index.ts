@@ -1,4 +1,5 @@
 import type { HouseLayout } from './layout.ts';
+import type { AlarmPurpose } from './text.ts';
 
 /**
  * Shared contract between the hub (server) and the clients (web / Android).
@@ -293,6 +294,8 @@ export interface AlarmEntity extends BaseEntity {
   breached: boolean;
   /** Short German state text, e.g. "Unscharf · mindestens ein Kontakt offen". */
   stateText: string;
+  /** What the zone watches (window and door contacts, lights, smoke …); missing from hubs before 0.7. */
+  purpose?: AlarmPurpose;
 }
 
 export interface SensorEntity extends BaseEntity {
