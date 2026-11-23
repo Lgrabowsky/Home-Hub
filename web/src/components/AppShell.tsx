@@ -8,6 +8,7 @@ import { DoorbellOverlay } from './DoorbellOverlay.tsx';
 import { Logo } from './Logo.tsx';
 import { MiniPlayer } from './MiniPlayer.tsx';
 import { cx, Spinner } from './ui.tsx';
+import { VersionNotice } from './VersionNotice.tsx';
 
 interface NavItem {
   to: string;
@@ -135,7 +136,10 @@ export function AppShell() {
 
       <main className="mx-auto w-full max-w-6xl px-4 pb-nav pt-[calc(env(safe-area-inset-top)+0.75rem)] md:px-8 md:pb-28 md:pt-8">
         {loaded ? (
-          <Outlet />
+          <>
+            <VersionNotice />
+            <Outlet />
+          </>
         ) : (
           <div className="flex min-h-[60dvh] items-center justify-center">
             <Spinner className="size-7" />

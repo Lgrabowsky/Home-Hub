@@ -145,6 +145,24 @@ test.describe('arranging the house', () => {
     await expect(page.getByRole('switch', { name: /^Terrasse/ })).toHaveCount(0);
   });
 
+  test('an older hub is pointed out instead of new functions failing with "Nicht gefunden"', async ({ page }) => {
+    // As a hub of version 0.3 would answer.
+    await page.route('**/api/bootstrap', async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, json: { ...(await response.json()), version: '0.3.0' } });
+    });
+    await page.route('**/api/layout', (route) => (route.request().method() === 'PUT' ? route.fulfill({ status: 404, json: { error: 'not_found', message: 'Nicht gefunden.' } }) : route.fallback()));
+    await page.goto('/licht');
+    await expect(page.getByText(/Der Hub ist älter als die App \(Hub 0\.3\.0/)).toBeVisible();
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Stehlampe ausblenden' }).click();
+    await expect(page.getByText('Der Hub kennt diese Funktion noch nicht. Bitte den Hub auf Version 0.4.0 oder neuer aktualisieren.')).toBeVisible();
+    // Nothing changed.
+    await expect(page.getByRole('button', { name: 'Stehlampe ausblenden' })).toBeVisible();
+    await page.getByRole('button', { name: 'Hinweis schließen' }).click();
+    await expect(page.getByText(/Der Hub ist älter als die App/)).toHaveCount(0);
+  });
+
   test('actions and time switches are separate menus', async ({ page }) => {
     await page.goto('/aktionen');
     const menus = page.getByRole('navigation', { name: 'Bereiche' });

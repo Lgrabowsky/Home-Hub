@@ -2,7 +2,7 @@ import { withFloors, type Entity, type HouseLayout, type LayoutContext } from '@
 import { toast } from '../components/toast.tsx';
 import { buildRooms, groupByFloor } from '../hooks/entities.ts';
 import { useHub } from '../store/hub.ts';
-import { put } from './api.ts';
+import { ApiError, put } from './api.ts';
 
 /**
  * Editing the household's arrangement of the house (names, rooms, areas,
@@ -44,7 +44,9 @@ export async function saveLayout(next: HouseLayout, change: string): Promise<boo
     return true;
   } catch (err) {
     useHub.getState().setLayout(before);
-    toast.fromError(err);
+    // A hub older than 0.4.0 does not know the arrangement at all.
+    if (err instanceof ApiError && err.status === 404) toast.error('Der Hub kennt diese Funktion noch nicht. Bitte den Hub auf Version 0.4.0 oder neuer aktualisieren.');
+    else toast.fromError(err);
     return false;
   }
 }

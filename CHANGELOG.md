@@ -5,6 +5,14 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.4.1
+
+- Ist der Hub älter als die App, sagt die App das jetzt oben auf der Seite – statt dass neue
+  Funktionen (z. B. Lichter für Kameras, Räume bearbeiten) beim Speichern nur „Nicht gefunden.“
+  melden. Abhilfe: den Hub aktualisieren (in der VM:
+  `cd /opt/home-hub && sudo git pull && sudo bash deploy/linux/install.sh`).
+- Die installierte App weist auf eine neuere App-Version hin, wenn der Hub schon weiter ist.
+
 ## 0.4.0
 
 - **Räume selbst anordnen:** **Räume › Bearbeiten** (Administratoren, gilt für alle im Haushalt) –
