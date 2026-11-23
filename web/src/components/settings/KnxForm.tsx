@@ -15,6 +15,17 @@ const TYPE_LABELS: Record<ContactType, string> = { window: 'Fenster', door: 'Tü
 const TYPE_ICONS: Record<ContactType, LucideIcon> = { window: DoorClosed, door: DoorOpen, garage: Warehouse, motion: Radar, other: DoorClosed };
 const GROUP_ADDRESS = /^\s*(\d{1,2})\/(\d)\/(\d{1,3})\s*$/;
 
+/**
+ * Phone keypads for numbers have no "/": a dot, comma, dash or space between the numbers becomes one
+ * ("1.2.3" → "1/2/3"); anything else is dropped.
+ */
+function normalizeAddress(text: string): string {
+  return text
+    .replace(/[.,\-\s]+/g, '/')
+    .replace(/[^\d/]/g, '')
+    .replace(/\/{2,}/g, '/');
+}
+
 function validAddress(text: string): boolean {
   const match = GROUP_ADDRESS.exec(text);
   if (!match) return false;
@@ -94,8 +105,17 @@ function ContactSheet({
           </Field>
         </div>
         <p className="-mt-2 text-sm text-faint">Ohne eigenen Namen heißt der Kontakt „{automaticName}“.</p>
-        <Field label="Gruppenadresse" error={addressError} hint="Die Adresse, an die der Kontakt (Binäreingang) seinen Zustand sendet.">
-          <TextInput value={draft.address} placeholder="1/2/3" inputMode="numeric" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="font-mono" onChange={(event) => set({ address: event.target.value })} />
+        <Field label="Gruppenadresse" error={addressError} hint="Die Adresse, an die der Kontakt (Binäreingang) seinen Zustand sendet. Statt „/“ gehen auch Punkt, Komma oder Leerzeichen.">
+          <TextInput
+            value={draft.address}
+            placeholder="1/2/3"
+            inputMode="decimal"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className="font-mono"
+            onChange={(event) => set({ address: normalizeAddress(event.target.value) })}
+          />
         </Field>
         <div className="flex items-center justify-between gap-3 rounded-control bg-sunken p-3.5">
           <div>

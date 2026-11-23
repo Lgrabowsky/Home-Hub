@@ -55,6 +55,16 @@ test('a window contact is found on the KNX bus by opening the window, and shows 
   await expect(page.getByRole('link', { name: 'Keller öffnen' })).toBeVisible();
   await demo(request, { action: 'contact', name: 'Kellerfenster', open: false });
 
+  // Typed by hand on a phone keypad (no "/" there): dots become slashes.
+  await page.goto('/einstellungen/dienste/knx');
+  await page.getByRole('button', { name: 'Von Hand hinzufügen' }).click();
+  const manual = page.getByRole('dialog', { name: 'KNX-Kontakt hinzufügen' });
+  await manual.getByLabel('Gruppenadresse').fill('1.1.5');
+  await expect(manual.getByLabel('Gruppenadresse')).toHaveValue('1/1/5');
+  await manual.getByLabel('Gruppenadresse').fill('2,3,40');
+  await expect(manual.getByLabel('Gruppenadresse')).toHaveValue('2/3/40');
+  await manual.getByRole('button', { name: 'Schließen' }).click();
+
   // Leave the demo as it was.
   expect((await request.put('/api/admin/settings/knx', { headers: APP_HEADERS, data: before })).ok()).toBe(true);
   expect((await request.put('/api/layout', { headers: APP_HEADERS, data: { layout: { ...EMPTY_LAYOUT, cameraLights: layout.cameraLights } } })).ok()).toBe(true);

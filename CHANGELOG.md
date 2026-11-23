@@ -5,6 +5,12 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.5.3
+
+- KNX-Gruppenadressen lassen sich auf dem Handy eintippen: Die Zahlentastatur hat keinen „/“ –
+  Punkt, Komma, Bindestrich oder Leerzeichen werden jetzt automatisch zu „/“ („1.2.3“ → „1/2/3“).
+  Nur die App ist neu.
+
 ## 0.5.2
 
 - **Fenster & Türen in der Raumansicht zuordnen:** In jedem Raum unter **Fenster & Türen ›
