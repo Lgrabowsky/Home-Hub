@@ -291,6 +291,17 @@ describe('entities', () => {
     expect(diagnostics.controller).toMatchObject({ name: 'Musterhaus', firmware: '879015' });
   });
 
+  it('leaves the window and door contacts to the KNX bus once contacts are set up there', async () => {
+    const { t, state } = await boot();
+    const contacts = () => own(state).filter((candidate) => candidate.kind === 'contact').length;
+    expect(contacts()).toBeGreaterThan(0);
+    t.deps.settings.set('knx', { enabled: true, mode: 'tunnel', host: '127.0.0.1', port: 3671, contacts: [{ id: 'bad', address: '1/1/1', name: '', room: 'Bad', contactType: 'window', invert: false }] });
+    await expect.poll(contacts, { timeout: 10_000 }).toBe(0);
+    // The alarm system and the access control stay with the controller.
+    expect(own(state).some((candidate) => candidate.kind === 'alarm')).toBe(true);
+    expect(own(state).some((candidate) => candidate.kind === 'access')).toBe(true);
+  });
+
   it('derives window and door contacts from logic elements and access doors', async () => {
     const { state } = await boot();
 

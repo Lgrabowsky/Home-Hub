@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Copy, Download, Info } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { get } from '../../lib/api.ts';
 import { toast } from '../toast.tsx';
 import type { ContactEntity } from '@home-hub/shared';
@@ -12,6 +13,8 @@ import { HowTo, SecretInput, SwitchRow } from './parts.tsx';
 
 export function MyGekkoForm({ value, saved, onChange }: FormProps<'mygekko'>) {
   const health = useHub((state) => state.services.mygekko);
+  // Contacts set up on the KNX bus replace the controller's own detection.
+  const knxContacts = useHub((state) => [...Object.values(state.entities), ...Object.values(state.hidden)].filter((entity) => entity.kind === 'contact' && entity.service === 'knx').length);
   const connected = health?.status === 'ok' || health?.status === 'degraded';
   const set = (changes: Partial<typeof value>) => onChange({ ...value, ...changes });
   const storedSecret = saved.password !== '' && saved.mode === value.mode;
@@ -82,6 +85,16 @@ export function MyGekkoForm({ value, saved, onChange }: FormProps<'mygekko'>) {
         )}
       </Section>
 
+      {knxContacts > 0 ? (
+        <Section title="Fenster- & Türkontakte">
+          <Notice icon={Info}>
+            Die {knxContacts} Fenster- und Türkontakte kommen vom KNX-Bus. Der myGEKKO liefert dafür nur noch den Zustand der Alarmanlage; seine eigene Erkennung von Kontakten ist aus.{' '}
+            <Link to="/einstellungen/dienste/knx" className="font-medium text-accent hover:underline">
+              Zu den KNX-Kontakten
+            </Link>
+          </Notice>
+        </Section>
+      ) : (
       <Section title="Fenster- & Türkontakte">
         <Notice icon={Info} className="mb-4">
           Kontakte werden automatisch erkannt – anlernen musst du nichts. Ob in der Alarmüberwachung („Hülle“) etwas offen ist, zeigt die App immer sofort. Welches Fenster genau, gibt die Schnittstelle des myGEKKO nicht direkt
@@ -120,6 +133,7 @@ export function MyGekkoForm({ value, saved, onChange }: FormProps<'mygekko'>) {
           </div>
         </details>
       </Section>
+      )}
     </>
   );
 }

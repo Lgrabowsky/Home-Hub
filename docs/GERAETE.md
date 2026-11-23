@@ -69,6 +69,10 @@ Gut zu wissen:
   - **Räume** antippen: umbenennen, einem Bereich zuordnen, mit einem anderen Raum zusammenführen,
     Geräte aus anderen Räumen hierher holen und die Geräte sortieren. „+ Raum“ legt einen neuen,
     leeren Raum an.
+  - **Reihenfolge je Seite:** Auf Licht, Jalousien, Klima und Geräte lassen sich unter **Bearbeiten**
+    auch die Räume am Griff verschieben – nur für diese Seite. Auf **Zutritt › Bearbeiten** ordnest du
+    Türen, Tore, Türstationen und Türkontakte. „Reihenfolge zurücksetzen“ stellt die Ordnung des Hauses
+    wieder her.
   - **Geräte** umbenennen, in einen anderen Raum legen oder ausblenden – im Raum, im Fenster eines
     Geräts („Name, Raum, Sichtbarkeit“) oder in den Menüs **Licht, Jalousien, Klima, Geräte,
     Aktionen › Bearbeiten** (dort auch sortieren und mit dem Auge aus- und einblenden). Ausgeblendete
@@ -135,6 +139,10 @@ zuordnen“ kannst du einen Kontakt umbenennen, einem Raum zuweisen oder mit **K
 ---
 
 ## KNX-Bus (Fenster- und Türkontakte)
+
+> Sind am KNX-Bus Kontakte eingerichtet, kommen **alle** Fenster- und Türkontakte von dort: Der
+> myGEKKO sucht dann keine Kontakte mehr und zeigt keine an. Von ihm bleiben die Alarmanlage
+> („Hülle“) und die Türen und Tore der Zutrittskontrolle.
 
 **Wozu:** Hängen die Magnetkontakte an KNX-Binäreingängen, meldet der myGEKKO sie über seine
 Schnittstelle oft nicht einzeln (siehe oben). Der Hub kann sie dann **direkt am KNX-Bus mithören** –

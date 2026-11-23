@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Box, Check, ChevronDown, ChevronUp, GripVertical, Home, Lightbulb, Music2, Pencil, Plus, RotateCcw, Trash2, Wind } from 'lucide-react';
+import { Box, Check, ChevronDown, ChevronUp, GripVertical, Home, Lightbulb, Music2, Pencil, Plus, RotateCcw, SquareDashed, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { addArea, addRoom, moveArea, orderRooms, removeArea, renameArea, resetLayout, roomKey, type LightEntity } from '@home-hub/shared';
@@ -64,11 +64,9 @@ function inventory(room: RoomSummary): string[] {
   const doors = count('door');
   const cameras = count('camera');
   const switches = count('switch');
-  const contacts = count('contact');
   if (doors) parts.push(doors === 1 ? 'Türstation' : `${doors} Türstationen`);
   if (cameras) parts.push(cameras === 1 ? 'Kamera' : `${cameras} Kameras`);
   if (switches) parts.push(switches === 1 ? '1 Gerät' : `${switches} Geräte`);
-  if (contacts && room.openContacts === 0) parts.push(contacts === 1 ? '1 Kontakt zu' : `${contacts} Kontakte zu`);
   if (room.players.length && parts.length < 2) parts.push(room.players.length === 1 ? 'Lautsprecher' : `${room.players.length} Lautsprecher`);
   return parts;
 }
@@ -80,12 +78,6 @@ function RoomCard({ room, arranging = false }: { room: RoomSummary; arranging?: 
   const hasBlinds = room.blindCount > 0 && room.blindClosed !== null;
   const status = [
     room.heating ? <span key="heat" className="text-warm">heizt{room.target !== null ? ` auf ${formatNumber(room.target)}°` : ''}</span> : null,
-    room.openContacts > 0 ? (
-      <span key="open" className="inline-flex items-center gap-1 font-medium text-warn">
-        <Wind className="size-3.5" aria-hidden />
-        {room.openContacts} offen
-      </span>
-    ) : null,
     playing ? (
       <span key="music" className="inline-flex items-center gap-1 text-music">
         <Music2 className="size-3.5" aria-hidden />
@@ -100,7 +92,18 @@ function RoomCard({ room, arranging = false }: { room: RoomSummary; arranging?: 
       style={lit ? { background: 'radial-gradient(120% 90% at 100% 100%, color-mix(in srgb, var(--hh-warm) 15%, transparent), transparent 70%), var(--hh-panel), var(--hh-raised)' } : undefined}
     >
       {!arranging && <Link to={`/raeume/${room.id}`} className="absolute inset-0 rounded-tile transition hover:bg-fg/[0.03] active:bg-fg/[0.06]" aria-label={`${room.name} öffnen`} />}
-      <div className="pointer-events-none relative">
+      {/* Something open in the room: just a small sign, no words. */}
+      {room.openContacts > 0 && (
+        <span
+          role="img"
+          aria-label={room.openContacts === 1 ? 'Ein Fenster oder eine Tür ist offen' : `${room.openContacts} Fenster oder Türen sind offen`}
+          title={room.openContacts === 1 ? 'Ein Fenster oder eine Tür ist offen' : `${room.openContacts} Fenster oder Türen offen`}
+          className="pointer-events-none absolute right-3 top-3 flex size-6 items-center justify-center rounded-full bg-warn/20 text-warn"
+        >
+          <SquareDashed className="size-3.5" aria-hidden />
+        </span>
+      )}
+      <div className={cx('pointer-events-none relative', room.openContacts > 0 && 'pr-7')}>
         <h3 className="line-clamp-2 break-words text-[16px] font-semibold leading-snug" lang="de" style={{ hyphens: 'auto' }}>{room.name}</h3>
         {room.temperature !== null && (
           <p className="mt-1 text-[26px] font-semibold leading-none tracking-tight tabular-nums">
@@ -170,11 +173,10 @@ const ANNOUNCEMENTS: Announcements = {
   onDragCancel: ({ active }) => `Verschieben von ${String(active.data.current?.name ?? 'Raum')} abgebrochen.`,
 };
 
+/** What is on in a storey (open windows show on the rooms themselves). */
 function floorMeta(rooms: RoomSummary[]): string | undefined {
   const lit = rooms.reduce((sum, room) => sum + room.lightsOn, 0);
-  const open = rooms.reduce((sum, room) => sum + room.openContacts, 0);
-  const parts = [lit > 0 ? `${lit} ${lit === 1 ? 'Licht' : 'Lichter'} an` : null, open > 0 ? `${open} offen` : null].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : undefined;
+  return lit > 0 ? `${lit} ${lit === 1 ? 'Licht' : 'Lichter'} an` : undefined;
 }
 
 type NameAsk = { kind: 'area' } | { kind: 'rename-area'; area: string } | { kind: 'room'; area: string } | null;

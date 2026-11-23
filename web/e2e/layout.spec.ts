@@ -104,8 +104,12 @@ test.describe('arranging the house', () => {
     // The room shows it, and its tile says a window is open.
     const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Fenster & Türen' }) });
     await expect(section.getByText('Dachfenster Flur')).toBeVisible();
+    // On the room tile only a small sign says that something is open.
     await page.goto('/raeume');
-    await expect(page.locator('.panel').filter({ has: page.getByRole('link', { name: 'Bad öffnen' }) })).toContainText('1 offen');
+    const tile = page.locator('.panel').filter({ has: page.getByRole('link', { name: 'Bad öffnen' }) });
+    await expect(tile.getByRole('img', { name: 'Ein Fenster oder eine Tür ist offen' })).toBeVisible();
+    await expect(tile).not.toContainText('offen');
+    await expect(tile).not.toContainText('Kontakt');
 
     // Taken out again: back in the room it was recognised in.
     await page.goto('/raeume/bad');
@@ -151,6 +155,38 @@ test.describe('arranging the house', () => {
       const order = (await currentLayout(request)).order.wohnzimmer ?? [];
       return order.indexOf(lamp.id) >= 0 && order.indexOf(lamp.id) < order.indexOf(band.id);
     }).toBe(true);
+  });
+
+  test('the rooms on a menu page get an order of their own', async ({ page, request }) => {
+    const order = async () => (await currentLayout(request)).pageOrder?.licht;
+    const upstairs = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Obergeschoss' }) });
+    const before = async (a: string, b: string) => {
+      const text = await upstairs.innerText();
+      return text.indexOf(a) >= 0 && text.indexOf(a) < text.indexOf(b);
+    };
+    await page.goto('/licht');
+    expect(await before('Schlafzimmer', 'Kinderzimmer')).toBe(true);
+
+    // Edit mode: rooms have a grip of their own (devices inside theirs).
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Kinderzimmer verschieben', exact: true }).focus();
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Space');
+    await expect.poll(async () => {
+      const ids = (await order()) ?? [];
+      return ids.indexOf('kinderzimmer') >= 0 && ids.indexOf('kinderzimmer') < ids.indexOf('schlafzimmer');
+    }).toBe(true);
+    await page.getByRole('button', { name: 'Fertig' }).click();
+    await expect.poll(() => before('Kinderzimmer', 'Schlafzimmer')).toBe(true);
+    // Only this page: the blinds keep the order of the house.
+    expect((await currentLayout(request)).pageOrder?.jalousien).toBeUndefined();
+
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Reihenfolge der Räume zurücksetzen' }).click();
+    await expect.poll(order).toBeUndefined();
   });
 
   test('a camera gets the lights it needs, switched right on its page', async ({ page, request }) => {

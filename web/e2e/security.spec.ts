@@ -65,10 +65,25 @@ test.describe('windows, doors and cameras', () => {
     await gate.getByRole('button', { name: 'Zufahren' }).click();
     await expect.poll(async () => { const gate = await door('Einfahrtstor'); return gate?.kind === 'access' ? gate.action : null; }, { timeout: 20_000 }).not.toBe('hold_open');
 
-    // The storey filter applies here as well.
-    await page.getByRole('tab', { name: 'Erdgeschoss', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Einfahrtstor: Details' })).toBeHidden();
-    await expect(page.getByRole('button', { name: 'Nebeneingang: Details' })).toBeVisible();
+    // No storey filter here; instead the order can be changed (administrators).
+    await expect(page.getByRole('tablist', { name: 'Stockwerk' })).toHaveCount(0);
+    const titles = async () => page.getByRole('button', { name: /: Details$/ }).evaluateAll((buttons) => buttons.map((button) => button.getAttribute('aria-label')));
+    expect((await titles())[0]).toBe('Einfahrtstor: Details');
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Nebeneingang verschieben' }).focus();
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(150);
+    await page.keyboard.press('ArrowUp');
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Space');
+    await expect.poll(async () => ((await (await request.get('/api/layout')).json()) as { layout: { pageOrder?: Record<string, string[]> } }).layout.pageOrder?.zutritt?.[0]).toBe('gekko:accessdoors/item2');
+    await page.getByRole('button', { name: 'Fertig' }).click();
+    await expect.poll(async () => (await titles())[0]).toBe('Nebeneingang: Details');
+    await page.getByRole('button', { name: 'Bearbeiten' }).click();
+    await page.getByRole('button', { name: 'Reihenfolge zurücksetzen' }).click();
+    await page.getByRole('button', { name: 'Fertig' }).click();
+    await expect.poll(async () => (await titles())[0]).toBe('Einfahrtstor: Details');
 
     await page.goto('/einstellungen/protokoll');
     await expect(page.getByText('erika hat Nebeneingang geöffnet').first()).toBeVisible();

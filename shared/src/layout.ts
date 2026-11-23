@@ -32,6 +32,11 @@ export interface HouseLayout {
   order: Record<string, string[]>;
   /** Lights switched from the page of a camera or door station: its entity id → light entity ids. */
   cameraLights: Record<string, string[]>;
+  /**
+   * Order on single pages of the app: the rooms on "licht", "jalousien" … (room keys), the doors and
+   * gates on "zutritt" (entity ids). Missing = the order of the house.
+   */
+  pageOrder?: Record<string, string[]>;
 }
 
 export const EMPTY_LAYOUT: HouseLayout = { floors: null, rooms: {}, devices: {}, order: {}, cameraLights: {} };
@@ -166,6 +171,10 @@ export function renameRoom(layout: HouseLayout, context: LayoutContext, from: st
   if (targetKey !== fromKey && next.order[fromKey]) {
     next.order[targetKey] = [...new Set([...(next.order[targetKey] ?? []), ...next.order[fromKey]!])];
     delete next.order[fromKey];
+  }
+  // The room keeps its place on the pages that order rooms.
+  if (targetKey !== fromKey && next.pageOrder) {
+    for (const [page, ids] of Object.entries(next.pageOrder)) next.pageOrder[page] = [...new Set(ids.map((id) => (id === fromKey ? targetKey : id)))];
   }
   return tidy(next);
 }
@@ -308,10 +317,39 @@ export function orderRooms(layout: HouseLayout, area: string, rooms: readonly st
  */
 export function orderDevices(layout: HouseLayout, room: string, current: readonly string[], moved: readonly string[]): HouseLayout {
   const next = clone(layout);
+  next.order[roomKey(room)] = mergeOrder(current, moved);
+  return tidy(next);
+}
+
+/**
+ * A new order for some of the entries of a list: they take the places those entries had, the
+ * others stay where they are.
+ */
+export function mergeOrder(current: readonly string[], moved: readonly string[]): string[] {
   const set = new Set(moved);
   const queue = [...moved];
-  next.order[roomKey(room)] = current.map((id) => (set.has(id) ? queue.shift()! : id));
-  return tidy(next);
+  return current.map((id) => (set.has(id) ? queue.shift()! : id));
+}
+
+/** The order of one page (null: back to the order of the house). */
+export function setPageOrder(layout: HouseLayout, page: string, ids: readonly string[] | null): HouseLayout {
+  const next = clone(layout);
+  const pages = { ...(next.pageOrder ?? {}) };
+  if (ids && ids.length > 0) pages[page] = [...new Set(ids)];
+  else delete pages[page];
+  if (Object.keys(pages).length > 0) next.pageOrder = pages;
+  else delete next.pageOrder;
+  return next;
+}
+
+/** Items in a page's order (by `key`); the rest keep their order after them. */
+export function sortByPage<T>(items: readonly T[], order: readonly string[] | undefined, key: (item: T) => string): T[] {
+  if (!order || order.length === 0) return [...items];
+  const position = new Map(order.map((id, index) => [id, index]));
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => (position.get(key(a.item)) ?? Number.MAX_SAFE_INTEGER) - (position.get(key(b.item)) ?? Number.MAX_SAFE_INTEGER) || a.index - b.index)
+    .map((entry) => entry.item);
 }
 
 export function setCameraLights(layout: HouseLayout, cameraId: string, lights: readonly string[]): HouseLayout {

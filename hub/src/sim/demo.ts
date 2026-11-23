@@ -1,6 +1,6 @@
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { DemoState, DemoTrigger } from '@home-hub/shared';
+import { slugify, type DemoState, type DemoTrigger } from '@home-hub/shared';
 import type { HubContext } from '../context.ts';
 import { HttpError } from '../http/errors.ts';
 import { streamName } from '../integrations/media.ts';
@@ -119,15 +119,34 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
 
   // --- KNX ----------------------------------------------------------------------------------------
 
-  // Windows that only the KNX bus reports one by one; two are set up, two are left for "Kontakt suchen".
+  // As in a real house with KNX: the magnet contacts are on the bus (the controller only sees its alarm
+  // zone). Most are set up; two are left for trying "Kontakt suchen".
+  const KNX_CONTACTS: { address: string; name: string; room?: string; type?: 'window' | 'door' | 'garage'; invert?: boolean }[] = [
+    { address: '1/1/1', name: 'Dachfenster Bad', room: 'Bad' },
+    { address: '1/1/2', name: 'Fenster Hauswirtschaftsraum', room: 'Hauswirtschaftsraum' },
+    { address: '1/1/3', name: 'Fenster Treppenhaus' },
+    { address: '1/1/4', name: 'Kellerfenster', invert: true },
+    { address: '1/2/1', name: 'Fenster Küche', room: 'Küche' },
+    { address: '1/2/2', name: 'Fenster Bad', room: 'Bad' },
+    { address: '1/2/3', name: 'Terrassentür', room: 'Wohnzimmer', type: 'door' },
+    { address: '1/2/4', name: 'Haustür', room: 'Eingang', type: 'door' },
+    { address: '1/2/5', name: 'Fenster Büro', room: 'Büro' },
+    { address: '1/2/6', name: 'Garagentor', room: 'Außen', type: 'garage' },
+    { address: '1/2/7', name: 'Fenster Wohnzimmer', room: 'Wohnzimmer' },
+    { address: '1/2/8', name: 'Fenster Esszimmer', room: 'Esszimmer' },
+    { address: '1/2/9', name: 'Kellertür', room: 'Flur', type: 'door' },
+    { address: '1/2/10', name: 'Dachfenster Flur', room: 'Flur' },
+    { address: '1/2/11', name: 'Fenster Schlafzimmer', room: 'Schlafzimmer' },
+    { address: '1/2/12', name: 'Fenster Kinderzimmer', room: 'Kinderzimmer' },
+  ];
   const knx = await startKnxSim({
     noise: true,
-    contacts: [
-      { address: '1/1/1', name: 'Dachfenster Bad' },
-      { address: '1/1/2', name: 'Fenster Hauswirtschaftsraum' },
-      { address: '1/1/3', name: 'Fenster Treppenhaus' },
-      { address: '1/1/4', name: 'Kellerfenster', invert: true },
-    ],
+    contacts: KNX_CONTACTS.map((contact) => ({
+      address: contact.address,
+      name: contact.name,
+      invert: contact.invert,
+      open: gekko.contactNames().includes(contact.name) ? gekko.isContactOpen(contact.name) : false,
+    })),
   });
   closers.push(() => knx.close());
   ctx.knxSearchTarget = { host: knx.host, port: knx.port };
@@ -143,10 +162,14 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     contacts:
       storedKnx.contacts.length > 0
         ? storedKnx.contacts
-        : [
-            { id: 'dachfenster-bad', address: '1/1/1', name: 'Dachfenster Bad', room: 'Bad', contactType: 'window', invert: false },
-            { id: 'fenster-hwr', address: '1/1/2', name: 'Fenster Hauswirtschaftsraum', room: 'Hauswirtschaftsraum', contactType: 'window', invert: false },
-          ],
+        : KNX_CONTACTS.filter((contact) => contact.room).map((contact) => ({
+            id: slugify(contact.name),
+            address: contact.address,
+            name: contact.name,
+            room: contact.room!,
+            contactType: contact.type ?? 'window',
+            invert: contact.invert ?? false,
+          })),
   });
 
   // --- DoorBird ----------------------------------------------------------------------------------
@@ -237,8 +260,11 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
       return {
         doors: doors.map((door) => ({ id: door.id, name: door.name })),
         contacts: [
-          ...gekko.contactNames().map((name) => ({ name, open: gekko.isContactOpen(name) })),
           ...knx.contactNames().map((name) => ({ name, open: knx.isContactOpen(name) })),
+          ...gekko
+            .contactNames()
+            .filter((name) => !knx.contactNames().includes(name))
+            .map((name) => ({ name, open: gekko.isContactOpen(name) })),
         ],
       };
     },
@@ -253,9 +279,11 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
           return;
         }
         case 'contact': {
-          if (knx.setContact(request.name, request.open)) return;
-          if (!gekko.contactNames().includes(request.name)) throw new HttpError(404, 'not_found', 'Diesen Kontakt gibt es in der Demo nicht.');
-          gekko.setContact(request.name, request.open);
+          // The same magnet contact reports to the bus and (for its alarm zone) to the controller.
+          const onBus = knx.setContact(request.name, request.open);
+          const atController = gekko.contactNames().includes(request.name);
+          if (atController) gekko.setContact(request.name, request.open);
+          if (!onBus && !atController) throw new HttpError(404, 'not_found', 'Diesen Kontakt gibt es in der Demo nicht.');
           return;
         }
       }

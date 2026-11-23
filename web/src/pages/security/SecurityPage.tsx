@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import type { AlarmEntity, CameraEntity, ContactEntity, DoorEntity } from '@home-hub/shared';
 import { contactIcon } from '../../components/entities/icons.ts';
 import { HubImage } from '../../components/HubImage.tsx';
-import { Badge, Card, cx, EmptyState, Notice, PageHeader, Row, RowGroup, Section, Segmented } from '../../components/ui.tsx';
+import { Badge, Card, cx, EmptyState, PageHeader, Row, RowGroup, Section, Segmented } from '../../components/ui.tsx';
 import { useEntities } from '../../hooks/entities.ts';
 import { formatAgo } from '../../lib/format.ts';
 import { useCan, useIsAdmin } from '../../store/session.ts';
@@ -62,13 +62,13 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
           title="Noch keine Fenster- und Türkontakte"
           text={
             isAdmin
-              ? 'Sobald die Gebäudesteuerung verbunden ist, siehst du hier, was offen ist – die Kontakte erkennt der Hub selbst.'
+              ? 'Richte die Fenster- und Türkontakte am KNX-Bus ein – dann siehst du hier, was offen ist.'
               : 'Sobald Kontakte eingerichtet sind, siehst du hier, was offen ist.'
           }
           action={
             isAdmin ? (
-              <Link to="/einstellungen/dienste/mygekko" className="text-accent underline-offset-4 hover:underline">
-                Gebäudesteuerung einrichten
+              <Link to="/einstellungen/dienste/knx" className="text-accent underline-offset-4 hover:underline">
+                Kontakte einrichten
               </Link>
             ) : undefined
           }
@@ -102,25 +102,13 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
             {open.length > 0
               ? open.map((contact) => contact.name).join(', ')
               : unknownOpen
-                ? 'Welcher, meldet die Anlage nicht einzeln.'
+                ? 'Gemeldet von der Alarmanlage.'
                 : contacts.length > 0
                   ? `${contacts.length} Fenster und Türen überwacht`
                   : 'Die Alarmzone meldet keinen offenen Kontakt.'}
           </p>
         </div>
       </Card>
-
-      {unknownOpen && (
-        <Notice tone="neutral">
-          Der myGEKKO meldet über seine Schnittstelle nur, dass etwas offen ist. Einzelne Fenster und Türen erkennt der Hub von selbst, sobald der myGEKKO sie irgendwo einzeln führt – Kontakte ohne sprechenden Namen, nachdem sie
-          zweimal geöffnet wurden.{' '}
-          {isAdmin && (
-            <Link to="/einstellungen/dienste/mygekko" className="text-accent underline-offset-2 hover:underline">
-              Erkannte Kontakte ansehen
-            </Link>
-          )}
-        </Notice>
-      )}
 
       {alarms.length > 0 && (
         <RowGroup>

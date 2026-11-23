@@ -1,6 +1,6 @@
-import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, PlayCircle, Power, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, PlayCircle, Power, RotateCcw, type LucideIcon } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
-import { orderDevices, setDevice, type BlindEntity, type Entity, type LightEntity } from '@home-hub/shared';
+import { mergeOrder, orderDevices, setDevice, setPageOrder, sortByPage, type BlindEntity, type Entity, type LightEntity } from '@home-hub/shared';
 import { EntityTile } from '../../components/entities/EntityTile.tsx';
 import { entityIcon } from '../../components/entities/icons.ts';
 import { EntitySheet } from '../../components/entities/sheets.tsx';
@@ -186,6 +186,19 @@ function CategoryEditor({ category }: { category: Category }) {
     };
   }, [entities, hidden, layout, floors, category]);
 
+  // Rooms with something of this function, in the page's order within each storey.
+  const shown = grouped
+    .map((floor) => ({
+      name: floor.name,
+      rooms: sortByPage(
+        floor.rooms.map((room) => ({ room, own: room.entities.filter(matches) })).filter((entry) => entry.own.length > 0),
+        layout.pageOrder?.[category.id],
+        (entry) => entry.room.id,
+      ),
+    }))
+    .filter((floor) => floor.rooms.length > 0);
+  const pageRooms = shown.flatMap((floor) => floor.rooms.map(({ room }) => room.id));
+
   const plain = (title: string, list: Entity[]) =>
     list.length > 0 && (
       <div className="panel mb-3 break-inside-avoid overflow-hidden rounded-tile px-3 pt-2.5">
@@ -206,28 +219,32 @@ function CategoryEditor({ category }: { category: Category }) {
           {plain(category.id === 'aktionen' ? 'Szenen' : 'Ohne Raum', unassigned)}
         </div>
       )}
-      {grouped.map((floor) => {
-        const rooms = floor.rooms.map((room) => ({ room, own: room.entities.filter(matches) })).filter((entry) => entry.own.length > 0);
-        if (rooms.length === 0) return null;
-        return (
-          <FloorSection key={floor.name || 'haus'} name={floor.name}>
-            <div className={MASONRY}>
-              {rooms.map(({ room, own }) => (
-                <div key={room.id} className="panel mb-3 break-inside-avoid overflow-hidden rounded-tile pt-2.5">
+      {shown.map((floor) => (
+        <FloorSection key={floor.name || 'haus'} name={floor.name}>
+          {/* Rooms are moved by their grip on the left, devices inside by theirs. */}
+          <SortableList
+            items={floor.rooms.map(({ room }) => ({ id: room.id, label: room.name }))}
+            onReorder={(ids) =>
+              void saveLayout(setPageOrder(useHub.getState().layout, category.id, mergeOrder(pageRooms, ids)), `Räume auf „${category.title}“ sortiert`)
+            }
+            render={(item) => {
+              const { room, own } = floor.rooms.find((entry) => entry.room.id === item.id)!;
+              return (
+                <div className="panel my-1.5 overflow-hidden rounded-tile pt-2.5">
                   <div className="px-3">
                     <RoomHeading name={room.name} />
                   </div>
                   <SortableList
                     items={own.map((entity) => ({ id: entity.id, label: entity.name }))}
                     onReorder={(ids) => void saveLayout(orderDevices(useHub.getState().layout, room.name, room.entities.map((entity) => entity.id), ids), `Reihenfolge in „${room.name}“ geändert`)}
-                    render={(item) => <EditRow entity={own.find((entity) => entity.id === item.id)!} onEdit={setEditing} />}
+                    render={(entry) => <EditRow entity={own.find((entity) => entity.id === entry.id)!} onEdit={setEditing} />}
                   />
                 </div>
-              ))}
-            </div>
-          </FloorSection>
-        );
-      })}
+              );
+            }}
+          />
+        </FloorSection>
+      ))}
       <DeviceEditor entityId={editing} onClose={() => setEditing(null)} />
     </>
   );
@@ -245,6 +262,7 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
   const [editing, setEditing] = useState(false);
   const floorFilter = useFloorFilter();
 
+  const pageOrder = useHub((state) => state.layout.pageOrder?.[id]);
   const { house, unassigned, layout } = useMemo(() => {
     // Time switches have a page of their own; they do not belong to a room.
     const matches = (entity: Entity) => category.kinds.includes(entity.kind) && entity.kind !== 'clock';
@@ -256,11 +274,15 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
       layout: floors
         .map((floor) => ({
           name: floor.name,
-          rooms: floor.rooms.map((room) => ({ id: room.id, name: room.name, entities: room.entities.filter(matches) })).filter((room) => room.entities.length > 0),
+          rooms: sortByPage(
+            floor.rooms.map((room) => ({ id: room.id, name: room.name, entities: room.entities.filter(matches) })).filter((room) => room.entities.length > 0),
+            pageOrder,
+            (room) => room.id,
+          ),
         }))
         .filter((floor) => floor.rooms.length > 0),
     };
-  }, [all, floors, category]);
+  }, [all, floors, category, pageOrder]);
 
   if (category.id === 'uhren') {
     return (
@@ -295,7 +317,16 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
       />
       {editing ? (
         <>
-          <p className="mb-6 px-1 text-sm text-muted">Geräte am Griff ziehen zum Sortieren, mit dem Auge aus- und einblenden, mit dem Stift umbenennen oder in einen anderen Raum legen. Gilt für alle im Haushalt.</p>
+          <div className="mb-6 flex flex-wrap items-start gap-x-3 gap-y-2 px-1">
+            <p className="min-w-0 flex-1 basis-64 text-sm text-muted">
+              Räume und Geräte am Griff ziehen zum Sortieren, mit dem Auge aus- und einblenden, mit dem Stift umbenennen oder in einen anderen Raum legen. Gilt für alle im Haushalt.
+            </p>
+            {pageOrder && (
+              <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => void saveLayout(setPageOrder(useHub.getState().layout, id, null), `Reihenfolge auf „${category.title}“ zurückgesetzt`)}>
+                Reihenfolge der Räume zurücksetzen
+              </Button>
+            )}
+          </div>
           <CategoryEditor category={category} />
         </>
       ) : (

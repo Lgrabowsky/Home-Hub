@@ -5,6 +5,18 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.6.0
+
+- **Fenster und Türen nur noch vom KNX-Bus:** Sind dort Kontakte eingerichtet, sucht und zeigt der
+  myGEKKO keine Kontakte mehr (die Alarmanlage und die Zutrittstüren bleiben). Die Hinweise, dass der
+  myGEKKO offene Kontakte nicht einzeln meldet, sind entfernt.
+- **Reihenfolge je Seite:** Auf Licht, Jalousien, Klima und Geräte lassen sich die Räume unter
+  **Bearbeiten** verschieben, auf **Zutritt** die Türen, Tore, Türstationen und Türkontakte.
+- **Zutritt** ohne Stockwerk-Filter.
+- **Raumkacheln:** statt „1 Kontakt zu“ / „1 offen“ nur ein kleines Symbol, wenn in dem Raum etwas
+  offen ist.
+- Braucht einen Hub ab Version 0.6.0.
+
 ## 0.5.3
 
 - KNX-Gruppenadressen lassen sich auf dem Handy eintippen: Die Zahlentastatur hat keinen „/“ –

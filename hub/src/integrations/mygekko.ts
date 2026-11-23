@@ -481,7 +481,7 @@ export class MyGekkoIntegration implements Integration {
       version: status.network.version ?? this.network.version,
       hardware: status.network.hardware ?? this.network.hardware,
     };
-    if (!this.tree) return;
+    if (!this.tree || this.contactsFromKnx()) return;
     const opened = openRoomWindows(this.tree, this.values).filter((source) => !this.provenWindows.has(source));
     if (opened.length > 0) {
       for (const source of opened) this.provenWindows.add(source);
@@ -497,10 +497,20 @@ export class MyGekkoIntegration implements Integration {
     }
   }
 
+  /**
+   * Window and door contacts come from the KNX bus as soon as some are set up there: the controller only
+   * knows them partly (the alarm zone reports "something is open"), so its contacts are neither looked
+   * for nor shown then. The alarm system and the access doors stay.
+   */
+  private contactsFromKnx(): boolean {
+    const knx = this.deps.settings.get('knx');
+    return knx.enabled && knx.contacts.length > 0;
+  }
+
   private publish(): void {
     const tree = this.tree;
     if (!tree || this.stopped) return;
-    this.contacts = resolveContacts(tree, this.values, this.settings, this.provenWindows, this.discovery.contacts);
+    this.contacts = this.contactsFromKnx() ? [] : resolveContacts(tree, this.values, this.settings, this.provenWindows, this.discovery.contacts);
     const built = this.factory.build({ tree, values: this.values, meteo: this.meteo, contacts: this.contacts, now: Date.now() });
     this.elements = built.elements;
     this.notes = built.notes;

@@ -34,6 +34,7 @@ export const layoutSchema: z.ZodType<HouseLayout> = z.object({
   ),
   order: record(z.array(id).max(LAYOUT_LIMITS.entries)),
   cameraLights: record(z.array(id).max(LAYOUT_LIMITS.cameraLights)),
+  pageOrder: record(z.array(id).max(LAYOUT_LIMITS.entries)).optional(),
 }) as z.ZodType<HouseLayout>;
 
 const KEY = 'layout';

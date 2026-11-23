@@ -1,17 +1,17 @@
-import { Bell, ChevronRight, DoorOpen, ShieldCheck } from 'lucide-react';
+import { Bell, Check, ChevronRight, DoorOpen, Pencil, RotateCcw, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AccessEntity, ContactEntity, DoorEntity } from '@home-hub/shared';
+import { mergeOrder, setPageOrder, sortByPage, type AccessEntity, type ContactEntity, type DoorEntity, type Entity } from '@home-hub/shared';
 import { AccessControls, accessIcon, accessIsOpen, accessStateText, isGate } from '../../components/entities/access.tsx';
-import { contactIcon } from '../../components/entities/icons.ts';
+import { contactIcon, entityIcon } from '../../components/entities/icons.ts';
 import { EntitySheet } from '../../components/entities/sheets.tsx';
 import { HomeNav } from '../../components/home/categories.tsx';
-import { FloorFilter, useFloorFilter } from '../../components/home/FloorFilter.tsx';
-import { cx, EmptyState, PageHeader, Row, RowGroup, Section, toneSoft } from '../../components/ui.tsx';
-import { groupByFloor } from '../../hooks/entities.ts';
+import { SortableList } from '../../components/layout/SortableList.tsx';
+import { Button, cx, EmptyState, PageHeader, Row, RowGroup, Section, toneSoft } from '../../components/ui.tsx';
 import { formatAgo } from '../../lib/format.ts';
+import { saveLayout } from '../../lib/layout.ts';
 import { useHub } from '../../store/hub.ts';
-import { useCan } from '../../store/session.ts';
+import { useCan, useIsAdmin } from '../../store/session.ts';
 import { OpenDoorSlider } from '../security/DoorPage.tsx';
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'de', { numeric: true });
@@ -73,49 +73,115 @@ function DoorStationCard({ door }: { door: DoorEntity }) {
  * "Zutritt": every door and gate in one place — the building controller's door openers and
  * gates, the door stations, and the door contacts that only report open or closed.
  */
+/** A list of the page in edit mode: entries moved by their grip. */
+function OrderList({ entities, onReorder }: { entities: Entity[]; onReorder(ids: string[]): void }) {
+  return (
+    <div className="overflow-hidden rounded-tile bg-surface shadow-tile">
+      <SortableList
+        items={entities.map((entity) => ({ id: entity.id, label: entity.name }))}
+        onReorder={onReorder}
+        render={(item) => {
+          const entity = entities.find((entry) => entry.id === item.id)!;
+          const Icon = entity.kind === 'contact' ? contactIcon(entity) : entity.kind === 'door' ? Bell : entityIcon(entity);
+          return (
+            <div className="flex items-center gap-2.5 py-2.5 pr-3">
+              <Icon className="size-4.5 shrink-0 text-muted" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">{entity.name}</span>
+              {entity.room && <span className="truncate text-sm text-faint">{entity.room}</span>}
+            </div>
+          );
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * "Zutritt": every door and gate in one place — the building controller's door openers and
+ * gates, the door stations, and the door contacts that only report open or closed.
+ */
 export function AccessPage() {
   const entities = useHub((state) => state.entities);
-  const floors = useHub((state) => state.floors);
+  const order = useHub((state) => state.layout.pageOrder?.zutritt);
+  const isAdmin = useIsAdmin();
   const [details, setDetails] = useState<string | null>(null);
-  const floor = useFloorFilter();
+  const [editing, setEditing] = useState(false);
 
   const { access, stations, contacts } = useMemo(() => {
     const all = Object.values(entities);
-    const accessList = all.filter((e): e is AccessEntity => e.kind === 'access').sort(byName);
+    const accessList = sortByPage(all.filter((e): e is AccessEntity => e.kind === 'access').sort(byName), order, (e) => e.id);
     const linked = new Set(accessList.map((e) => e.id));
     return {
       access: accessList,
-      stations: all.filter((e): e is DoorEntity => e.kind === 'door').sort(byName),
+      stations: sortByPage(all.filter((e): e is DoorEntity => e.kind === 'door').sort(byName), order, (e) => e.id),
       // Door contacts that do not belong to an access element already shown above.
-      contacts: all
-        .filter((e): e is ContactEntity => e.kind === 'contact' && (e.contactType === 'door' || e.contactType === 'garage') && !(e.linkedEntityId && linked.has(e.linkedEntityId)))
-        .sort(byName),
+      contacts: sortByPage(
+        all
+          .filter((e): e is ContactEntity => e.kind === 'contact' && (e.contactType === 'door' || e.contactType === 'garage') && !(e.linkedEntityId && linked.has(e.linkedEntityId)))
+          .sort(byName),
+        order,
+        (e) => e.id,
+      ),
     };
-  }, [entities]);
+  }, [entities, order]);
 
-  // The storey filter of the room pages applies here too.
-  const inFloor = <T extends { room: string | null }>(list: T[]): T[] => {
-    if (!floor.selected) return list;
-    const rooms = groupByFloor(
-      [...new Set(list.map((e) => e.room ?? ''))].map((name) => ({ name })),
-      floors,
-    ).find((group) => group.name === floor.selected);
-    const names = new Set(rooms?.rooms.map((room) => room.name));
-    return list.filter((e) => names.has(e.room ?? ''));
-  };
-  const shownAccess = inFloor(access);
-  const shownContacts = inFloor(contacts);
   const openCount = access.filter(accessIsOpen).length + contacts.filter((c) => c.open).length;
   const total = access.length + contacts.length;
+  const everything = [...access, ...stations, ...contacts].map((entity) => entity.id);
+  const reorder = (ids: string[]) => void saveLayout(setPageOrder(useHub.getState().layout, 'zutritt', mergeOrder(everything, ids)), 'Reihenfolge auf „Zutritt“ geändert');
 
   return (
     <>
-      <PageHeader title="Zutritt" />
-      <HomeNav />
+      <PageHeader
+        title="Zutritt"
+        actions={
+          isAdmin &&
+          total + stations.length > 0 &&
+          (editing ? (
+            <Button size="sm" variant="primary" icon={Check} onClick={() => setEditing(false)}>
+              Fertig
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditing(true)}>
+              Bearbeiten
+            </Button>
+          ))
+        }
+      />
       {total + stations.length === 0 ? (
-        <EmptyState icon={DoorOpen} title="Keine Türen und Tore" text="Türöffner, Tore und Türkontakte aus der Gebäudesteuerung und Türstationen erscheinen hier." />
+        <>
+          <HomeNav />
+          <EmptyState icon={DoorOpen} title="Keine Türen und Tore" text="Türöffner, Tore und Türkontakte aus der Gebäudesteuerung und Türstationen erscheinen hier." />
+        </>
+      ) : editing ? (
+        <>
+          <div className="mb-6 flex flex-wrap items-start gap-x-3 gap-y-2 px-1">
+            <p className="min-w-0 flex-1 basis-64 text-sm text-muted">Einträge am Griff ziehen, um die Reihenfolge zu ändern. Gilt für alle im Haushalt.</p>
+            {order && (
+              <Button size="sm" variant="ghost" icon={RotateCcw} onClick={() => void saveLayout(setPageOrder(useHub.getState().layout, 'zutritt', null), 'Reihenfolge auf „Zutritt“ zurückgesetzt')}>
+                Reihenfolge zurücksetzen
+              </Button>
+            )}
+          </div>
+          {access.length > 0 && (
+            <Section title="Türen & Tore">
+              <OrderList entities={access} onReorder={reorder} />
+            </Section>
+          )}
+          {stations.length > 0 && (
+            <Section title="Türstationen">
+              <OrderList entities={stations} onReorder={reorder} />
+            </Section>
+          )}
+          {contacts.length > 0 && (
+            <Section title="Türkontakte">
+              <OrderList entities={contacts} onReorder={reorder} />
+            </Section>
+          )}
+        </>
       ) : (
         <>
+          <HomeNav />
           <div className="panel mb-6 flex items-center gap-4 rounded-tile p-5">
             <span className={cx('flex size-14 shrink-0 items-center justify-center rounded-2xl', openCount > 0 ? toneSoft.warn : toneSoft.ok)}>
               {openCount > 0 ? <DoorOpen className="size-7" aria-hidden /> : <ShieldCheck className="size-7" aria-hidden />}
@@ -125,19 +191,18 @@ export function AccessPage() {
               <p className="mt-1.5 text-muted">{openCount > 0 ? `von ${total} Türen und Toren ${openCount === 1 ? 'ist' : 'sind'} offen` : `${total} Türen und Tore`}</p>
             </div>
           </div>
-          <FloorFilter state={floor} />
 
-          {shownAccess.length > 0 && (
+          {access.length > 0 && (
             <Section title="Türen & Tore">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {shownAccess.map((entity) => (
+                {access.map((entity) => (
                   <AccessCard key={entity.id} entity={entity} onDetails={setDetails} />
                 ))}
               </div>
             </Section>
           )}
 
-          {stations.length > 0 && !floor.selected && (
+          {stations.length > 0 && (
             <Section title="Türstationen">
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {stations.map((door) => (
@@ -147,10 +212,10 @@ export function AccessPage() {
             </Section>
           )}
 
-          {shownContacts.length > 0 && (
+          {contacts.length > 0 && (
             <Section title="Türkontakte">
               <RowGroup>
-                {shownContacts.map((contact) => (
+                {contacts.map((contact) => (
                   <Row
                     key={contact.id}
                     icon={contactIcon(contact)}
