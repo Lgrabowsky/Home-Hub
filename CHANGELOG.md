@@ -5,6 +5,13 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.5.1
+
+- **KNX-Kontakte Räumen zuordnen:** Beim Anlegen oder Bearbeiten eines Kontakts wählst du einen
+  bestehenden Raum oder legst mit „Neuer Raum …“ gleich einen an (mit Bereich, z. B. Erdgeschoss).
+- **Name freiwillig:** Ohne eigenen Namen heißt ein Kontakt nach Art und Raum, z. B. „Fenster Küche“
+  (mehrere werden durchnummeriert).
+
 ## 0.5.0
 
 - **KNX-Bus:** Fenster- und Türkontakte direkt am KNX-Bus mithören – über eine KNX IP-Schnittstelle

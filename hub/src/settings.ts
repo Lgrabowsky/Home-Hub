@@ -176,7 +176,8 @@ const schemas = {
               .trim()
               .refine((value) => parseGroupAddress(value) !== null, 'Bitte eine Gruppenadresse wie 1/2/3 angeben.')
               .transform((value) => formatGroupAddress(parseGroupAddress(value)!)),
-            name,
+            // Optional: without one the app calls it by kind and room ("Fenster Küche").
+            name: z.string().trim().max(60).default(''),
             room,
             contactType: z.enum(['window', 'door', 'garage', 'motion', 'other']).default('window'),
             invert: z.boolean().default(false),

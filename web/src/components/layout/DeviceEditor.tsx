@@ -37,6 +37,8 @@ export function RoomField({ label = 'Raum', value, onChange, hint }: { label?: s
             </optgroup>
           ))}
           <optgroup label="Sonst">
+            {/* A room that has no devices yet (or a name typed earlier) stays selectable. */}
+            {value.kind === 'room' && value.room !== null && !areas.some((area) => area.rooms.includes(value.room!)) && <option value={value.room}>{value.room}</option>}
             <option value={NONE}>Ohne Raum</option>
             <option value={NEW}>Neuer Raum …</option>
           </optgroup>

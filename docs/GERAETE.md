@@ -151,7 +151,10 @@ er nicht lesen.
      ohne eine Verbindung zu belegen.
 3. **Verbindung testen**, **Speichern**.
 4. **Kontakt suchen:** Fenster öffnen und offen lassen – die Gruppenadresse, die dabei umspringt,
-   erscheint. „Das ist es“ antippen, Name und Raum eintragen, **Übernehmen**, **Speichern**.
+   erscheint. „Das ist es“ antippen, den **Raum** wählen – einen bestehenden oder „Neuer Raum …“
+   (mit Bereich, z. B. Erdgeschoss; er erscheint dann unter Räume) –, **Übernehmen**, **Speichern**.
+   Ein **Name** ist freiwillig: ohne heißt der Kontakt nach Art und Raum, z. B. „Fenster Küche“
+   (bei mehreren „Fenster Küche 2“ …).
    Kennst du die Gruppenadressen (aus der ETS oder der Konfiguration des myGEKKO), geht es auch
    **von Hand**.
 

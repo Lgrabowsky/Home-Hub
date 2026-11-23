@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import type { ContactEntity, KnxSettings, KnxTelegramsResponse, LoginResponse } from '@home-hub/shared';
+import { knxContactNames, type ContactEntity, type KnxSettings, type KnxTelegramsResponse, type LoginResponse } from '@home-hub/shared';
 import { KnxIntegration } from '../src/integrations/knx.ts';
 import { KnxRouting, KnxTunnel, searchInterfaces, type LinkStatus } from '../src/integrations/knx/link.ts';
 import {
@@ -177,6 +177,17 @@ describe('KNX contacts', () => {
     await until(() => contact('bad')?.available === true);
   });
 
+  it('are called by kind and room when they have no name of their own', () => {
+    const names = knxContactNames([
+      { id: 'a', name: '', room: 'Küche', contactType: 'window', address: '1/1/1' },
+      { id: 'b', name: '', room: 'Küche', contactType: 'window', address: '1/1/2' },
+      { id: 'c', name: 'Terrassentür', room: 'Küche', contactType: 'door', address: '1/1/3' },
+      { id: 'd', name: '', room: '', contactType: 'door', address: '1/1/4' },
+      { id: 'e', name: '  ', room: 'Flur', contactType: 'garage', address: '1/1/5' },
+    ]);
+    expect(Object.fromEntries(names)).toEqual({ a: 'Fenster Küche', b: 'Fenster Küche 2', c: 'Terrassentür', d: 'Tür 1/1/4', e: 'Garagentor Flur' });
+  });
+
   it('are tested from the settings page', async () => {
     const bus = await sim();
     expect(await KnxIntegration.test(settings(bus))).toEqual({ ok: true, message: `Verbunden mit der KNX-Schnittstelle ${bus.host}.`, details: ['Adresse des Hubs am Bus: 1.1.251'] });
@@ -204,13 +215,24 @@ describe('KNX over the API', () => {
     expect(wrong.json()).toMatchObject({ message: expect.stringContaining('Gruppenadresse') });
     expect((await admin.put('/api/admin/settings/knx', { enabled: true, mode: 'tunnel', host: '', port: 3671, contacts: [] })).statusCode).toBe(400);
 
-    const saved = await admin.put('/api/admin/settings/knx', { enabled: true, mode: 'tunnel', host: bus.host, port: bus.port, contacts: [{ id: 'bad', address: '1/257', name: 'Fenster Bad', room: 'Bad', contactType: 'window', invert: false }] });
+    const saved = await admin.put('/api/admin/settings/knx', {
+      enabled: true,
+      mode: 'tunnel',
+      host: bus.host,
+      port: bus.port,
+      contacts: [
+        { id: 'bad', address: '1/257', name: 'Fenster Bad', room: 'Bad', contactType: 'window', invert: false },
+        // No name: called by kind and room.
+        { id: 'flur', address: '1/1/3', name: '', room: 'Flur', contactType: 'window', invert: false },
+      ],
+    });
     expect(saved.statusCode).toBe(200);
     // Written as main/middle/sub.
     expect((saved.json() as { value: KnxSettings }).value.contacts[0]!.address).toBe('1/1/1');
 
     const contact = async () => ((await admin.get('/api/state')).json() as { entities: Record<string, ContactEntity> }).entities['knx:bad'];
     await expect.poll(contact, { timeout: 8000 }).toMatchObject({ available: true, open: false });
+    expect(((await admin.get('/api/state')).json() as { entities: Record<string, ContactEntity> }).entities['knx:flur']).toMatchObject({ name: 'Fenster Flur', room: 'Flur' });
     bus.setContact('Fenster Treppe', true);
     bus.setContact('Fenster Flur', true);
     await expect.poll(async () => ((await admin.get('/api/admin/knx/telegrams')).json() as KnxTelegramsResponse).telegrams.map((telegram) => telegram.address), { timeout: 8000 }).toContain('1/1/3');

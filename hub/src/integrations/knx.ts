@@ -1,4 +1,4 @@
-import type { ContactEntity, KnxSettings, KnxTelegramInfo, KnxTelegramsResponse, TestResult } from '@home-hub/shared';
+import { knxContactNames, type ContactEntity, type KnxSettings, type KnxTelegramInfo, type KnxTelegramsResponse, type TestResult } from '@home-hub/shared';
 import { describeError } from '../util/http.ts';
 import { KnxRouting, KnxTunnel, type KnxLink, type LinkStatus } from './knx/link.ts';
 import { formatGroupAddress, formatIndividualAddress, parseGroupAddress, type GroupTelegram } from './knx/protocol.ts';
@@ -114,13 +114,14 @@ export class KnxIntegration implements Integration {
 
   private publish(): void {
     const connected = this.link?.status.connected ?? false;
+    const names = knxContactNames(this.contacts.map((contact) => contact.setting));
     const entities: ContactEntity[] = this.contacts.map(({ setting, address }) => {
       const known = this.values.get(address);
       const open = known ? known.value !== setting.invert : false;
       return {
         id: `knx:${setting.id}`,
         kind: 'contact',
-        name: setting.name,
+        name: names.get(setting.id) ?? setting.address,
         room: setting.room || null,
         // Unknown until the contact answered or reported once.
         available: connected && known !== undefined,

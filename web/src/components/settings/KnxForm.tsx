@@ -1,9 +1,11 @@
 import { DoorClosed, DoorOpen, Network, Pencil, Plus, Radar, Search, Trash2, Warehouse, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { ContactType, KnxContactSetting, KnxInterfaceInfo, KnxTelegramInfo, KnxTelegramsResponse } from '@home-hub/shared';
+import { addRoom, knxContactNames, type ContactType, type KnxContactSetting, type KnxInterfaceInfo, type KnxTelegramInfo, type KnxTelegramsResponse } from '@home-hub/shared';
 import { errorMessage, get, post } from '../../lib/api.ts';
+import { editableLayout, saveLayout } from '../../lib/layout.ts';
 import { useHub } from '../../store/hub.ts';
+import { RoomField, type RoomChoice } from '../layout/DeviceEditor.tsx';
 import { toast } from '../toast.tsx';
 import { Badge, Button, Card, cx, Field, Notice, Row, RowGroup, Section, Segmented, Select, Sheet, TextInput, Toggle } from '../ui.tsx';
 import type { FormProps } from './meta.ts';
@@ -22,17 +24,38 @@ function validAddress(text: string): boolean {
 
 // --- One contact --------------------------------------------------------------------------------------
 
-function ContactSheet({ contact, isNew, onClose, onApply, onRemove }: { contact: KnxContactSetting; isNew: boolean; onClose(): void; onApply(contact: KnxContactSetting): void; onRemove(): void }) {
+/** A room to create together with the contact (it then appears under Räume in that area). */
+interface NewRoom {
+  name: string;
+  area: string;
+}
+
+function ContactSheet({
+  contact,
+  isNew,
+  onClose,
+  onApply,
+  onRemove,
+}: {
+  contact: KnxContactSetting;
+  isNew: boolean;
+  onClose(): void;
+  onApply(contact: KnxContactSetting, newRoom: NewRoom | null): void;
+  onRemove(): void;
+}) {
   const [draft, setDraft] = useState(contact);
+  const [room, setRoom] = useState<RoomChoice>({ kind: 'room', room: contact.room.trim() || null });
   const [touched, setTouched] = useState(false);
   const set = (changes: Partial<KnxContactSetting>) => setDraft({ ...draft, ...changes });
-  const nameError = touched && !draft.name.trim() ? 'Bitte gib dem Kontakt einen Namen.' : null;
+  const roomName = room.kind === 'room' ? (room.room ?? '') : room.name.trim();
+  const automaticName = knxContactNames([{ ...draft, name: '', room: roomName }]).get(draft.id) ?? '';
   const addressError = touched && !validAddress(draft.address) ? 'Erwartet wird eine Gruppenadresse wie 1/2/3.' : null;
+  const roomError = touched && room.kind === 'new' && !room.name.trim() ? 'Bitte gib dem neuen Raum einen Namen.' : null;
   return (
     <Sheet
       open
       onClose={onClose}
-      title={isNew ? 'KNX-Kontakt hinzufügen' : draft.name || 'KNX-Kontakt'}
+      title={isNew ? 'KNX-Kontakt hinzufügen' : draft.name.trim() || automaticName || 'KNX-Kontakt'}
       footer={
         <div className="flex gap-2">
           {!isNew && (
@@ -45,8 +68,8 @@ function ContactSheet({ contact, isNew, onClose, onApply, onRemove }: { contact:
             className="flex-1"
             onClick={() => {
               setTouched(true);
-              if (!draft.name.trim() || !validAddress(draft.address)) return;
-              onApply({ ...draft, name: draft.name.trim(), room: draft.room.trim(), address: draft.address.trim() });
+              if (!validAddress(draft.address) || (room.kind === 'new' && !room.name.trim())) return;
+              onApply({ ...draft, name: draft.name.trim(), room: roomName, address: draft.address.trim() }, room.kind === 'new' ? { name: room.name.trim(), area: room.area } : null);
             }}
           >
             Übernehmen
@@ -55,9 +78,7 @@ function ContactSheet({ contact, isNew, onClose, onApply, onRemove }: { contact:
       }
     >
       <div className="space-y-4">
-        <Field label="Name" error={nameError}>
-          <TextInput value={draft.name} maxLength={60} placeholder="z. B. Fenster Küche" onChange={(event) => set({ name: event.target.value })} />
-        </Field>
+        <RoomField value={room} onChange={setRoom} hint={roomError ?? undefined} />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Art">
             <Select value={draft.contactType} onChange={(event) => set({ contactType: event.target.value as ContactType })}>
@@ -68,10 +89,11 @@ function ContactSheet({ contact, isNew, onClose, onApply, onRemove }: { contact:
               ))}
             </Select>
           </Field>
-          <Field label="Raum">
-            <TextInput value={draft.room} maxLength={60} placeholder="z. B. Küche" onChange={(event) => set({ room: event.target.value })} />
+          <Field label="Name (optional)">
+            <TextInput value={draft.name} maxLength={60} placeholder={automaticName} onChange={(event) => set({ name: event.target.value })} />
           </Field>
         </div>
+        <p className="-mt-2 text-sm text-faint">Ohne eigenen Namen heißt der Kontakt „{automaticName}“.</p>
         <Field label="Gruppenadresse" error={addressError} hint="Die Adresse, an die der Kontakt (Binäreingang) seinen Zustand sendet.">
           <TextInput value={draft.address} placeholder="1/2/3" inputMode="numeric" autoCapitalize="none" autoCorrect="off" spellCheck={false} className="font-mono" onChange={(event) => set({ address: event.target.value })} />
         </Field>
@@ -258,12 +280,16 @@ export function KnxForm({ value, saved, onChange, dirty }: FormProps<'knx'>) {
   // Listening needs the connection that is saved and running, not the one in the form.
   const canListen = saved.enabled && health?.status === 'ok' && saved.mode === value.mode && saved.host === value.host && saved.port === value.port;
 
+  const names = useMemo(() => knxContactNames(value.contacts), [value.contacts]);
   const blank = (address = '', invert = false): KnxContactSetting => ({ id: '', address, name: '', room: '', contactType: 'window', invert });
-  const apply = (contact: KnxContactSetting, isNew: boolean) => {
+  const apply = (contact: KnxContactSetting, isNew: boolean, newRoom: NewRoom | null) => {
     const others = value.contacts.filter((entry) => entry.id !== contact.id || isNew);
-    const id = isNew ? uniqueId(contact.name, others.map((entry) => entry.id), 'kontakt') : contact.id;
+    // Named after the group address: stays the same when the name or room changes later.
+    const id = isNew ? uniqueId(`ga ${contact.address}`, others.map((entry) => entry.id), 'kontakt') : contact.id;
     set({ contacts: isNew ? [...value.contacts, { ...contact, id }] : value.contacts.map((entry) => (entry.id === contact.id ? contact : entry)) });
     setEditing(null);
+    // A new room goes into its area right away (it shows up under Räume once the contact is saved).
+    if (newRoom && newRoom.area) void saveLayout(addRoom(editableLayout(), newRoom.area, newRoom.name), `Raum „${newRoom.name}“ angelegt`);
   };
 
   return (
@@ -321,7 +347,7 @@ export function KnxForm({ value, saved, onChange, dirty }: FormProps<'knx'>) {
                 <Row
                   key={contact.id}
                   icon={Icon}
-                  title={contact.name}
+                  title={names.get(contact.id) ?? contact.address}
                   subtitle={[contact.address, contact.room, contact.invert ? 'umgekehrt' : null].filter(Boolean).join(' · ')}
                   trailing={<Pencil className="size-4 text-faint" aria-hidden />}
                   onClick={() => setEditing({ contact, isNew: false })}
@@ -354,7 +380,7 @@ export function KnxForm({ value, saved, onChange, dirty }: FormProps<'knx'>) {
           contact={editing.contact}
           isNew={editing.isNew}
           onClose={() => setEditing(null)}
-          onApply={(contact) => apply(contact, editing.isNew)}
+          onApply={(contact, newRoom) => apply(contact, editing.isNew, newRoom)}
           onRemove={() => {
             set({ contacts: value.contacts.filter((entry) => entry.id !== editing.contact.id) });
             setEditing(null);
