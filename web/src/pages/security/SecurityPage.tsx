@@ -130,9 +130,6 @@ function Perimeter({ contacts, alarms }: { contacts: ContactEntity[]; alarms: Al
           )}
         </RowGroup>
       )}
-      {alarms.some((alarm) => alarm.mode === 'disarmed') && (
-        <p className="px-1 text-xs text-faint">„Unscharf“ heißt: Die Alarmanlage löst keinen Alarm aus – auch wenn alles geschlossen ist. Geschlossene Fenster allein schalten sie nicht scharf; das geschieht am myGEKKO.</p>
-      )}
 
       {contacts.length > 0 && (
         <>
