@@ -40,9 +40,11 @@ test('the 3D house is switched on in Labs, opens storey by storey and controls a
   await expect(sheet).toBeVisible();
   await sheet.getByRole('button', { name: 'Schließen' }).first().click();
 
-  // The time of day can be previewed and set back to now.
-  await viewer.getByRole('slider', { name: 'Tageszeit ansehen' }).fill('21');
-  await expect(viewer.getByText('21:00')).toBeVisible();
+  // The time of day can be previewed and set back to now (an hour far from now: the slider must move).
+  const hourNow = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hourCycle: 'h23', timeZone: 'Europe/Berlin' }).format(new Date()));
+  const previewHour = (hourNow + 12) % 24;
+  await viewer.getByRole('slider', { name: 'Tageszeit ansehen' }).fill(String(previewHour));
+  await expect(viewer.getByText(`${String(previewHour).padStart(2, '0')}:00`)).toBeVisible();
   await viewer.getByRole('button', { name: 'Jetzt' }).click();
   await expect(viewer.getByRole('button', { name: 'Jetzt' })).toHaveCount(0);
 

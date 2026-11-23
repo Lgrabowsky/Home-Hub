@@ -609,6 +609,8 @@ export interface HubState {
   floors: Floor[];
   /** The household's own names, rooms and order (only what differs from the automatic arrangement). */
   layout?: HouseLayout;
+  /** Areas used while the household has none of its own (`layout.floors` null). */
+  baseFloors?: Floor[];
   services: Record<ServiceId, ServiceHealth>;
   entities: Record<string, Entity>;
   music: MusicState;

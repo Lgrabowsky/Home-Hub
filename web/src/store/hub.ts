@@ -29,6 +29,10 @@ interface HubStore {
   hidden: Record<string, Entity>;
   /** The household's names, rooms and order (see HouseLayout). */
   layout: HouseLayout;
+  /** Arrangement changes on their way to the hub. */
+  layoutSaving: number;
+  /** Areas the hub uses while the household has none of its own. */
+  baseFloors: Floor[];
   services: Partial<Record<ServiceId, ServiceHealth>>;
   music: MusicState;
   /** A doorbell that is ringing right now (drives the full-screen overlay). */
@@ -41,6 +45,8 @@ interface HubStore {
   setServices(services: ServiceHealth[]): void;
   /** Optimistic change of the layout while it is being saved; the hub's next snapshot replaces it. */
   setLayout(layout: HouseLayout): void;
+  beginLayoutSave(): void;
+  endLayoutSave(): void;
   /** Optimistic local change right after the user acted; the hub's next update replaces it. */
   patchEntity(id: string, partial: Partial<Entity>): void;
   patchMusic(update: (music: MusicState) => MusicState): void;
@@ -96,6 +102,13 @@ function freshRing(entities: Iterable<Entity>, serverNow: number, current: Activ
   return newest;
 }
 
+/** The devices with an arrangement applied — the same the hub does: from what was recognised, the arrangement on top. */
+function relayout(list: readonly Entity[], layout: HouseLayout, music: MusicState): Entity[] {
+  const recognised = list.map((entity) => ({ ...entity, name: recognisedNameOf(entity), room: recognisedRoomOf(entity) }));
+  const real = realRooms(recognised, music.players.map((player) => player.room));
+  return recognised.map((entity) => applyLayout(entity, layout, real));
+}
+
 function split(list: Iterable<Entity>): { shown: Record<string, Entity>; hidden: Record<string, Entity> } {
   const shown: Record<string, Entity> = {};
   const hidden: Record<string, Entity> = {};
@@ -112,6 +125,8 @@ export const useHub = create<HubStore>((set) => ({
   entities: {},
   hidden: {},
   layout: EMPTY_LAYOUT,
+  layoutSaving: 0,
+  baseFloors: [],
   services: {},
   music: EMPTY_MUSIC,
   ring: null,
@@ -120,13 +135,20 @@ export const useHub = create<HubStore>((set) => ({
 
   applySnapshot: (state) =>
     set((store) => {
-      const { shown, hidden } = split(Object.values(state.entities));
+      // While arrangement changes are on their way to the hub, a snapshot may still carry an older
+      // arrangement: keep the app's (newer) one, or the next change would build on the old one.
+      const keep = store.layoutSaving > 0;
+      const layout = keep ? store.layout : (state.layout ?? EMPTY_LAYOUT);
+      // Hubs before 0.5.2 do not send their basic areas; without own ones they are what `floors` holds.
+      const baseFloors = state.baseFloors ?? (state.layout?.floors == null ? (state.floors ?? []) : store.baseFloors);
+      const { shown, hidden } = split(keep ? relayout(Object.values(state.entities), layout, state.music) : Object.values(state.entities));
       const ring = freshRing(Object.values(shown), state.serverTime, store.ring);
       return {
         loaded: true,
         hubName: state.hubName,
-        floors: state.floors ?? [],
-        layout: state.layout ?? EMPTY_LAYOUT,
+        floors: keep ? (layout.floors ?? baseFloors) : (state.floors ?? []),
+        baseFloors,
+        layout,
         clockOffset: state.serverTime - Date.now(),
         entities: shown,
         hidden,
@@ -140,6 +162,7 @@ export const useHub = create<HubStore>((set) => ({
     set((store) => {
       const entities = { ...store.entities };
       const hidden = { ...store.hidden };
+      if (store.layoutSaving > 0) changed = relayout(changed, store.layout, store.music);
       for (const entity of changed) {
         delete entities[entity.id];
         delete hidden[entity.id];
@@ -157,13 +180,12 @@ export const useHub = create<HubStore>((set) => ({
 
   setLayout: (layout) =>
     set((store) => {
-      // Same as the hub does: from what was recognised, with the new arrangement on top.
-      const recognised = [...Object.values(store.entities), ...Object.values(store.hidden)].map((entity) => ({ ...entity, name: recognisedNameOf(entity), room: recognisedRoomOf(entity) }));
-      const real = realRooms(recognised, store.music.players.map((player) => player.room));
-      const { shown, hidden } = split(recognised.map((entity) => applyLayout(entity, layout, real)));
-      // Without own areas the hub falls back to its basic ones; the next snapshot brings them.
-      return { layout, floors: layout.floors ?? (store.layout.floors === null ? store.floors : []), entities: shown, hidden };
+      const { shown, hidden } = split(relayout([...Object.values(store.entities), ...Object.values(store.hidden)], layout, store.music));
+      return { layout, floors: layout.floors ?? store.baseFloors, entities: shown, hidden };
     }),
+
+  beginLayoutSave: () => set((store) => ({ layoutSaving: store.layoutSaving + 1 })),
+  endLayoutSave: () => set((store) => ({ layoutSaving: Math.max(0, store.layoutSaving - 1) })),
 
   setServices: (services) =>
     set((store) => {
@@ -186,7 +208,7 @@ export const useHub = create<HubStore>((set) => ({
     set({ ring });
   },
 
-  reset: () => set({ link: 'connecting', loaded: false, entities: {}, hidden: {}, layout: EMPTY_LAYOUT, services: {}, music: EMPTY_MUSIC, ring: null }),
+  reset: () => set({ link: 'connecting', loaded: false, entities: {}, hidden: {}, layout: EMPTY_LAYOUT, baseFloors: [], services: {}, music: EMPTY_MUSIC, ring: null }),
 }));
 
 // --- Transient events (doorbell, door opened, history changed) ----------------------

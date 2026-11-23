@@ -37,16 +37,20 @@ export function editableLayout(): HouseLayout {
 export async function saveLayout(next: HouseLayout, change: string): Promise<boolean> {
   const store = useHub.getState();
   const before = store.layout;
+  store.beginLayoutSave();
   store.setLayout(next);
   try {
     const { layout } = await put<{ layout: HouseLayout }>('/api/layout', { layout: next, change });
-    useHub.getState().setLayout(layout);
+    // A later change may already be on its way: its state is the newer one.
+    if (useHub.getState().layout === next) useHub.getState().setLayout(layout);
     return true;
   } catch (err) {
-    useHub.getState().setLayout(before);
+    if (useHub.getState().layout === next) useHub.getState().setLayout(before);
     // A hub older than 0.4.0 does not know the arrangement at all.
     if (err instanceof ApiError && err.status === 404) toast.error('Der Hub kennt diese Funktion noch nicht. Bitte den Hub auf Version 0.4.0 oder neuer aktualisieren.');
     else toast.fromError(err);
     return false;
+  } finally {
+    useHub.getState().endLayoutSave();
   }
 }

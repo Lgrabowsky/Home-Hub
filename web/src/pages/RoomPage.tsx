@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronUp, Home, Music2, Pencil, Power } from 'lucide-react';
+import { ChevronDown, ChevronUp, Home, Link2, Music2, Pencil, Power } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { slugify, type BlindEntity, type Entity, type EntityKind, type LightEntity } from '@home-hub/shared';
 import { ClimateGlyph } from '../components/home/glyphs.tsx';
 import { EntityTile } from '../components/entities/EntityTile.tsx';
 import { EntitySheet } from '../components/entities/sheets.tsx';
+import { RoomContacts } from '../components/layout/RoomContacts.tsx';
 import { RoomEditor } from '../components/layout/RoomEditor.tsx';
 import { Tile } from '../components/Tile.tsx';
 import { Button, EmptyState, IconButton, PageHeader, Section, TileGrid } from '../components/ui.tsx';
@@ -37,13 +38,14 @@ export function RoomPage() {
   const [details, setDetails] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
 
+  const [assigning, setAssigning] = useState(false);
   const sections = useMemo(() => {
     if (!room) return [];
     return SECTIONS.map((section) => ({
       ...section,
       entities: room.entities.filter((entity: Entity) => section.kinds.includes(entity.kind)),
-    })).filter((section) => section.entities.length > 0);
-  }, [room]);
+    })).filter((section) => section.entities.length > 0 || (isAdmin && section.kinds.includes('contact')));
+  }, [room, isAdmin]);
 
   if (!room) {
     return (
@@ -105,15 +107,32 @@ export function RoomPage() {
         </div>
       )}
 
-      {sections.map((section) => (
-        <Section key={section.title} title={section.title}>
-          <TileGrid>
-            {section.entities.map((entity) => (
-              <EntityTile key={entity.id} entity={entity} onDetails={setDetails} />
-            ))}
-          </TileGrid>
-        </Section>
-      ))}
+      {sections.map((section) => {
+        const contacts = section.kinds.includes('contact');
+        return (
+          <Section
+            key={section.title}
+            title={section.title}
+            action={
+              contacts && isAdmin ? (
+                <Button size="sm" variant="ghost" icon={Link2} onClick={() => setAssigning(true)}>
+                  Zuordnen
+                </Button>
+              ) : undefined
+            }
+          >
+            {section.entities.length > 0 ? (
+              <TileGrid>
+                {section.entities.map((entity) => (
+                  <EntityTile key={entity.id} entity={entity} onDetails={setDetails} />
+                ))}
+              </TileGrid>
+            ) : (
+              <p className="px-1 text-sm text-muted">Noch keine Fenster und Türen. Mit „Zuordnen“ legst du fest, welche zu diesem Raum gehören.</p>
+            )}
+          </Section>
+        );
+      })}
 
       {room.players.length > 0 && (
         <Section title="Musik">
@@ -142,6 +161,7 @@ export function RoomPage() {
       {sections.length === 0 && room.players.length === 0 && <EmptyState icon={Home} title="In diesem Raum gibt es noch keine Geräte" />}
 
       <EntitySheet entityId={details} onClose={() => setDetails(null)} />
+      <RoomContacts room={room.name} open={assigning} onClose={() => setAssigning(false)} />
       <RoomEditor room={editing ? room.name : null} onClose={() => setEditing(false)} onRenamed={(name) => navigate(`/raeume/${slugify(name)}`, { replace: true })} />
     </>
   );

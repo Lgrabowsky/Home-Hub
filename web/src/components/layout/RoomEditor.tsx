@@ -1,4 +1,4 @@
-import { EyeOff, Merge, Pencil, Plus, RotateCcw, Search } from 'lucide-react';
+import { EyeOff, Link2, Merge, Pencil, Plus, RotateCcw, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { moveRoom, orderDevices, renameRoom, resetRoom, roomChanged, roomKey, setDevice, sortByLayout, type Entity } from '@home-hub/shared';
 import { buildRooms } from '../../hooks/entities.ts';
@@ -8,6 +8,7 @@ import { entityIcon } from '../entities/icons.ts';
 import { toast } from '../toast.tsx';
 import { Badge, Button, ConfirmDialog, Field, IconButton, Notice, Row, RowGroup, Select, Sheet, TextInput } from '../ui.tsx';
 import { DeviceEditor } from './DeviceEditor.tsx';
+import { RoomContacts } from './RoomContacts.tsx';
 import { SortableList } from './SortableList.tsx';
 
 const NEW_AREA = '\u0000new';
@@ -78,6 +79,7 @@ function Editor({ room, onClose, onRenamed }: { room: string; onClose(): void; o
   const [confirmReset, setConfirmReset] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [bringing, setBringing] = useState(false);
+  const [contacts, setContacts] = useState(false);
   const [saving, setSaving] = useState(false);
   const changed = roomChanged(layout, layoutContext(), room);
   const existing = otherRooms.find((entry) => roomKey(entry) === roomKey(name.trim()));
@@ -178,9 +180,14 @@ function Editor({ room, onClose, onRenamed }: { room: string; onClose(): void; o
             ) : (
               <Notice>Noch keine Geräte. Hol welche aus anderen Räumen hierher.</Notice>
             )}
-            <Button size="sm" icon={Plus} className="mt-2.5" onClick={() => setBringing(true)}>
-              Gerät hierher holen
-            </Button>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <Button size="sm" icon={Plus} onClick={() => setBringing(true)}>
+                Gerät hierher holen
+              </Button>
+              <Button size="sm" icon={Link2} onClick={() => setContacts(true)}>
+                Fenster & Türen zuordnen
+              </Button>
+            </div>
           </div>
 
           {otherRooms.length > 0 && (
@@ -203,6 +210,7 @@ function Editor({ room, onClose, onRenamed }: { room: string; onClose(): void; o
         </div>
       </Sheet>
       <BringDevices room={room} open={bringing} onClose={() => setBringing(false)} />
+      <RoomContacts room={room} open={contacts} onClose={() => setContacts(false)} />
       <DeviceEditor entityId={editing} onClose={() => setEditing(null)} />
       <ConfirmDialog
         open={confirmMerge !== null}

@@ -1,6 +1,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { EMPTY_LAYOUT, type Entity, type HouseLayout } from '@home-hub/shared';
-import { APP_HEADERS, hubState } from './helpers.ts';
+import { APP_HEADERS, demo, hubState } from './helpers.ts';
 
 const currentLayout = async (request: APIRequestContext) => ((await (await request.get('/api/layout')).json()) as { layout: HouseLayout }).layout;
 
@@ -70,6 +70,8 @@ test.describe('arranging the house', () => {
     await page.getByRole('button', { name: 'Küche bearbeiten' }).click();
     await page.getByRole('dialog', { name: 'Raum bearbeiten' }).getByRole('button', { name: 'Zurücksetzen' }).click();
     await page.getByRole('dialog', { name: '„Küche“ zurücksetzen?' }).getByRole('button', { name: 'Zurücksetzen' }).click();
+    // The question closes once the hub has taken the change.
+    await expect(page.getByRole('dialog', { name: '„Küche“ zurücksetzen?' })).toHaveCount(0);
     await expect.poll(async () => (await device(request, 'Esstisch'))?.room).toBe('Esszimmer');
     expect((await currentLayout(request)).floors!.find((floor) => floor.name === 'Erdgeschoss')!.rooms).toEqual(expect.arrayContaining(['Küche', 'Esszimmer']));
 
@@ -83,6 +85,34 @@ test.describe('arranging the house', () => {
 
     await page.goto('/einstellungen/protokoll');
     await expect(page.getByText('erika hat Räume und Geräte geändert: Raum „Büro“ heißt jetzt „Arbeitszimmer“').first()).toBeVisible();
+  });
+
+  test('windows and doors are assigned to a room from the room page, recognised by their live state', async ({ page, request }) => {
+    await page.goto('/raeume/bad');
+    await page.getByRole('button', { name: 'Zuordnen' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Fenster & Türen in Bad' });
+
+    // Opened just now: on top of the others, shown as open.
+    await demo(request, { action: 'contact', name: 'Dachfenster Flur', open: true });
+    const row = sheet.getByRole('listitem').filter({ hasText: 'Dachfenster Flur' });
+    await expect(row).toContainText('offen');
+    await expect(sheet.getByRole('list').last().getByRole('listitem').first()).toContainText('Dachfenster Flur');
+    await row.getByRole('switch', { name: 'Dachfenster Flur gehört zu Bad' }).click();
+    await expect.poll(() => device(request, 'Dachfenster Flur')).toMatchObject({ room: 'Bad', auto: { room: 'Flur' } });
+    await sheet.getByRole('button', { name: 'Schließen' }).click();
+
+    // The room shows it, and its tile says a window is open.
+    const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Fenster & Türen' }) });
+    await expect(section.getByText('Dachfenster Flur')).toBeVisible();
+    await page.goto('/raeume');
+    await expect(page.locator('.panel').filter({ has: page.getByRole('link', { name: 'Bad öffnen' }) })).toContainText('1 offen');
+
+    // Taken out again: back in the room it was recognised in.
+    await page.goto('/raeume/bad');
+    await page.getByRole('button', { name: 'Zuordnen' }).click();
+    await sheet.getByRole('switch', { name: 'Dachfenster Flur gehört zu Bad' }).click();
+    await expect.poll(async () => (await device(request, 'Dachfenster Flur'))?.room).toBe('Flur');
+    await demo(request, { action: 'contact', name: 'Dachfenster Flur', open: false });
   });
 
   test('the menus are edited as well: devices hidden, renamed and sorted', async ({ page, request }) => {

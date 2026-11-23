@@ -76,6 +76,11 @@ Gut zu wissen:
   - **Zurücksetzen** geht für ein Gerät, für einen Raum (Name, Geräte, Reihenfolge – ein selbst
     angelegter Raum verschwindet, seine Geräte kehren zurück) oder für alles. Was du nicht geändert
     hast, ordnet der Hub weiter automatisch ein – auch neue Geräte.
+- **Fenster & Türen einem Raum zuordnen:** In der Raumansicht unter **Fenster & Türen › Zuordnen**
+  stehen alle Fenster- und Türkontakte des Hauses mit ihrem Zustand – das zuletzt geöffnete ganz
+  oben. Fenster öffnen, es springt auf „offen“, Schalter „gehört zu …“ einschalten. Der Raum zeigt
+  dann seinen Zustand (auch auf der Raumkachel: „1 offen“). Ausschalten gibt den Kontakt dem Raum
+  zurück, in dem der Hub ihn erkannt hatte. Geht auch im Raum-Editor (Räume › Bearbeiten).
 - **Lichter für Kameras:** Auf der Seite einer Kamera oder Türstation ordnest du unter **Licht ›
   Lichter zuordnen** Lampen zu; sie erscheinen dort als normale Lichtschalter, damit die Kamera Licht hat.
 

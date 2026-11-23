@@ -5,6 +5,15 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.5.2
+
+- **Fenster & Türen in der Raumansicht zuordnen:** In jedem Raum unter **Fenster & Türen ›
+  Zuordnen** stehen alle Kontakte des Hauses mit ihrem Zustand live – das zuletzt geöffnete Fenster
+  ganz oben. Einschalten, und der Raum zeigt seinen Fensterzustand (auch auf der Raumkachel).
+- Schnelle Änderungen hintereinander beim Bearbeiten der Räume gehen nicht mehr verloren, und nach
+  „Alles zurücksetzen“ erscheinen die Stockwerke sofort wieder.
+- Die App läuft mit einem Hub 0.5.x; für die zweite Korrektur lohnt sich das Hub-Update trotzdem.
+
 ## 0.5.1
 
 - **KNX-Kontakte Räumen zuordnen:** Beim Anlegen oder Bearbeiten eines Kontakts wählst du einen

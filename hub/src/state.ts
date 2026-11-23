@@ -230,6 +230,6 @@ export class StateStore extends EventEmitter<StateEvents> {
     for (const [id, entity] of this.entities) entities[id] = entity;
     const services = {} as Record<ServiceId, ServiceHealth>;
     for (const [id, health] of this.services) services[id] = health;
-    return { serverTime: Date.now(), hubName: this.hubName, floors: this.layout.floors ?? this.baseFloors, layout: this.layout, services, entities, music: this.music };
+    return { serverTime: Date.now(), hubName: this.hubName, floors: this.layout.floors ?? this.baseFloors, layout: this.layout, baseFloors: this.baseFloors, services, entities, music: this.music };
   }
 }
