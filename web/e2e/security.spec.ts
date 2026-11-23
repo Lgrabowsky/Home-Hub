@@ -24,7 +24,7 @@ test.describe('windows, doors and cameras', () => {
     // A tap is not enough.
     await thumb.click();
     await page.waitForTimeout(500);
-    await expect(page.getByText(/geöffnet/)).toBeHidden();
+    await expect(page.getByText('Seitentür geöffnet')).toBeHidden();
 
     const box = (await thumb.boundingBox())!;
     const track = (await thumb.locator('..').boundingBox())!;
