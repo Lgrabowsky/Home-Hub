@@ -5,6 +5,16 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.5.0
+
+- **KNX-Bus:** Fenster- und Türkontakte direkt am KNX-Bus mithören – über eine KNX IP-Schnittstelle
+  (Tunnel) oder einen KNX IP-Router (Routing), am myGEKKO vorbei. Beim Verbinden fragt der Hub jeden
+  Kontakt nach seinem Zustand; danach kommt jede Änderung sofort. Einrichten unter
+  **Einstellungen › Geräte & Dienste › KNX-Bus**: Schnittstelle im Netz suchen, Verbindung testen,
+  mit **Kontakt suchen** (Fenster öffnen → Gruppenadresse erscheint → „Das ist es“) zuordnen.
+  Der Hub schaltet nichts auf dem Bus. Anleitung: [docs/GERAETE.md](docs/GERAETE.md).
+  Braucht einen Hub ab Version 0.5.0.
+
 ## 0.4.1
 
 - Ist der Hub älter als die App, sagt die App das jetzt oben auf der Seite – statt dass neue

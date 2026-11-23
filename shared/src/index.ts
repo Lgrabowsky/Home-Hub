@@ -126,11 +126,12 @@ export type HomeWidgetType = HomeWidget['type'];
 // Services (integrations) and their health
 // ---------------------------------------------------------------------------
 
-export const SERVICE_IDS = ['mygekko', 'doorbird', 'reolink', 'sonos', 'spotify', 'media'] as const;
+export const SERVICE_IDS = ['mygekko', 'knx', 'doorbird', 'reolink', 'sonos', 'spotify', 'media'] as const;
 export type ServiceId = (typeof SERVICE_IDS)[number];
 
 export const SERVICE_LABELS: Record<ServiceId, string> = {
   mygekko: 'myGEKKO',
+  knx: 'KNX',
   doorbird: 'DoorBird',
   reolink: 'Reolink',
   sonos: 'Sonos',
@@ -821,6 +822,59 @@ export interface SonosSettings {
   spotifyRegion: 'EU' | 'US';
 }
 
+export type KnxMode = 'tunnel' | 'routing';
+
+/** A window or door contact on the KNX bus: the group address its state is sent to. */
+export interface KnxContactSetting {
+  id: string;
+  /** Group address, e.g. "1/2/3". */
+  address: string;
+  name: string;
+  room: string;
+  contactType: ContactType;
+  /** 0 means open (DPT 1.009 "open/close" and some binary inputs) instead of 1. */
+  invert: boolean;
+}
+
+export interface KnxSettings {
+  enabled: boolean;
+  /** Tunnel through a KNX IP interface, or listen to a KNX IP router's multicast. */
+  mode: KnxMode;
+  /** Address of the KNX IP interface (tunnel). */
+  host: string;
+  port: number;
+  contacts: KnxContactSetting[];
+}
+
+/** A group telegram the hub saw on the bus (for finding contacts). */
+export interface KnxTelegramInfo {
+  ts: number;
+  /** Individual address of the sender, e.g. "1.1.12". */
+  source: string;
+  /** Group address, e.g. "1/2/3". */
+  address: string;
+  service: 'read' | 'response' | 'write';
+  /** Small values (switches, contacts: 0/1); null when the value has its own bytes. */
+  value: number | null;
+  /** The value's own bytes as hex (longer values). */
+  data: string;
+}
+
+export interface KnxTelegramsResponse {
+  connected: boolean;
+  message: string;
+  telegrams: KnxTelegramInfo[];
+}
+
+export interface KnxInterfaceInfo {
+  host: string;
+  port: number;
+  name: string;
+  address: string;
+  tunnelling: boolean;
+  routing: boolean;
+}
+
 export interface SpotifySettings {
   enabled: boolean;
   clientId: string;
@@ -847,6 +901,7 @@ export interface GeneralSettings {
 export interface IntegrationSettingsMap {
   general: GeneralSettings;
   mygekko: MyGekkoSettings;
+  knx: KnxSettings;
   doorbird: DoorBirdSettings;
   reolink: ReolinkSettings;
   sonos: SonosSettings;

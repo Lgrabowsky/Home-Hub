@@ -4,6 +4,7 @@ import { SECRET_SET, type IntegrationSettingsMap, type SettingsKey } from '@home
 import type { Db } from './db.ts';
 import type { Vault } from './security/crypto.ts';
 import { HttpError } from './http/errors.ts';
+import { formatGroupAddress, parseGroupAddress } from './integrations/knx/protocol.ts';
 
 // Messages of the built-in checks ("too small", "invalid option" …) reach the administrator: speak German.
 z.config(z.locales.de());
@@ -160,6 +161,35 @@ const schemas = {
     spotifyRegion: z.enum(['EU', 'US']).default('EU'),
   }),
 
+  knx: z
+    .object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(['tunnel', 'routing']).default('tunnel'),
+      host: host.default(''),
+      port: z.number().int().min(1).max(65535).default(3671),
+      contacts: z
+        .array(
+          z.object({
+            id: deviceId,
+            address: z
+              .string()
+              .trim()
+              .refine((value) => parseGroupAddress(value) !== null, 'Bitte eine Gruppenadresse wie 1/2/3 angeben.')
+              .transform((value) => formatGroupAddress(parseGroupAddress(value)!)),
+            name,
+            room,
+            contactType: z.enum(['window', 'door', 'garage', 'motion', 'other']).default('window'),
+            invert: z.boolean().default(false),
+          }),
+        )
+        .max(500)
+        .default([])
+        .superRefine(uniqueIds),
+    })
+    .superRefine((value, ctx) => {
+      if (value.enabled && value.mode === 'tunnel' && !value.host) ctx.addIssue({ code: 'custom', path: ['host'], message: 'Adresse der KNX-Schnittstelle fehlt.' });
+    }),
+
   spotify: z
     .object({
       enabled: z.boolean().default(false),
@@ -257,6 +287,10 @@ const FIELD_LABELS: Record<string, string> = {
   clientId: 'Client-ID',
   clientSecret: 'Client-Secret',
   market: 'Land',
+  address: 'Gruppenadresse',
+  invert: 'Umgekehrt',
+  mode: 'Verbindungsart',
+  contactType: 'Art',
 };
 
 /**

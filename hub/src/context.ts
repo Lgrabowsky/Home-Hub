@@ -51,4 +51,6 @@ export interface HubContext {
   /** The hub's own time switches. */
   timers: TimerService;
   layout: LayoutService;
+  /** Demo mode: where the search for KNX interfaces goes instead of the multicast group. */
+  knxSearchTarget?: { host: string; port: number } | null;
 }

@@ -6,6 +6,7 @@ import type { IntegrationSettingsMap, ServiceHealth, SettingsKey, TestResult } f
 import { DoorBirdForm, ReolinkForm } from '../../../components/settings/DeviceForms.tsx';
 import { setDraft, useDrafts } from '../../../components/settings/drafts.ts';
 import { GeneralForm } from '../../../components/settings/GeneralForm.tsx';
+import { KnxForm } from '../../../components/settings/KnxForm.tsx';
 import { areaOf, type Area, type FormProps } from '../../../components/settings/meta.ts';
 import { SonosForm, SpotifyForm } from '../../../components/settings/MusicForms.tsx';
 import { MyGekkoForm } from '../../../components/settings/MyGekkoForm.tsx';
@@ -18,6 +19,7 @@ import { useHub } from '../../../store/hub.ts';
 const FORMS: { [K in SettingsKey]: ComponentType<FormProps<K>> } = {
   general: GeneralForm,
   mygekko: MyGekkoForm,
+  knx: KnxForm,
   doorbird: DoorBirdForm,
   reolink: ReolinkForm,
   sonos: SonosForm,

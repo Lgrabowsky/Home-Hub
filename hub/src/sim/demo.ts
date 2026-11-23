@@ -6,6 +6,7 @@ import { HttpError } from '../http/errors.ts';
 import { streamName } from '../integrations/media.ts';
 import { describeError } from '../util/http.ts';
 import { DOORBIRD_DEMO_STATIONS, startDoorBirdSim, type DoorBirdSim } from './doorbird-sim.ts';
+import { startKnxSim } from './knx-sim.ts';
 import { startMyGekkoSim, type MyGekkoSim } from './mygekko-sim.ts';
 import { REOLINK_DEMO_CAMERAS, startReolinkSim } from './reolink-sim.ts';
 import { startSonosSim } from './sonos-sim.ts';
@@ -116,6 +117,38 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     ],
   });
 
+  // --- KNX ----------------------------------------------------------------------------------------
+
+  // Windows that only the KNX bus reports one by one; two are set up, two are left for "Kontakt suchen".
+  const knx = await startKnxSim({
+    noise: true,
+    contacts: [
+      { address: '1/1/1', name: 'Dachfenster Bad' },
+      { address: '1/1/2', name: 'Fenster Hauswirtschaftsraum' },
+      { address: '1/1/3', name: 'Fenster Treppenhaus' },
+      { address: '1/1/4', name: 'Kellerfenster', invert: true },
+    ],
+  });
+  closers.push(() => knx.close());
+  ctx.knxSearchTarget = { host: knx.host, port: knx.port };
+  // Not locked like the other devices: "Kontakt suchen" is meant to be tried. The connection always
+  // points at this run's simulator; contacts someone set up are kept.
+  const storedKnx = settings.get('knx');
+  settings.set('knx', {
+    ...storedKnx,
+    enabled: true,
+    mode: 'tunnel',
+    host: knx.host,
+    port: knx.port,
+    contacts:
+      storedKnx.contacts.length > 0
+        ? storedKnx.contacts
+        : [
+            { id: 'dachfenster-bad', address: '1/1/1', name: 'Dachfenster Bad', room: 'Bad', contactType: 'window', invert: false },
+            { id: 'fenster-hwr', address: '1/1/2', name: 'Fenster Hauswirtschaftsraum', room: 'Hauswirtschaftsraum', contactType: 'window', invert: false },
+          ],
+  });
+
   // --- DoorBird ----------------------------------------------------------------------------------
 
   const doors: { id: string; name: string; sim: DoorBirdSim }[] = [];
@@ -203,7 +236,10 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     state() {
       return {
         doors: doors.map((door) => ({ id: door.id, name: door.name })),
-        contacts: gekko.contactNames().map((name) => ({ name, open: gekko.isContactOpen(name) })),
+        contacts: [
+          ...gekko.contactNames().map((name) => ({ name, open: gekko.isContactOpen(name) })),
+          ...knx.contactNames().map((name) => ({ name, open: knx.isContactOpen(name) })),
+        ],
       };
     },
     async trigger(request) {
@@ -217,6 +253,7 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
           return;
         }
         case 'contact': {
+          if (knx.setContact(request.name, request.open)) return;
           if (!gekko.contactNames().includes(request.name)) throw new HttpError(404, 'not_found', 'Diesen Kontakt gibt es in der Demo nicht.');
           gekko.setContact(request.name, request.open);
           return;

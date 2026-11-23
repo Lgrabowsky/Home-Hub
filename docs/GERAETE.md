@@ -129,6 +129,45 @@ zuordnen“ kannst du einen Kontakt umbenennen, einem Raum zuweisen oder mit **K
 
 ---
 
+## KNX-Bus (Fenster- und Türkontakte)
+
+**Wozu:** Hängen die Magnetkontakte an KNX-Binäreingängen, meldet der myGEKKO sie über seine
+Schnittstelle oft nicht einzeln (siehe oben). Der Hub kann sie dann **direkt am KNX-Bus mithören** –
+am myGEKKO vorbei, ohne dort etwas zu ändern.
+
+**Was es braucht:** eine **KNX IP-Schnittstelle** oder einen **KNX IP-Router** im Heimnetz (oft schon
+vorhanden, z. B. für die ETS oder den myGEKKO). Der Hub hört nur mit und fragt Zustände ab
+(GroupValue_Read); er **schaltet nichts** auf dem Bus. Mit KNX Secure verschlüsselte Telegramme kann
+er nicht lesen.
+
+**In der App:** Einstellungen › Geräte & Dienste › **KNX-Bus**
+
+1. „KNX verwenden“ einschalten.
+2. **Verbindungsart:**
+   - **IP-Schnittstelle (Tunnel)** – geht mit jeder Schnittstelle und jedem Router. Adresse eintragen
+     oder **Im Netz suchen**. Der Hub belegt eine der Verbindungen („Tunnel“) der Schnittstelle; sind
+     alle belegt (z. B. durch myGEKKO und ETS), meldet er das.
+   - **IP-Router (Routing)** – nur mit einem KNX IP-Router: Der Hub hört die Telegramme im Netz mit,
+     ohne eine Verbindung zu belegen.
+3. **Verbindung testen**, **Speichern**.
+4. **Kontakt suchen:** Fenster öffnen und offen lassen – die Gruppenadresse, die dabei umspringt,
+   erscheint. „Das ist es“ antippen, Name und Raum eintragen, **Übernehmen**, **Speichern**.
+   Kennst du die Gruppenadressen (aus der ETS oder der Konfiguration des myGEKKO), geht es auch
+   **von Hand**.
+
+**Gut zu wissen:**
+
+- Beim Verbinden fragt der Hub jeden Kontakt nach seinem Zustand. Antwortet einer nicht (im
+  Binäreingang ist das „Lesen“-Flag nicht gesetzt), zeigt die App ihn erst nach der ersten Änderung.
+- **Umgekehrt:** Manche Binäreingänge senden 0 für offen. „Kontakt suchen“ erkennt das, wenn das
+  Fenster beim Antippen offen steht; sonst den Schalter „Umgekehrt“ setzen.
+- Die KNX-Kontakte erscheinen wie alle anderen unter **Sicherheit**, in ihren Räumen und unter
+  **Zutritt** (Türen); im Raum-Editor lassen sie sich umbenennen und verschieben.
+- Die mitgehörten Telegramme sieht nur, wer Administrator ist, und sie bleiben nur im Speicher des
+  Hubs (die letzten 400).
+
+---
+
 ## DoorBird-Türstationen
 
 **In der DoorBird-App vorbereiten**
@@ -274,6 +313,13 @@ Hub sieht:
 - [ ] Eine Aktion/Szene starten.
 - [ ] Fensterkontakte: Zeigt **Sicherheit** „alles zu“ bzw. „offen“ passend zur Hülle? Erscheinen die einzelnen Kontakte (ggf. nach zweimaligem Öffnen), und stimmt „offen/geschlossen“?
 - [ ] Wird der Zustand der Alarmanlage („Hülle“) richtig angezeigt (scharf/unscharf, etwas offen)?
+
+**KNX**
+- [ ] Verbindung testen meldet „Verbunden“ (Tunnel) bzw. hört Telegramme (Routing).
+- [ ] Kontakt suchen: Beim Öffnen eines Fensters erscheint genau eine Gruppenadresse mit 0 → 1 (oder 1 → 0).
+- [ ] Nach dem Speichern: Stimmt „offen/zu“ für jeden Kontakt, auch nach einem Neustart des Hubs
+      (Zustand wird abgefragt)? Erscheint ein Kontakt erst nach der ersten Änderung, fehlt im
+      Binäreingang das „Lesen“-Flag.
 
 **DoorBird**
 - [ ] Live-Bild erscheint; Gegensprechen in beide Richtungen verständlich.

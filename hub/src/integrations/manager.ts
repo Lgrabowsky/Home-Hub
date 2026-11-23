@@ -11,6 +11,7 @@ import { HttpError, notFound } from '../http/errors.ts';
 import { describeError } from '../util/http.ts';
 import { Mutex } from '../util/poller.ts';
 import { DoorBirdIntegration } from './doorbird.ts';
+import { KnxIntegration } from './knx.ts';
 import { MediaManager, type StreamSpec } from './media.ts';
 import { MyGekkoIntegration } from './mygekko.ts';
 import { ReolinkIntegration } from './reolink.ts';
@@ -24,15 +25,16 @@ import type { Integration, IntegrationDeps } from './types.ts';
  * from the API to the right place.
  */
 
-type DeviceKey = 'mygekko' | 'doorbird' | 'reolink' | 'sonos' | 'spotify';
-const DEVICE_KEYS: DeviceKey[] = ['mygekko', 'doorbird', 'reolink', 'sonos', 'spotify'];
+type DeviceKey = 'mygekko' | 'knx' | 'doorbird' | 'reolink' | 'sonos' | 'spotify';
+const DEVICE_KEYS: DeviceKey[] = ['mygekko', 'knx', 'doorbird', 'reolink', 'sonos', 'spotify'];
 
 /** Entities are stored under an owner equal to the service id. */
-const ENTITY_OWNERS: Partial<Record<DeviceKey, string>> = { mygekko: 'mygekko', doorbird: 'doorbird', reolink: 'reolink' };
+const ENTITY_OWNERS: Partial<Record<DeviceKey, string>> = { mygekko: 'mygekko', knx: 'knx', doorbird: 'doorbird', reolink: 'reolink' };
 
 export class IntegrationManager {
   readonly media: MediaManager;
   mygekko: MyGekkoIntegration | null = null;
+  knx: KnxIntegration | null = null;
   doorbird: DoorBirdIntegration | null = null;
   reolink: ReolinkIntegration | null = null;
   sonos: SonosIntegration | null = null;
@@ -147,6 +149,8 @@ export class IntegrationManager {
     switch (key) {
       case 'mygekko':
         return new MyGekkoIntegration(deps, settings.get('mygekko'));
+      case 'knx':
+        return new KnxIntegration(deps, settings.get('knx'));
       case 'doorbird':
         return new DoorBirdIntegration(deps, settings.get('doorbird'));
       case 'reolink':
@@ -209,6 +213,8 @@ export class IntegrationManager {
       switch (key) {
         case 'mygekko':
           return await MyGekkoIntegration.test(value as IntegrationSettingsMap['mygekko']);
+        case 'knx':
+          return await KnxIntegration.test(value as IntegrationSettingsMap['knx']);
         case 'doorbird':
           return await this.testDevices((value as IntegrationSettingsMap['doorbird']).devices, (d) => DoorBirdIntegration.test(d));
         case 'reolink':

@@ -1,4 +1,4 @@
-import { Building2, Cctv, DoorClosed, Music2, SlidersHorizontal, Speaker, type LucideIcon } from 'lucide-react';
+import { Building2, Cctv, DoorClosed, Music2, Network, SlidersHorizontal, Speaker, type LucideIcon } from 'lucide-react';
 import type { IntegrationSettingsMap, ServiceId, SettingsKey } from '@home-hub/shared';
 import type { Tone } from '../ui.tsx';
 
@@ -17,6 +17,7 @@ export interface Area {
 export const AREAS: Area[] = [
   { key: 'general', title: 'Allgemein', purpose: 'Name deines Zuhauses, Ort und Zeitzone, Regeln für die Anmeldung', icon: SlidersHorizontal, tone: 'accent', service: null, testable: false },
   { key: 'mygekko', title: 'Gebäude (myGEKKO)', purpose: 'Licht, Jalousien, Heizung, Szenen, Fenster- und Türkontakte', icon: Building2, tone: 'warm', service: 'mygekko', testable: true },
+  { key: 'knx', title: 'KNX-Bus', purpose: 'Fenster- und Türkontakte direkt vom KNX-Bus mithören', icon: Network, tone: 'warm', service: 'knx', testable: true },
   { key: 'doorbird', title: 'Türstationen (DoorBird)', purpose: 'Klingel, Gegensprechen, Türöffner und Verlauf', icon: DoorClosed, tone: 'ok', service: 'doorbird', testable: true },
   { key: 'reolink', title: 'Kameras (Reolink)', purpose: 'Live-Bild, Schwenken und Gegensprechen', icon: Cctv, tone: 'cool', service: 'reolink', testable: true },
   { key: 'sonos', title: 'Lautsprecher (Sonos)', purpose: 'Musik in allen Räumen', icon: Speaker, tone: 'music', service: 'sonos', testable: true },

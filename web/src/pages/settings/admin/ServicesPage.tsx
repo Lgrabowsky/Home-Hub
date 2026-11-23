@@ -23,6 +23,8 @@ function summary(area: Area, settings: IntegrationSettingsMap, counts: { contact
       return `${settings.general.hubName} · Zwei-Faktor ${settings.general.requireTotp ? 'Pflicht' : 'freiwillig'}`;
     case 'mygekko':
       return settings.mygekko.enabled ? `${settings.mygekko.mode === 'local' ? settings.mygekko.host : 'myGEKKO Plus'} · ${plural(counts.contacts, 'Kontakt', 'Kontakte')}` : null;
+    case 'knx':
+      return settings.knx?.enabled ? `${settings.knx.mode === 'tunnel' ? settings.knx.host : 'IP-Router'} · ${plural(settings.knx.contacts.length, 'Kontakt', 'Kontakte')}` : null;
     case 'doorbird':
       return settings.doorbird.enabled ? `${plural(settings.doorbird.devices.length, 'Türstation', 'Türstationen')}` : null;
     case 'reolink':
