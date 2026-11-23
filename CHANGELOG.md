@@ -5,6 +5,12 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## Unveröffentlicht (kommt mit der nächsten Version)
+
+- Licht, Jalousien, Klima, Geräte und Aktionen zeigen die Stockwerke von oben nach unten
+  (Dachgeschoss, Obergeschoss, Erdgeschoss, Keller; Außen und Weiteres danach) – im Filter und in der
+  Liste. Die Räume-Seite behält die eigene Reihenfolge.
+
 ## 0.6.0
 
 - **Fenster und Türen nur noch vom KNX-Bus:** Sind dort Kontakte eingerichtet, sucht und zeigt der

@@ -12,7 +12,7 @@ import { DeviceEditor } from '../../components/layout/DeviceEditor.tsx';
 import { SortableList } from '../../components/layout/SortableList.tsx';
 import { TimersSection } from './TimersSection.tsx';
 import { Button, cx, EmptyState, IconButton, PageHeader, Section, TileGrid, toneSoft, type Tone } from '../../components/ui.tsx';
-import { buildRooms, groupByFloor, useAllEntities, useFloors } from '../../hooks/entities.ts';
+import { buildRooms, groupByFloor, topDown, useAllEntities, useFloors } from '../../hooks/entities.ts';
 import { blind, sendCommand } from '../../lib/actions.ts';
 import { formatNumber } from '../../lib/format.ts';
 import { saveLayout } from '../../lib/layout.ts';
@@ -187,7 +187,7 @@ function CategoryEditor({ category }: { category: Category }) {
   }, [entities, hidden, layout, floors, category]);
 
   // Rooms with something of this function, in the page's order within each storey.
-  const shown = grouped
+  const shown = topDown(grouped)
     .map((floor) => ({
       name: floor.name,
       rooms: sortByPage(
@@ -260,7 +260,7 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
   const isAdmin = useIsAdmin();
   const [details, setDetails] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const floorFilter = useFloorFilter();
+  const floorFilter = useFloorFilter({ topDown: true });
 
   const pageOrder = useHub((state) => state.layout.pageOrder?.[id]);
   const { house, unassigned, layout } = useMemo(() => {
@@ -271,7 +271,8 @@ export function CategoryPage({ id }: { id: Category['id'] }) {
     return {
       house: groups,
       unassigned: ofKind.filter((entity) => entity.room === null && !groups.includes(entity)),
-      layout: floors
+      // From the top of the house to the bottom, whatever the order on the Räume page.
+      layout: topDown(floors)
         .map((floor) => ({
           name: floor.name,
           rooms: sortByPage(

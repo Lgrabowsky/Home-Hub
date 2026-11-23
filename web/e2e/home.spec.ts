@@ -125,6 +125,18 @@ test.describe('rooms and devices', () => {
     await expect(page.getByText('erika hat die Zeitschaltuhr „Stehlampe abends“ angelegt').first()).toBeVisible();
   });
 
+  test('the function pages list the storeys from the top of the house down', async ({ page }) => {
+    const chips = () => page.getByRole('tablist', { name: 'Stockwerk' }).getByRole('tab').allTextContents();
+    await page.goto('/raeume');
+    // The Räume page keeps the household's order …
+    await expect.poll(chips).toEqual(['Alle', 'Erdgeschoss', 'Obergeschoss', 'Außen']);
+    // … the menus go from the top down.
+    await page.goto('/licht');
+    await expect.poll(chips).toEqual(['Alle', 'Obergeschoss', 'Erdgeschoss', 'Außen']);
+    const headings = await page.getByRole('heading', { level: 2 }).allTextContents();
+    expect(headings.indexOf('Obergeschoss')).toBeLessThan(headings.indexOf('Erdgeschoss'));
+  });
+
   test('the light menu switches a lamp of any room', async ({ page, request }) => {
     await page.goto('/raeume');
     await page.getByRole('navigation', { name: 'Bereiche' }).getByRole('link', { name: /Licht/ }).click();

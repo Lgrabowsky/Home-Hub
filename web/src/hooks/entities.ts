@@ -63,6 +63,31 @@ const FLOOR_PATTERNS: { name: string; pattern: RegExp }[] = [
   { name: 'Außen', pattern: /^(außen|aussen|garten|terrasse|balkon|einfahrt|hof|carport|garage)\b/i },
 ];
 
+/**
+ * How high up a storey is, from its name: attic 100, upper floors 11, 12 …, ground floor 0,
+ * basement -10, -20 … — null when the name is no storey (Außen, Treppenhaus …).
+ */
+export function storeyHeight(name: string): number | null {
+  const text = name.trim().toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  if (/^spitzboden\b/.test(text)) return 200;
+  if (/^(dg|dachgeschoss|dachboden)\b/.test(text)) return 100;
+  const upper = /^(?:(\d+)\s*\.?\s*)?(og|obergeschoss|etage)\b\s*(\d+)?/.exec(text);
+  if (upper) return 10 + Number(upper[1] ?? upper[3] ?? 1);
+  if (/^(eg|erdgeschoss|parterre|hochparterre)\b/.test(text)) return 0;
+  if (/^souterrain\b/.test(text)) return -5;
+  const lower = /^(?:(\d+)\s*\.?\s*)?(ug|kg|keller|untergeschoss|kellergeschoss)\b\s*(\d+)?/.exec(text);
+  if (lower) return -10 * Number(lower[1] ?? lower[3] ?? 1);
+  return null;
+}
+
+/** Storeys from the top of the house to the bottom; everything else (Außen …) after them, as it was. */
+export function topDown<T extends { name: string }>(floors: readonly T[]): T[] {
+  return floors
+    .map((floor, index) => ({ floor, index, height: storeyHeight(floor.name) }))
+    .sort((a, b) => (a.height === null ? (b.height === null ? a.index - b.index : 1) : b.height === null ? -1 : b.height - a.height || a.index - b.index))
+    .map((entry) => entry.floor);
+}
+
 function emptyRoom(name: string): RoomSummary {
   return { id: slugify(name), name, entities: [], players: [], lightCount: 0, lightsOn: 0, temperature: null, target: null, heating: false, openContacts: 0, blindCount: 0, blindClosed: null, blindsMoving: false };
 }

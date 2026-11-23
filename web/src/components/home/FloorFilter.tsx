@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { useFloors } from '../../hooks/entities.ts';
+import { topDown, useFloors } from '../../hooks/entities.ts';
 import { cx } from '../ui.tsx';
 
 /**
@@ -41,10 +41,10 @@ export interface FloorFilterState {
   select(floor: string | null): void;
 }
 
-export function useFloorFilter(): FloorFilterState {
-  const names = useFloors()
-    .map((floor) => floor.name)
-    .filter(Boolean);
+/** `topDown`: the storeys from the top of the house to the bottom (the function pages), not in the order of the Räume page. */
+export function useFloorFilter(options: { topDown?: boolean } = {}): FloorFilterState {
+  const floors = useFloors();
+  const names = (options.topDown ? topDown(floors) : floors).map((floor) => floor.name).filter(Boolean);
   const selected = useStore((state) => state.selected);
   const select = useStore((state) => state.select);
   return { selected: selected && names.includes(selected) ? selected : null, floors: names, select };
