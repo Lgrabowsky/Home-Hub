@@ -550,7 +550,8 @@ describe('history', () => {
     for (let i = 1; i <= 6; i++) sim.addHistory('doorbell', now - i * HOUR);
     const rig = startHub([sim], { timings: { historyGapMs: 150 } });
     await online(rig);
-    await waitFor(() => requestsTo(sim, 'history.cgi').length >= 2, 5000, 'download in progress');
+    // Generous: on a busy machine (all test files run in parallel) the download may start late.
+    await waitFor(() => requestsTo(sim, 'history.cgi').length >= 2, 20_000, 'download in progress');
 
     await rig.integration.openDoor('haustuer', '1', ANNA);
     expect(sim.opened).toHaveLength(1);
