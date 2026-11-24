@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { ReolinkSettings } from '@home-hub/shared';
 import { APP_HEADERS, demo, expectVideoPlaying, hubState } from './helpers.ts';
 
 test.describe('windows, doors and cameras', () => {
@@ -189,15 +190,92 @@ test.describe('windows, doors and cameras', () => {
     await expect(page.getByRole('button', { name: /Sirene/ })).toHaveCount(0);
   });
 
-  test('the camera settings explain Hikvision and show how each camera is connected', async ({ page }) => {
+  test('the camera settings show what each camera can, switch functions off, and check a new camera by themselves', async ({ page, request }) => {
+    const cameraSettings = async () => ((await (await request.get('/api/admin/settings/reolink')).json()) as { value: ReolinkSettings }).value;
+    const carport = (await cameraSettings()).devices.find((device) => device.id === 'carport')!;
+    const entity = async () => (await hubState(request)).entities['cam:carport'];
+
     await page.goto('/einstellungen/dienste/reolink');
-    await expect(page.getByRole('heading', { name: 'Kameras', exact: true }).first()).toBeVisible();
     await page.getByText('Hikvision vorbereiten').click();
     await expect(page.getByText('Video&Audio', { exact: false })).toBeVisible();
-    // Each camera says how it is connected (the demo's settings are fixed, so the sheets stay closed).
+    // Each camera says how it is connected.
     await expect(page.getByRole('button', { name: /Carport/ })).toContainText('Hikvision');
     await expect(page.getByRole('button', { name: /Wohnzimmer/ })).toContainText('ONVIF + RTSP');
     await expect(page.getByRole('button', { name: /Garten/ })).toContainText('Reolink');
+
+    // A camera the hub reaches: what it can comes from the hub. No speaker: talking cannot be switched on.
+    await page.getByRole('button', { name: /Carport/ }).click();
+    let sheet = page.getByRole('dialog', { name: 'Carport' });
+    await expect(sheet.getByRole('tab', { name: 'Hikvision' })).toHaveAttribute('aria-selected', 'true');
+    const ptz = sheet.getByRole('switch', { name: 'Schwenken & Zoom' });
+    const talk = sheet.getByRole('switch', { name: 'Gegensprechen' });
+    await expect(ptz).toBeChecked();
+    await expect(ptz).toBeEnabled();
+    await expect(talk).not.toBeChecked();
+    await expect(talk).toBeDisabled();
+    await expect(sheet.getByText('Die Kamera unterstützt das nicht.')).toBeVisible();
+
+    // Pan/tilt/zoom switched off: the camera page has no controls any more, the hub still knows what the camera can.
+    await ptz.click();
+    await sheet.getByRole('button', { name: 'Übernehmen' }).click();
+    await page.getByRole('button', { name: 'Speichern' }).click();
+    await expect(page.getByText('Alles gespeichert')).toBeVisible();
+    await expect.poll(entity, { timeout: 15_000 }).toMatchObject({ available: true, features: { ptz: false, zoom: false, presets: false }, supports: { ptz: true, talk: false } });
+    await page.goto('/sicherheit/kamera/carport');
+    await expect(page.getByRole('heading', { name: 'Carport' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /links/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Briefkasten', exact: true })).toHaveCount(0);
+
+    // And on again.
+    await page.goto('/einstellungen/dienste/reolink');
+    await page.getByRole('button', { name: /Carport/ }).click();
+    sheet = page.getByRole('dialog', { name: 'Carport' });
+    await sheet.getByRole('switch', { name: 'Schwenken & Zoom' }).click();
+    await sheet.getByRole('button', { name: 'Übernehmen' }).click();
+    await page.getByRole('button', { name: 'Speichern' }).click();
+    await expect(page.getByText('Alles gespeichert')).toBeVisible();
+    await expect.poll(entity, { timeout: 15_000 }).toMatchObject({ available: true, features: { ptz: true, presets: true } });
+
+    // A new camera is checked by itself on "Übernehmen": what it cannot do is switched off.
+    await page.getByRole('button', { name: 'Kamera hinzufügen' }).click();
+    sheet = page.getByRole('dialog', { name: 'Kamera hinzufügen' });
+    await sheet.getByLabel('Name', { exact: true }).fill('Zweite Kuppel');
+    await sheet.getByLabel('Adresse', { exact: true }).fill('127.0.0.1');
+    await sheet.getByLabel('Benutzername', { exact: true }).fill('hub');
+    await sheet.getByLabel('Passwort', { exact: true }).fill('Hikvision-Demo-2026');
+    await sheet.getByRole('tab', { name: 'Hikvision' }).click();
+    await expect(sheet.getByText('Wird beim Verbindungstest geprüft.')).toHaveCount(2);
+    await sheet.getByRole('button', { name: 'Erweitert' }).click();
+    await sheet.getByLabel('Port', { exact: true }).fill(String(carport.port));
+    await sheet.getByLabel('RTSP-Port').fill(String(carport.rtspPort));
+    await sheet.getByRole('button', { name: 'Übernehmen' }).click();
+    await expect(sheet).toBeHidden({ timeout: 15_000 });
+    const added = page.getByRole('button', { name: /Zweite Kuppel/ });
+    await expect(added).toContainText('Neu');
+    await added.click();
+    sheet = page.getByRole('dialog', { name: 'Zweite Kuppel' });
+    await expect(sheet.getByRole('switch', { name: 'Schwenken & Zoom' })).toBeChecked();
+    await expect(sheet.getByRole('switch', { name: 'Gegensprechen' })).toBeDisabled();
+    await expect(sheet.getByRole('switch', { name: 'Gegensprechen' })).not.toBeChecked();
+
+    // A camera that cannot be reached is not added silently.
+    await page.getByRole('dialog', { name: 'Zweite Kuppel' }).getByRole('button', { name: 'Entfernen' }).click();
+    await page.getByRole('dialog', { name: 'Zweite Kuppel entfernen?' }).getByRole('button', { name: 'Entfernen' }).click();
+    await expect(added).toHaveCount(0);
+    await page.getByRole('button', { name: 'Kamera hinzufügen' }).click();
+    sheet = page.getByRole('dialog', { name: 'Kamera hinzufügen' });
+    await sheet.getByLabel('Name', { exact: true }).fill('Nirgendwo');
+    await sheet.getByLabel('Adresse', { exact: true }).fill('127.0.0.1');
+    await sheet.getByLabel('Benutzername', { exact: true }).fill('hub');
+    await sheet.getByLabel('Passwort', { exact: true }).fill('egal');
+    await sheet.getByRole('tab', { name: 'Hikvision' }).click();
+    await sheet.getByRole('button', { name: 'Erweitert' }).click();
+    await sheet.getByLabel('Port', { exact: true }).fill('9');
+    await sheet.getByRole('button', { name: 'Übernehmen' }).click();
+    await expect(sheet.getByText('Die Kamera ist unter dieser Adresse nicht erreichbar.')).toBeVisible({ timeout: 20_000 });
+    await expect(sheet.getByRole('button', { name: 'Trotzdem übernehmen' })).toBeVisible();
+    await sheet.getByRole('button', { name: /Schließen/ }).first().click();
+    await expect(page.getByRole('button', { name: /Nirgendwo/ })).toHaveCount(0);
   });
 
   test('talking to a camera opens the microphone channel', async ({ page, request }) => {

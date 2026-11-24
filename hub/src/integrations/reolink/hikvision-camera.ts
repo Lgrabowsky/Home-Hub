@@ -441,6 +441,11 @@ export class HikvisionCamera {
     return { main: hikRtspUrl(this.device, 'main'), sub: hikRtspUrl(this.device, 'sub'), talk: hikTalkUrl(this.device) };
   }
 
+  /** What the camera reported it can; null until it has. */
+  detected(): CameraEntity['features'] | null {
+    return this.features;
+  }
+
   entity(): CameraEntity {
     return {
       id: `cam:${this.id}`,
@@ -787,7 +792,7 @@ export class HikvisionCamera {
       else if (device.https && device.port > 0) details.push('Gegensprechen braucht an der Kamera zusätzlich HTTP auf Port 80.');
       details.push('Licht und Sirene lassen sich über diese Verbindung nicht schalten – Lichter des Hauses kannst du der Kamera aber auf ihrer Seite in der App zuordnen.');
       const model = info.model ? `Hikvision ${info.model.replace(/^hikvision\s+/i, '')}` : 'Hikvision-Kamera';
-      return { ok: true, message: `${model} gefunden${info.firmware ? ` (Firmware ${info.firmware})` : ''}.`, details };
+      return { ok: true, message: `${model} gefunden${info.firmware ? ` (Firmware ${info.firmware})` : ''}.`, details, supports: { ptz: features.ptz || features.zoom, talk: features.talk } };
     } catch (err) {
       return { ok: false, message: 'Der Test konnte nicht abgeschlossen werden.', details: [describeError(err)] };
     } finally {

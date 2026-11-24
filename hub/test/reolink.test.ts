@@ -341,6 +341,8 @@ describe('video streams', () => {
     streamProtocol: 'rtsp',
     connection: 'api',
     onvifPort: 8000,
+    ptz: true,
+    talk: true,
     ...overrides,
   });
   const declare = (overrides: Partial<ReolinkDeviceSettings> = {}) => new ReolinkIntegration(env.deps, { enabled: true, devices: [device(overrides)] }).streams();
@@ -358,6 +360,10 @@ describe('video streams', () => {
     const parsed = new URL(streams[2]!.sources[0]!);
     expect(decodeURIComponent(parsed.username)).toBe('hub user');
     expect(decodeURIComponent(parsed.password)).toBe("p@ss:w/ord?#1!'()*");
+  });
+
+  it('declares no talk stream when talking is switched off for the camera', () => {
+    expect(declare({ talk: false }).map((spec) => spec.name)).toEqual(['cam_garten_main', 'cam_garten_sub']);
   });
 
   it('numbers recorder channels from 01 and honours the RTSP port', () => {
@@ -383,6 +389,7 @@ describe('connection test', () => {
     expect(result.message).toMatch(/RLC-823A gefunden \(Firmware v3\.1\.0/);
     expect(result.details.join('\n')).toMatch(/Schwenken\/Neigen/);
     expect(result.details.join('\n')).toMatch(/HD: H264, SD: H264/);
+    expect(result.supports).toEqual({ ptz: true, talk: false });
     // The test leaves no session behind.
     expect(garden.sessions).toBe(0);
   });

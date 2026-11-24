@@ -199,6 +199,7 @@ describe('connection test', () => {
     expect(details).toContain('Schwenken/Neigen');
     expect(details).toContain('gespeicherte Positionen');
     expect(details).toContain('keinen Rückkanal');
+    expect(result.supports).toEqual({ ptz: true, talk: false });
   });
 
   it('names the problem: credentials, ONVIF switched off, RTSP switched off', async () => {

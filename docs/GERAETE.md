@@ -320,6 +320,18 @@ nur bei Dunkelheit und lässt sich nicht gezielt einschalten; die Abschreckung (
 ist je Modell anders gelöst. Lichter des Hauses kannst du der Kamera aber auf ihrer Seite in der App
 zuordnen und dort schalten.
 
+### Funktionen je Kamera ein- und ausschalten (alle Kameras)
+
+Im Formular jeder Kamera stehen unter **Funktionen in der App** zwei Schalter: **Schwenken & Zoom**
+(Steuerkreuz, Zoom und gespeicherte Positionen) und **Gegensprechen**. Ausgeschaltet verschwinden die
+Bedienelemente auf der Kameraseite, und der Hub lehnt solche Befehle auch selbst ab.
+
+Darunter steht, ob die Kamera das überhaupt kann. Das prüft der Hub bei **Verbindung testen** – und
+beim **Hinzufügen** einer neuen Kamera von selbst, sobald du **Übernehmen** tippst. Was die Kamera nicht
+kann, wird ausgeschaltet und lässt sich nicht einschalten (warum, sagt der Verbindungstest, z. B.
+„Audiokodierung auf G.711 stellen“). Ist die Kamera beim Hinzufügen nicht erreichbar, bleibt das
+Formular mit dem Ergebnis offen; **Trotzdem übernehmen** trägt sie dennoch ein.
+
 ---
 
 ## Sonos-Lautsprecher

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { CameraEntity, PtzOp, PtzPreset, ReolinkDeviceSettings, ReolinkSettings, TestResult } from '@home-hub/shared';
+import type { CameraEntity, CameraSupport, PtzOp, PtzPreset, ReolinkDeviceSettings, ReolinkSettings, TestResult } from '@home-hub/shared';
 import { HttpError, notFound, unavailable } from '../http/errors.ts';
 import { describeError, DeviceHttp, DeviceHttpError } from '../util/http.ts';
 import { Mutex, Poller } from '../util/poller.ts';
@@ -306,6 +306,11 @@ class Camera {
     if (blocked > 0) return blocked;
     if (!this.active) return this.timing.idleMs;
     return this.abilities?.features.light ? Math.min(this.timing.lightMs, this.timing.activeMs) : this.timing.activeMs;
+  }
+
+  /** What the camera reported it can; null until it has. */
+  detected(): CameraEntity['features'] | null {
+    return this.abilities?.features ?? null;
   }
 
   entity(): CameraEntity {
@@ -631,6 +636,28 @@ class Camera {
   }
 }
 
+// --- What the household switched on ------------------------------------------------------------------
+
+/** What a camera can, in the two abilities the household may switch off. */
+export function supportOf(features: CameraEntity['features']): CameraSupport {
+  return { ptz: features.ptz || features.zoom, talk: features.talk };
+}
+
+/**
+ * The entity as the apps see it: pan/tilt/zoom (with stored positions) and talking only where the
+ * camera has them and the household has not switched them off; `supports` says what the camera can.
+ */
+export function withChoices(entity: CameraEntity, detected: CameraEntity['features'] | null, device: Pick<ReolinkDeviceSettings, 'ptz' | 'talk'>): CameraEntity {
+  const features = { ...entity.features };
+  if (!device.ptz) {
+    features.ptz = false;
+    features.zoom = false;
+    features.presets = false;
+  }
+  if (!device.talk) features.talk = false;
+  return { ...entity, features, ...(detected ? { supports: supportOf(detected) } : {}) };
+}
+
 // --- The integration ---------------------------------------------------------------------------------
 
 export class ReolinkIntegration implements Integration {
@@ -683,7 +710,7 @@ export class ReolinkIntegration implements Integration {
     const cameras = [...this.cameras.values()];
     this.deps.state.replace(
       SERVICE,
-      cameras.map((camera) => camera.entity()),
+      cameras.map((camera) => withChoices(camera.entity(), camera.detected(), camera.device)),
     );
     if (cameras.length === 0) {
       this.deps.state.setService(SERVICE, 'unconfigured', 'Es ist noch keine Kamera eingetragen.');
@@ -713,7 +740,8 @@ export class ReolinkIntegration implements Integration {
    * go2rtc streams of all cameras (names via `streamName('cam', id, …)`):
    *   `cam_<id>_main`  full resolution (may be H.265)
    *   `cam_<id>_sub`   low resolution H.264, used for tiles and as fallback
-   *   `cam_<id>_talk`  talk channel (browser microphone → camera speaker), RTSP back channel
+   *   `cam_<id>_talk`  talk channel (browser microphone → camera speaker), RTSP back channel;
+   *                    not declared when talking is switched off for the camera
    *
    * Why three: in go2rtc a bare `rtsp://` source opens the camera's back channel
    * (speaker) together with the video, and an always-open back channel can block
@@ -733,7 +761,7 @@ export class ReolinkIntegration implements Integration {
           const name = streamName('cam', device.id, quality);
           specs.push({ name, sources: [`${sources[quality]}#backchannel=0`, `ffmpeg:${name}#audio=opus`] });
         }
-        specs.push({ name: streamName('cam', device.id, 'talk'), sources: [sources.talk] });
+        if (device.talk) specs.push({ name: streamName('cam', device.id, 'talk'), sources: [sources.talk] });
         continue;
       }
       if (camera instanceof OnvifCamera) {
@@ -743,7 +771,7 @@ export class ReolinkIntegration implements Integration {
           const name = streamName('cam', device.id, quality);
           specs.push({ name, sources: [`${rtspUrl(device, paths[quality])}#backchannel=0`, `ffmpeg:${name}#audio=opus`] });
         }
-        specs.push({ name: streamName('cam', device.id, 'talk'), sources: [rtspUrl(device, paths.sub)] });
+        if (device.talk) specs.push({ name: streamName('cam', device.id, 'talk'), sources: [rtspUrl(device, paths.sub)] });
         continue;
       }
       const host = hostOnly(device.host);
@@ -768,7 +796,7 @@ export class ReolinkIntegration implements Integration {
         specs.push({ name, sources: [source, `ffmpeg:${name}#audio=opus`] });
       }
       // No `#…` suffix and no `ffmpeg:` wrapper: either would switch the back channel off.
-      specs.push({ name: streamName('cam', device.id, 'talk'), sources: [rtsp('sub')] });
+      if (device.talk) specs.push({ name: streamName('cam', device.id, 'talk'), sources: [rtsp('sub')] });
     }
     return specs;
   }
@@ -784,15 +812,24 @@ export class ReolinkIntegration implements Integration {
    * by itself (so a lost "stop" can never leave it spinning). `stop` halts at once.
    */
   async ptz(cameraId: string, op: PtzOp, speed?: number): Promise<void> {
-    await this.camera(cameraId).ptz(op, speed);
+    await this.withPtz(cameraId).ptz(op, speed);
   }
 
   async presets(cameraId: string): Promise<PtzPreset[]> {
-    return this.camera(cameraId).presets();
+    const camera = this.camera(cameraId);
+    if (!camera.device.ptz) return [];
+    return camera.presets();
   }
 
   async gotoPreset(cameraId: string, presetId: number): Promise<void> {
-    await this.camera(cameraId).gotoPreset(presetId);
+    await this.withPtz(cameraId).gotoPreset(presetId);
+  }
+
+  /** The camera, if pan/tilt/zoom is switched on for it. */
+  private withPtz(cameraId: string): Camera | OnvifCamera | HikvisionCamera {
+    const camera = this.camera(cameraId);
+    if (!camera.device.ptz) throw new HttpError(400, 'disabled', `Schwenken und Zoom sind für die Kamera „${camera.device.name}“ ausgeschaltet.`);
+    return camera;
   }
 
   /** Spotlight on/off. */
@@ -854,7 +891,7 @@ export class ReolinkIntegration implements Integration {
             if (device.streamProtocol === 'rtsp') details.push(`Für das Live-Bild muss an der Kamera zusätzlich „RTSP“ (Port ${device.rtspPort}) eingeschaltet sein.`);
             const model = str(dev.model) || 'Reolink-Kamera';
             const firmware = str(dev.firmVer);
-            return { ok: true, message: `${model} gefunden${firmware ? ` (Firmware ${firmware})` : ''}.`, details };
+            return { ok: true, message: `${model} gefunden${firmware ? ` (Firmware ${firmware})` : ''}.`, details, supports: supportOf(f) };
           } finally {
             await logout(http, token);
           }

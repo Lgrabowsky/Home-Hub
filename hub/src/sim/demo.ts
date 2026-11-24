@@ -211,7 +211,20 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     addVideo('cam', id, async () => sim.frame(), ['main', 'sub'], () => sim.moving);
     integrations.streamOverrides.set(streamName('cam', id, 'talk'), [talkSink(ffmpeg)]);
   }
-  settings.override('reolink', { enabled: true, devices: cameraDevices });
+  // Not locked: adding a camera and switching its functions are meant to be tried. Addresses always
+  // point at this run's simulators; what the household switched off and cameras it added are kept.
+  const storedCameras = settings.get('reolink').devices;
+  const demoIds = new Set(cameraDevices.map((device) => device.id));
+  settings.set('reolink', {
+    enabled: true,
+    devices: [
+      ...cameraDevices.map((device) => {
+        const stored = storedCameras.find((entry) => entry.id === device.id);
+        return stored ? { ...device, ptz: stored.ptz, talk: stored.talk } : device;
+      }),
+      ...storedCameras.filter((device) => !demoIds.has(device.id)),
+    ],
+  });
 
   // --- Sonos -------------------------------------------------------------------------------------
 

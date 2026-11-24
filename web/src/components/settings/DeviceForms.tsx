@@ -1,6 +1,6 @@
-import { Cctv, ChevronDown, DoorClosed, Plus, Trash2, type LucideIcon } from 'lucide-react';
+import { Cctv, Check, ChevronDown, DoorClosed, Plus, Trash2, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
-import { SECRET_SET, type DoorBirdDeviceSettings, type ReolinkDeviceSettings, type TestResult } from '@home-hub/shared';
+import { SECRET_SET, type CameraSupport, type DoorBirdDeviceSettings, type ReolinkDeviceSettings, type TestResult } from '@home-hub/shared';
 import { errorMessage } from '../../lib/api.ts';
 import { useHub } from '../../store/hub.ts';
 import { Badge, Button, Card, ConfirmDialog, cx, EmptyState, Field, Row, RowGroup, Section, Segmented, Sheet, TextInput, Toggle } from '../ui.tsx';
@@ -102,6 +102,9 @@ function DeviceList<D extends BaseDevice>({
 
 // --- Sheet frame shared by both device kinds ------------------------------------------------------------
 
+/** Fields that do not change how the hub reaches a device: editing them keeps a test result valid. */
+const UNTESTED_FIELDS = new Set(['name', 'room', 'ptz', 'talk', 'relayNames', 'hiddenRelays']);
+
 function DeviceSheet<D extends BaseDevice>({
   device,
   isNew,
@@ -110,6 +113,8 @@ function DeviceSheet<D extends BaseDevice>({
   onApply,
   onRemove,
   runTest,
+  onTested,
+  checkBeforeAdding = false,
   children,
 }: {
   device: D | null;
@@ -119,34 +124,75 @@ function DeviceSheet<D extends BaseDevice>({
   onApply(device: D): void;
   onRemove(): void;
   runTest(device: D): Promise<TestResult>;
-  children(args: { draft: D; set(changes: Partial<D>): void; errors: NonNullable<ReturnType<typeof problems>>; storedPassword: boolean }): ReactNode;
+  /** Adjusts the draft to what a test found (e.g. switches off what the device cannot). */
+  onTested?(result: TestResult, draft: D): D;
+  /** A new device is tested by itself on "Übernehmen". */
+  checkBeforeAdding?: boolean;
+  children(args: {
+    draft: D;
+    set(changes: Partial<D>): void;
+    errors: NonNullable<ReturnType<typeof problems>>;
+    storedPassword: boolean;
+    /** The last test result, as long as nothing that matters for the connection was changed since. */
+    tested: TestResult | null;
+  }): ReactNode;
 }) {
   const [draft, setDraft] = useState<D | null>(device);
   const [touched, setTouched] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
+  // The result still describes the device as entered.
+  const [fresh, setFresh] = useState(false);
+  // A new device failed its automatic check: "Übernehmen" now adds it anyway.
+  const [anyway, setAnyway] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   useEffect(() => {
     setDraft(device);
     setTouched(false);
     setResult(null);
+    setFresh(false);
+    setAnyway(false);
   }, [device]);
   if (!draft || !device) return <Sheet open={false} onClose={onClose}>{null}</Sheet>;
 
   const found = problems(draft);
   const errors = touched && found ? found : {};
-  const test = async () => {
+  const test = async (): Promise<{ result: TestResult; draft: D } | null> => {
     setTouched(true);
-    if (found) return;
+    if (found) return null;
     setTesting(true);
     setResult(null);
+    let outcome: TestResult;
     try {
-      setResult(await runTest(draft));
+      outcome = await runTest(draft);
     } catch (err) {
-      setResult({ ok: false, message: errorMessage(err), details: [] });
-    } finally {
-      setTesting(false);
+      outcome = { ok: false, message: errorMessage(err), details: [] };
     }
+    const next = onTested ? onTested(outcome, draft) : draft;
+    setDraft(next);
+    setResult(outcome);
+    setFresh(true);
+    setTesting(false);
+    return { result: outcome, draft: next };
+  };
+  const apply = async () => {
+    setTouched(true);
+    if (found) return;
+    let next = draft;
+    if (isNew && checkBeforeAdding && !(fresh && result?.ok) && !anyway) {
+      setAdding(true);
+      const outcome = await test();
+      setAdding(false);
+      if (!outcome) return;
+      if (!outcome.result.ok) {
+        // Stays open with the result; a second tap adds the device as it is.
+        setAnyway(true);
+        return;
+      }
+      next = outcome.draft;
+    }
+    onApply({ ...next, name: next.name.trim(), host: next.host.trim(), username: next.username.trim(), room: next.room.trim() });
   };
 
   return (
@@ -159,25 +205,30 @@ function DeviceSheet<D extends BaseDevice>({
           {result && <TestOutcome result={result} onDismiss={() => setResult(null)} />}
           <div className="flex gap-2">
             {!isNew && <Button variant="danger" icon={Trash2} aria-label="Entfernen" onClick={() => setConfirmRemove(true)} />}
-            <Button className="flex-1" loading={testing} onClick={() => void test()}>
+            <Button className="flex-1" loading={testing && !adding} disabled={adding} onClick={() => void test()}>
               Verbindung testen
             </Button>
-            <Button
-              variant="primary"
-              className="flex-1"
-              onClick={() => {
-                setTouched(true);
-                if (!found) onApply({ ...draft, name: draft.name.trim(), host: draft.host.trim(), username: draft.username.trim(), room: draft.room.trim() });
-              }}
-            >
-              Übernehmen
+            <Button variant="primary" className="flex-1" loading={adding} disabled={testing && !adding} onClick={() => void apply()}>
+              {anyway ? 'Trotzdem übernehmen' : 'Übernehmen'}
             </Button>
           </div>
         </div>
       }
     >
       <div className="space-y-4">
-        {children({ draft, set: (changes) => setDraft({ ...draft, ...changes }), errors, storedPassword: !isNew && device.password === SECRET_SET })}
+        {children({
+          draft,
+          set: (changes) => {
+            setDraft({ ...draft, ...changes });
+            if (Object.keys(changes).some((key) => !UNTESTED_FIELDS.has(key))) {
+              setFresh(false);
+              setAnyway(false);
+            }
+          },
+          errors,
+          storedPassword: !isNew && device.password === SECRET_SET,
+          tested: fresh ? result : null,
+        })}
       </div>
       <ConfirmDialog
         open={confirmRemove}
@@ -354,11 +405,70 @@ const CONNECTION_TEXT: Record<ReolinkDeviceSettings['connection'], string> = {
   onvif: 'Für Reolink-Kameras ohne HTTP/HTTPS (z. B. E1 Pro) und Kameras anderer Hersteller: Live-Bild, Ton, Schwenken und gespeicherte Positionen über ONVIF (8000) und RTSP (554). Licht und Sirene gehen so nicht.',
 };
 
+const CAMERA_FEATURES = [
+  { key: 'ptz', title: 'Schwenken & Zoom', text: 'Steuerkreuz, Zoom und gespeicherte Positionen auf der Kameraseite.' },
+  { key: 'talk', title: 'Gegensprechen', text: 'Sprechtaste auf der Kameraseite.' },
+] as const;
+
+/**
+ * What the app offers for this camera. Whether the camera can do it comes from the last connection
+ * test or, for a camera the hub already reaches, from the hub; what it cannot do stays switched off.
+ */
+function CameraFeatures({
+  draft,
+  set,
+  tested,
+  checked,
+}: {
+  draft: ReolinkDeviceSettings;
+  set(changes: Partial<ReolinkDeviceSettings>): void;
+  tested: TestResult | null;
+  /** Found by an earlier test in this form (cameras not saved yet). */
+  checked: CameraSupport | undefined;
+}) {
+  const entity = useHub((state) => (draft.id ? (state.entities[`cam:${draft.id}`] ?? state.hidden[`cam:${draft.id}`]) : undefined));
+  const fromHub = entity?.kind === 'camera' ? entity.supports : undefined;
+  const known = (tested?.ok && tested.supports) || checked || fromHub || null;
+  return (
+    <div>
+      <p className="mb-1.5 text-sm font-medium">Funktionen in der App</p>
+      <div className="divide-y divide-line/70 rounded-control bg-sunken">
+        {CAMERA_FEATURES.map((feature) => {
+          const supported = known ? known[feature.key] : null;
+          return (
+            <div key={feature.key} className="flex items-center justify-between gap-3 px-3.5 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{feature.title}</p>
+                <p className="text-sm text-faint">{feature.text}</p>
+                <p className={cx('mt-0.5 flex items-center gap-1 text-sm', supported === true ? 'text-ok' : supported === false ? 'text-warn' : 'text-faint')}>
+                  {supported === true ? <Check className="size-4 shrink-0" aria-hidden /> : supported === false ? <X className="size-4 shrink-0" aria-hidden /> : null}
+                  {supported === true ? 'Die Kamera unterstützt das.' : supported === false ? 'Die Kamera unterstützt das nicht.' : 'Wird beim Verbindungstest geprüft.'}
+                </p>
+              </div>
+              <Toggle checked={draft[feature.key] && supported !== false} disabled={supported === false} label={feature.title} onChange={(on) => set({ [feature.key]: on })} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** After a test: what the camera cannot do is switched off; what it can keeps the household's choice. */
+function adoptSupport(result: TestResult, device: ReolinkDeviceSettings): ReolinkDeviceSettings {
+  if (!result.ok || !result.supports) return device;
+  return { ...device, ptz: device.ptz && result.supports.ptz, talk: device.talk && result.supports.talk };
+}
+
+/** Which camera a test talked to (the same camera keeps its result while name or room change). */
+const cameraKey = (device: ReolinkDeviceSettings) => [device.connection, device.host.trim(), device.port, device.https, device.channel, device.onvifPort, device.rtspPort].join('|');
+
 export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink'>) {
   const set = (changes: Partial<typeof value>) => onChange({ ...value, ...changes });
-  const editing = useEditing<ReolinkDeviceSettings>(value.devices, () => ({ id: '', name: '', host: '', port: 0, https: false, username: 'admin', password: '', channel: 0, room: '', rtspPort: 554, streamProtocol: 'rtsp', connection: 'api', onvifPort: 8000 }));
+  const editing = useEditing<ReolinkDeviceSettings>(value.devices, () => ({ id: '', name: '', host: '', port: 0, https: false, username: 'admin', password: '', channel: 0, room: '', rtspPort: 554, streamProtocol: 'rtsp', connection: 'api', onvifPort: 8000, ptz: true, talk: true }));
   const withId = (device: ReolinkDeviceSettings) => (device.id ? device : { ...device, id: uniqueId(device.name, value.devices.map((other) => other.id), 'kamera') });
   const [advanced, setAdvanced] = useState(false);
+  const [checked, setChecked] = useState<Record<string, CameraSupport>>({});
 
   return (
     <>
@@ -415,6 +525,12 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
         kindLabel="Kamera"
         onClose={editing.close}
         runTest={(device) => test({ ...value, devices: [withId(device)] })}
+        onTested={(result, device) => {
+          const supports = result.ok ? result.supports : undefined;
+          if (supports) setChecked((known) => ({ ...known, [cameraKey(device)]: supports }));
+          return adoptSupport(result, device);
+        }}
+        checkBeforeAdding
         onApply={(device) => {
           const next = withId(device);
           set({ devices: editing.isNew ? [...value.devices, next] : value.devices.map((other, index) => (index === editing.index ? next : other)) });
@@ -425,7 +541,7 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
           editing.close();
         }}
       >
-        {({ draft, set: setDevice, errors, storedPassword }) => (
+        {({ draft, set: setDevice, errors, storedPassword, tested }) => (
           <>
             <CommonFields draft={draft} set={setDevice} errors={errors} storedPassword={storedPassword} hostHint="IP-Adresse der Kamera oder des Rekorders im Heimnetz." userHint="Ein Benutzer der Kamera, z. B. admin." />
             <div>
@@ -438,6 +554,7 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
               />
               <p className="mt-1.5 text-sm text-faint">{CONNECTION_TEXT[draft.connection]}</p>
             </div>
+            <CameraFeatures draft={draft} set={setDevice} tested={tested} checked={checked[cameraKey(draft)]} />
             <button type="button" className="flex items-center gap-1 text-sm font-medium text-accent" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
               Erweitert
               <ChevronDown className={cx('size-4 transition', advanced && 'rotate-180')} aria-hidden />

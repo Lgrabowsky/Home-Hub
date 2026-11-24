@@ -330,6 +330,17 @@ export interface CameraEntity extends BaseEntity {
   };
   /** Spotlight state if the camera has one. */
   lightOn: boolean | null;
+  /**
+   * What the camera itself can, whether or not it is switched on for the app (`features` holds what
+   * the app may use). Missing until the hub has reached the camera, and from hubs before 0.9.
+   */
+  supports?: CameraSupport;
+}
+
+/** Abilities of a camera that the household can switch off: pan/tilt/zoom (with stored positions) and talking. */
+export interface CameraSupport {
+  ptz: boolean;
+  talk: boolean;
 }
 
 export interface DoorRelay {
@@ -814,6 +825,10 @@ export interface ReolinkDeviceSettings {
   connection: 'api' | 'onvif' | 'hikvision';
   /** ONVIF port (Reolink default 8000). */
   onvifPort: number;
+  /** Pan/tilt/zoom and stored positions in the app — where the camera has them. */
+  ptz: boolean;
+  /** Talking through the camera in the app — where the camera has a speaker the hub reaches. */
+  talk: boolean;
 }
 
 export interface ReolinkSettings {
@@ -923,6 +938,8 @@ export interface TestResult {
   message: string;
   /** Extra lines (device model, firmware, counts …). */
   details: string[];
+  /** Camera tests: what the camera can (whether or not it is switched on). */
+  supports?: CameraSupport;
 }
 
 export interface SpotifyStatus {

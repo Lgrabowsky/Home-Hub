@@ -101,7 +101,7 @@ const DEMO_PRESETS = [
 
 /** The demo household's Hikvision camera. */
 export const HIKVISION_DEMO_CAMERAS: readonly { device: { id: string; name: string; room: string }; sim: HikvisionSimOptions }[] = [
-  { device: { id: 'carport', name: 'Carport', room: 'Außen' }, sim: { name: 'Carport', profile: 'ptz', scene: 'driveway' } },
+  { device: { id: 'carport', name: 'Carport', room: 'Außen' }, sim: { name: 'Carport', profile: 'ptz', scene: 'driveway', rtsp: true } },
 ];
 
 const NS = 'http://www.hikvision.com/ver20/XMLSchema';
@@ -463,6 +463,8 @@ export async function startHikvisionSim(options: HikvisionSimOptions = {}): Prom
         streamProtocol: 'rtsp',
         connection: 'hikvision',
         onvifPort: 8000,
+        ptz: true,
+        talk: true,
         ...base,
       };
     },

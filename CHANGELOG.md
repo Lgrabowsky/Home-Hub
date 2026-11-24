@@ -5,6 +5,19 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.9.0
+
+- **Schwenken & Zoom und Gegensprechen je Kamera schaltbar:** im Formular jeder Kamera unter
+  „Funktionen in der App“. Ausgeschaltet zeigt die Kameraseite keine Bedienelemente mehr, und der Hub
+  lehnt solche Befehle selbst ab.
+- **Automatische Prüfung:** Ob die Kamera das kann, steht unter jedem Schalter. Geprüft wird bei
+  „Verbindung testen“ und beim Hinzufügen einer neuen Kamera von selbst (beim Tippen auf
+  „Übernehmen“). Was die Kamera nicht kann, wird ausgeschaltet. Ist sie nicht erreichbar, bleibt das
+  Formular offen („Trotzdem übernehmen“).
+- Gilt für Reolink, Hikvision und Kameras über ONVIF.
+- Demo: Die Kameras lassen sich jetzt bearbeiten und hinzufügen.
+- Braucht einen Hub ab Version 0.9.0.
+
 ## 0.8.0
 
 - **Hikvision-Kameras:** neue Verbindungsart „Hikvision“ unter **Einstellungen › Kameras**. Live-Bild

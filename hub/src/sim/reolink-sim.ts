@@ -660,6 +660,8 @@ export async function startReolinkSim(options: ReolinkSimOptions = {}): Promise<
         streamProtocol: 'rtsp',
         connection: profile.httpApi ? 'api' : 'onvif',
         onvifPort: port,
+        ptz: true,
+        talk: true,
         ...base,
       };
     },

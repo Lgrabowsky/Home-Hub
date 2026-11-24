@@ -148,6 +148,8 @@ const schemas = {
           streamProtocol: z.enum(['rtsp', 'flv']).default('rtsp'),
           connection: z.enum(['api', 'onvif', 'hikvision']).default('api'),
           onvifPort: z.number().int().min(1).max(65535).default(8000),
+          ptz: z.boolean().default(true),
+          talk: z.boolean().default(true),
         }),
       )
       .max(32)
@@ -284,6 +286,8 @@ const FIELD_LABELS: Record<string, string> = {
   rtspPort: 'RTSP-Port',
   onvifPort: 'ONVIF-Port',
   connection: 'Verbindungsart',
+  ptz: 'Schwenken & Zoom',
+  talk: 'Gegensprechen',
   channel: 'Kanal',
   clientId: 'Client-ID',
   clientSecret: 'Client-Secret',

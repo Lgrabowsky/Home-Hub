@@ -180,6 +180,37 @@ describe('camera', () => {
   });
 });
 
+describe('what the household switches on', () => {
+  it('hides pan/tilt/zoom and talking that are switched off, but says what the camera can', async () => {
+    const dome = await sim({ profile: 'ptz' });
+    const turret = await sim({ profile: 'turret' });
+    const integration = start([
+      { ...dome.settings({ id: 'carport', name: 'Carport' }), ptz: false },
+      { ...turret.settings({ id: 'turm', name: 'Turm' }), talk: false },
+    ]);
+    expect(await online('carport')).toMatchObject({ features: { ptz: false, zoom: false, presets: false }, supports: { ptz: true, talk: false } });
+    expect(await online('turm')).toMatchObject({ features: { talk: false }, supports: { ptz: false, talk: true } });
+
+    // The hub refuses what is switched off, whatever an app sends.
+    expect((await failure(integration.ptz('carport', 'left'))).statusCode).toBe(400);
+    expect((await failure(integration.gotoPreset('carport', 1))).statusCode).toBe(400);
+    expect(await integration.presets('carport')).toEqual([]);
+    expect(dome.ptzLog).toHaveLength(0);
+    expect(integration.streams().map((spec) => spec.name)).not.toContain('cam_turm_talk');
+    expect(integration.streams().map((spec) => spec.name)).toContain('cam_carport_talk');
+  });
+
+  it('reports what the camera can in the connection test', async () => {
+    const dome = await sim({ profile: 'ptz' });
+    const turret = await sim({ profile: 'turret', talkCodec: 'AAC' });
+    expect((await ReolinkIntegration.test(dome.settings({ id: 'carport', name: 'Carport' }), { timing: FAST })).supports).toEqual({ ptz: true, talk: false });
+    // A speaker with a codec the hub cannot feed does not count.
+    expect((await ReolinkIntegration.test(turret.settings({ id: 'turm', name: 'Turm' }), { timing: FAST })).supports).toEqual({ ptz: false, talk: false });
+    // Switched off or not: the test says what the camera itself can.
+    expect((await ReolinkIntegration.test({ ...dome.settings({ id: 'carport', name: 'Carport' }), ptz: false }, { timing: FAST })).supports).toEqual({ ptz: true, talk: false });
+  });
+});
+
 describe('logins', () => {
   it('pauses after a wrong password instead of running into the camera lock, and doubles the pause', async () => {
     const dome = await sim({ profile: 'ptz', lockAfterFailures: 3 });

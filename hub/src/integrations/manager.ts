@@ -248,6 +248,8 @@ export class IntegrationManager {
         `${result.ok ? '✓' : '✗'} ${device.name}: ${result.message}`,
         ...result.details.map((line) => `   ${line}`),
       ]),
+      // The form tests one device at a time and shows what it can.
+      ...(results.length === 1 && results[0]!.result.supports ? { supports: results[0]!.result.supports } : {}),
     };
   }
 

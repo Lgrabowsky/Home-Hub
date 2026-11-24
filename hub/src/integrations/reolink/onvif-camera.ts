@@ -190,6 +190,11 @@ export class OnvifCamera {
     return this.paths ?? defaultRtspPaths(this.device.channel);
   }
 
+  /** What the camera reported it can; null until it has. */
+  detected(): CameraEntity['features'] | null {
+    return this.features;
+  }
+
   entity(): CameraEntity {
     return {
       id: `cam:${this.id}`,
@@ -523,7 +528,12 @@ export class OnvifCamera {
       if (!stream.backchannel) details.push('Gegensprechen: Die Kamera bietet über RTSP keinen Rückkanal für ihren Lautsprecher an. Sprechen geht dann nur in der Reolink-App; Mithören funktioniert.');
       details.push('Licht und Sirene lassen sich über ONVIF nicht schalten.');
       const model = [info.manufacturer, info.model].filter(Boolean).join(' ') || 'Kamera';
-      return { ok: true, message: `${model} gefunden${info.firmware ? ` (Firmware ${info.firmware})` : ''}.`, details };
+      return {
+        ok: true,
+        message: `${model} gefunden${info.firmware ? ` (Firmware ${info.firmware})` : ''}.`,
+        details,
+        supports: { ptz: ptz.panTilt || ptz.zoom, talk: stream.backchannel },
+      };
     } catch (err) {
       return { ok: false, message: 'Der Test konnte nicht abgeschlossen werden.', details: [describeError(err)] };
     } finally {
