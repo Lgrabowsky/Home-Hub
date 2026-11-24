@@ -134,7 +134,7 @@ export const SERVICE_LABELS: Record<ServiceId, string> = {
   mygekko: 'myGEKKO',
   knx: 'KNX',
   doorbird: 'DoorBird',
-  reolink: 'Reolink',
+  reolink: 'Kameras',
   sonos: 'Sonos',
   spotify: 'Spotify',
   media: 'Video-Dienst',
@@ -803,13 +803,15 @@ export interface ReolinkDeviceSettings {
   channel: number;
   room: string;
   rtspPort: number;
-  /** How the hub pulls video: RTSP (enables talk) or HTTP-FLV. Always RTSP with `connection: 'onvif'`. */
+  /** How the hub pulls video: RTSP (enables talk) or HTTP-FLV. Always RTSP with `connection: 'onvif'` and `'hikvision'`. */
   streamProtocol: 'rtsp' | 'flv';
   /**
    * `api`: Reolink's own HTTP(S) interface (all functions).
    * `onvif`: ONVIF for control and RTSP for video — for cameras without HTTP(S), e.g. the E1 series.
+   * `hikvision`: Hikvision's ISAPI (HTTP/HTTPS, Digest) for control and RTSP for video; `channel` 0 is
+   * camera 1 (D1 on a recorder), `streamProtocol` and `onvifPort` are not used.
    */
-  connection: 'api' | 'onvif';
+  connection: 'api' | 'onvif' | 'hikvision';
   /** ONVIF port (Reolink default 8000). */
   onvifPort: number;
 }

@@ -1,6 +1,6 @@
 # Home Hub
 
-**Eine App für dein ganzes Zuhause** – myGEKKO, DoorBird, Reolink, Sonos und Spotify in einer
+**Eine App für dein ganzes Zuhause** – myGEKKO, KNX, DoorBird, Reolink, Hikvision, Sonos und Spotify in einer
 einzigen, modernen Oberfläche. Als Web-App (im Browser, installierbar als PWA) und als Android-App.
 
 Du schaltest Licht und Jalousien, siehst, welches Fenster offen ist, sprichst mit dem Besuch an der
@@ -23,7 +23,7 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
 | **KNX** | Fenster- und Türkontakte direkt am KNX-Bus mithören (KNX IP-Schnittstelle oder -Router), Zustände beim Start abfragen, Kontakte per „Kontakt suchen“ zuordnen – der Hub schaltet nichts auf dem Bus |
 | **Sicherheit** | Alle Fenster- und Türkontakte auf einen Blick („2 von 14 offen“), Zustand der Alarmüberwachung (Hülle), Live-Bilder aller Kameras und Türstationen |
 | **Türstationen** (DoorBird) | Live-Video, Gegensprechen, Tür öffnen (mit Schiebe-Bestätigung), Licht, Verlauf mit Bildern (Klingeln, Bewegung, Öffnungen), Klingel-Meldung in der App |
-| **Kameras** (Reolink) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer, Sirene, zugeordnete Lichter direkt unter dem Bild schalten |
+| **Kameras** (Reolink, Hikvision, ONVIF) | Live-Video in HD/SD, Schwenken/Neigen/Zoomen, gespeicherte Positionen, Mithören, Gegensprechen, Scheinwerfer und Sirene (Reolink), zugeordnete Lichter direkt unter dem Bild schalten |
 | **Musik** (Sonos + Spotify) | Was läuft wo, Lautstärke, Räume gruppieren, Sonos-Favoriten, in Spotify suchen und stöbern und auf jedem Lautsprecher abspielen |
 | **Verwaltung** | Benutzer und Rechte (z. B. „darf die Tür öffnen“), Geräte einrichten, Protokoll, Diagnose |
 | **3D-Haus** (Labs) | Das eigene Haus als 3D-Modell aus einer IFC-Datei: drehen, Geschosse öffnen, Geräte an ihrer Stelle bedienen, Licht und Schatten nach der echten Tageszeit – [Anleitung](docs/3D-HAUS.md) |
@@ -37,7 +37,7 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
  │ (nichts gespeichert │   von überall│   ├─ Anmeldung, Rechte, Verschlüsselung  │
  │  außer der Anmeldung)│             │   ├─ myGEKKO   (Licht, Jalousien, …)     │
  └─────────────────────┘              │   ├─ DoorBird  (Türstationen)            │
-                                      │   ├─ Reolink   (Kameras)                 │
+                                      │   ├─ Kameras   (Reolink, Hikvision)      │
                                       │   ├─ Sonos     (Lautsprecher)            │
                                       │   └─ Video-Dienst (go2rtc)               │
                                       └──────────────────────────────────────────┘
@@ -59,7 +59,7 @@ docker compose -f docker-compose.demo.yml up --build
 
 Dann <http://localhost:8080> öffnen und mit dem Einrichtungscode `DEMO-DEMO-DEMO` ein Konto anlegen.
 Alle Geräte sind simuliert: ein Haus mit Lichtern, Jalousien, Heizung, Kontakten, zwei Türstationen,
-vier Kameras (eine davon über ONVIF wie eine E1 Pro), sechs Lautsprechern und einem Spotify-Konto.
+fünf Kameras (eine davon über ONVIF wie eine E1 Pro, eine Hikvision), sechs Lautsprechern und einem Spotify-Konto.
 
 Ohne Docker (Node.js ab 22.13, für Live-Video zusätzlich `go2rtc` und `ffmpeg` im Pfad):
 
@@ -72,7 +72,7 @@ npm run demo
 
 1. **[Installation](docs/INSTALLATION.md)** – Hub auf einem Rechner im Heimnetz starten. Auf einem Windows-PC
    ohne Windows anzutasten (auch Windows 7): **[in einer virtuellen Maschine](docs/VIRTUELLE-MASCHINE.md)**.
-2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, DoorBird, Reolink, Sonos und Spotify
+2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, KNX, DoorBird, Reolink, Hikvision, Sonos und Spotify
    vorzubereiten ist, inklusive der Fenster- und Türkontakte.
 3. **[Zugriff von unterwegs](docs/FERNZUGRIFF.md)** – per VPN (empfohlen) oder über eine eigene Adresse.
 4. **[Android-App](docs/ANDROID.md)** – APK unter **Releases** herunterladen und installieren.
@@ -102,8 +102,9 @@ Details: [docs/SICHERHEIT.md](docs/SICHERHEIT.md)
   führt; Details in [docs/GERAETE.md](docs/GERAETE.md#fenster--und-türkontakte).
 - **Spotify** verlangt eine eigene, kostenlose „Entwickler-App“ und ein Premium-Konto. Die
   Einrichtung dauert fünf Minuten und ist in der App Schritt für Schritt erklärt.
-- **Gegensprechen über Kameras** funktioniert nur bei Reolink-Modellen mit Lautsprecher, die
-  Zwei-Wege-Audio über RTSP anbieten. An DoorBird-Türstationen funktioniert es immer.
+- **Gegensprechen über Kameras** funktioniert bei Reolink-Modellen mit Lautsprecher, die
+  Zwei-Wege-Audio über RTSP anbieten, und bei Hikvision-Kameras mit Lautsprecher und Audiokodierung
+  G.711. An DoorBird-Türstationen funktioniert es immer.
 
 ## Verzeichnisse
 

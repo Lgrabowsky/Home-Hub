@@ -8,6 +8,7 @@ import { describeError } from '../util/http.ts';
 import { DOORBIRD_DEMO_STATIONS, startDoorBirdSim, type DoorBirdSim } from './doorbird-sim.ts';
 import { startKnxSim } from './knx-sim.ts';
 import { startMyGekkoSim, type MyGekkoSim } from './mygekko-sim.ts';
+import { HIKVISION_DEMO_CAMERAS, startHikvisionSim } from './hikvision-sim.ts';
 import { REOLINK_DEMO_CAMERAS, startReolinkSim } from './reolink-sim.ts';
 import { startSonosSim } from './sonos-sim.ts';
 import { startSpotifySim, type SpotifySim } from './spotify-sim.ts';
@@ -188,7 +189,7 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     devices: doors.map((door, index) => door.sim.settings(DOORBIRD_DEMO_STATIONS[index]!.device)),
   });
 
-  // --- Reolink -----------------------------------------------------------------------------------
+  // --- Cameras (Reolink, Hikvision) ---------------------------------------------------------------
 
   const cameraDevices = [];
   for (const entry of REOLINK_DEMO_CAMERAS) {
@@ -199,6 +200,15 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
     // Straight from the simulator (not through the hub's one-second snapshot cache), so turning the camera looks smooth.
     addVideo('cam', id, async () => sim.frame(), ['main', 'sub'], () => sim.moving);
     // The simulated cameras have no RTSP server: something else has to "be the speaker".
+    integrations.streamOverrides.set(streamName('cam', id, 'talk'), [talkSink(ffmpeg)]);
+  }
+  // A Hikvision pan/tilt camera, connected through ISAPI.
+  for (const entry of HIKVISION_DEMO_CAMERAS) {
+    const sim = await startHikvisionSim(entry.sim);
+    closers.push(() => sim.close());
+    cameraDevices.push(sim.settings(entry.device));
+    const id = entry.device.id;
+    addVideo('cam', id, async () => sim.frame(), ['main', 'sub'], () => sim.moving);
     integrations.streamOverrides.set(streamName('cam', id, 'talk'), [talkSink(ffmpeg)]);
   }
   settings.override('reolink', { enabled: true, devices: cameraDevices });

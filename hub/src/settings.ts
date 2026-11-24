@@ -146,7 +146,7 @@ const schemas = {
           room,
           rtspPort: z.number().int().min(1).max(65535).default(554),
           streamProtocol: z.enum(['rtsp', 'flv']).default('rtsp'),
-          connection: z.enum(['api', 'onvif']).default('api'),
+          connection: z.enum(['api', 'onvif', 'hikvision']).default('api'),
           onvifPort: z.number().int().min(1).max(65535).default(8000),
         }),
       )

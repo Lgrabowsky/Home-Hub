@@ -5,6 +5,20 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.8.0
+
+- **Hikvision-Kameras:** neue Verbindungsart „Hikvision“ unter **Einstellungen › Kameras**. Live-Bild
+  in HD/SD mit Ton, Schwenken/Neigen/Zoom (auch das Motorobjektiv fester Kameras), gespeicherte
+  Positionen, Standbilder und Gegensprechen (bei Audiokodierung G.711). Kameras an einem
+  Hikvision-Rekorder lassen sich über dessen Adresse und die Kameranummer (D1, D2 …) einbinden.
+- Der Verbindungstest sagt, was die Kamera kann und was in ihrer Weboberfläche noch umzustellen ist
+  (Ton im Stream, Audiokodierung, RTSP).
+- Schutz vor der Anmeldesperre von Hikvision: Nach einem abgelehnten Passwort wartet der Hub, die
+  Pausen werden länger, und eine von der Kamera gemeldete Sperre wird abgewartet.
+- Der Bereich heißt jetzt **Kameras** (statt „Kameras (Reolink)“); die Liste zeigt je Kamera, wie sie
+  verbunden ist (Reolink, Hikvision, ONVIF + RTSP).
+- Braucht einen Hub ab Version 0.8.0.
+
 ## 0.7.0
 
 - **Licht-Überwachung:** Die Zone „Status Beleuchtung“ der Alarmanlage zeigt unter **Sicherheit**,

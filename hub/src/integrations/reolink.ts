@@ -4,13 +4,17 @@ import { HttpError, notFound, unavailable } from '../http/errors.ts';
 import { describeError, DeviceHttp, DeviceHttpError } from '../util/http.ts';
 import { Mutex, Poller } from '../util/poller.ts';
 import { streamName, type StreamSpec } from './media.ts';
+import { HikvisionCamera } from './reolink/hikvision-camera.ts';
 import { OnvifCamera, rtspUrl } from './reolink/onvif-camera.ts';
 import type { Integration, IntegrationDeps } from './types.ts';
 
 /**
- * Reolink cameras / NVR channels: local HTTP API for state and control, RTSP
- * or FLV (through go2rtc) for video. Cameras without the HTTP interface (the
- * E1 series) are connected through ONVIF and RTSP instead (`reolink/onvif-camera.ts`).
+ * The cameras. Reolink cameras / NVR channels: local HTTP API for state and
+ * control, RTSP or FLV (through go2rtc) for video. Cameras without the HTTP
+ * interface (the E1 series, other makes) are connected through ONVIF and RTSP
+ * instead (`reolink/onvif-camera.ts`), Hikvision cameras and recorders through
+ * ISAPI and RTSP (`reolink/hikvision-camera.ts`). The settings key and the
+ * service id stay `reolink` for existing installations.
  *
  * `cameraId` is always the configured device id (the entity id is `cam:<cameraId>`).
  *
@@ -630,7 +634,7 @@ class Camera {
 // --- The integration ---------------------------------------------------------------------------------
 
 export class ReolinkIntegration implements Integration {
-  private readonly cameras = new Map<string, Camera | OnvifCamera>();
+  private readonly cameras = new Map<string, Camera | OnvifCamera | HikvisionCamera>();
   private readonly timing: ReolinkTiming;
   private stopped = false;
 
@@ -643,7 +647,14 @@ export class ReolinkIntegration implements Integration {
     for (const device of settings.devices) {
       if (this.cameras.has(device.id)) continue;
       const changed = () => this.publish();
-      this.cameras.set(device.id, device.connection === 'onvif' ? new OnvifCamera(deps, device, this.timing, changed) : new Camera(deps, device, this.timing, changed));
+      this.cameras.set(
+        device.id,
+        device.connection === 'onvif'
+          ? new OnvifCamera(deps, device, this.timing, changed)
+          : device.connection === 'hikvision'
+            ? new HikvisionCamera(deps, device, this.timing, changed)
+            : new Camera(deps, device, this.timing, changed),
+      );
     }
   }
 
@@ -692,7 +703,7 @@ export class ReolinkIntegration implements Integration {
     }
   }
 
-  private camera(cameraId: string): Camera | OnvifCamera {
+  private camera(cameraId: string): Camera | OnvifCamera | HikvisionCamera {
     const camera = this.cameras.get(cameraId);
     if (!camera) throw notFound('Diese Kamera gibt es nicht (mehr).');
     return camera;
@@ -715,6 +726,16 @@ export class ReolinkIntegration implements Integration {
     const specs: StreamSpec[] = [];
     for (const camera of this.cameras.values()) {
       const { device } = camera;
+      if (camera instanceof HikvisionCamera) {
+        // RTSP for the picture; talking goes through go2rtc's ISAPI back channel (Hikvision's RTSP has none).
+        const sources = camera.streamSources();
+        for (const quality of ['main', 'sub'] as const) {
+          const name = streamName('cam', device.id, quality);
+          specs.push({ name, sources: [`${sources[quality]}#backchannel=0`, `ffmpeg:${name}#audio=opus`] });
+        }
+        specs.push({ name: streamName('cam', device.id, 'talk'), sources: [sources.talk] });
+        continue;
+      }
       if (camera instanceof OnvifCamera) {
         // The addresses the camera reported over ONVIF (Reolink's defaults until it has).
         const paths = camera.rtspPaths();
@@ -788,6 +809,7 @@ export class ReolinkIntegration implements Integration {
   static async test(device: ReolinkDeviceSettings, options: ReolinkOptions = {}): Promise<TestResult> {
     const timeoutMs = options.timing?.requestTimeoutMs ?? DEFAULT_TIMING.requestTimeoutMs;
     if (device.connection === 'onvif') return OnvifCamera.test(device, timeoutMs);
+    if (device.connection === 'hikvision') return HikvisionCamera.test(device, timeoutMs);
     const tried: string[] = [];
     try {
       for (const transport of transports(device)) {

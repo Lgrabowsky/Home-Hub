@@ -70,11 +70,11 @@ export function rtspPath(uri: string): string | null {
   }
 }
 
-function isJpeg(data: Buffer): boolean {
+export function isJpeg(data: Buffer): boolean {
   return data.length > 3 && data[0] === 0xff && data[1] === 0xd8;
 }
 
-function encodeUserInfo(text: string): string {
+export function encodeUserInfo(text: string): string {
   return encodeURIComponent(text).replace(/[!'()*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
@@ -84,7 +84,7 @@ export function rtspUrl(device: ReolinkDeviceSettings, path: string): string {
 }
 
 /** One frame of an RTSP stream as JPEG, straight through ffmpeg (when go2rtc is not there to ask). */
-function grabFrame(ffmpeg: string, url: string, timeoutMs: number): Promise<Buffer> {
+export function grabFrame(ffmpeg: string, url: string, timeoutMs: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const child = spawn(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-rtsp_transport', 'tcp', '-i', url, '-frames:v', '1', '-f', 'image2', '-c:v', 'mjpeg', '-q:v', '4', 'pipe:1'], {
       stdio: ['ignore', 'pipe', 'ignore'],

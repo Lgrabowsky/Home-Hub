@@ -228,8 +228,8 @@ Gut zu wissen: Eine Türstation erlaubt nur **ein Gespräch zur selben Zeit**. S
    Schwenken, für Licht und Sirene braucht er Administratorrechte.
 3. Der Kamera im Router eine **feste IP-Adresse** zuweisen.
 
-**In der App:** Kameras (Reolink) › Kamera hinzufügen › Name, Adresse, Benutzer, Passwort ›
-Verbindung testen › Übernehmen › einschalten › Speichern.
+**In der App:** Kameras › Kamera hinzufügen › Name, Adresse, Benutzer, Passwort, Verbindungsart
+„Reolink“ › Verbindung testen › Übernehmen › einschalten › Speichern.
 
 - **Rekorder (NVR) oder Home Hub von Reolink:** dessen Adresse eintragen und unter „Erweitert“ je
   Kamera den **Kanal** wählen (beginnend bei 0) – also pro Kamera ein Eintrag mit derselben Adresse.
@@ -272,6 +272,53 @@ dann weiterhin nur in der Reolink-App.
 
 Den Port „Basisdienste“ (9000) braucht der Hub nicht; er gehört zum herstellereigenen Protokoll der
 Reolink-App.
+
+---
+
+## Hikvision-Kameras
+
+Hikvision-Kameras (und Kameras an einem Hikvision-Rekorder) steuert der Hub über **ISAPI** – die
+Schnittstelle hinter der Weboberfläche der Kamera, mit Digest-Anmeldung – und holt das Bild über
+**RTSP**. Beides ist ab Werk eingeschaltet.
+
+**In der Weboberfläche der Kamera vorbereiten** (im Browser die IP-Adresse der Kamera öffnen;
+die Menünamen können je nach Firmware leicht abweichen)
+
+1. **Konfiguration › System › Benutzerverwaltung:** einen eigenen Benutzer für den Hub anlegen,
+   z. B. als „Bediener“ mit den Rechten **Live-Ansicht**, **PTZ-Steuerung** und **Zweiwege-Audio**.
+   Den Administrator brauchst du dafür nicht.
+2. **Video/Audio › Video:** für Ton im Live-Bild beim Haupt- **und** beim Substream den Stream-Typ
+   **„Video&Audio“** wählen. Wer H.265 im Hauptstream hat: Die App weicht in Browsern, die H.265 nicht
+   können, auf den Substream (H.264) aus. H.264+/H.265+ besser ausschalten.
+3. **Video/Audio › Audio:** für das Gegensprechen die Audiokodierung **„G.711ulaw“** (oder
+   „G.711alaw“) einstellen – nur diese Kodierung kommt aus der App bis zum Lautsprecher.
+4. **Netzwerk › Grundeinstellungen › Port:** HTTP 80, RTSP 554 (Standard). Gegensprechen braucht HTTP,
+   auch wenn die Steuerung über HTTPS läuft.
+5. Der Kamera im Router eine **feste IP-Adresse** zuweisen.
+
+> **Achtung, Anmeldesperre:** Hikvision sperrt nach einigen falschen Passwörtern die Anmeldung von
+> dieser Adresse für bis zu 30 Minuten – dann geht auch das Live-Bild nicht. Der Hub probiert es nach
+> einer Ablehnung deshalb erst nach einer Pause wieder (5 Minuten, danach jeweils doppelt so lange,
+> höchstens eine Stunde) und wartet eine gemeldete Sperre ab. Speichern mit neuem Passwort probiert
+> sofort.
+
+**In der App:** Kameras › Kamera hinzufügen › Name, Adresse, Benutzer, Passwort, Verbindungsart
+**„Hikvision“** › Verbindung testen › Übernehmen › einschalten › Speichern. Der Test sagt, was die
+Kamera kann und was ggf. noch umzustellen ist (Ton, Audiokodierung, RTSP).
+
+- **Rekorder (NVR):** dessen Adresse eintragen und unter „Erweitert“ die **Kamera am Rekorder**
+  wählen (D1 = 1, D2 = 2 …) – pro Kamera ein Eintrag mit derselben Adresse. Gegensprechen geht über
+  den Rekorder nicht; dafür die Kamera direkt mit ihrer eigenen Adresse eintragen.
+- **HTTPS:** unter „Erweitert“ einschaltbar; andere Ports ebenfalls dort.
+
+**Was du bekommst:** Live-Video in HD/SD, Mithören, Schwenken/Neigen/Zoom (auch das Motorobjektiv
+fester Kameras) und gespeicherte Positionen bei Kameras, die das können, Standbilder direkt von der
+Kamera, Gegensprechen bei Kameras mit Lautsprecher (G.711).
+
+**Was so nicht geht:** Weißlicht und Sirene/Blinklicht. Das Weißlicht der ColorVu-Kameras leuchtet
+nur bei Dunkelheit und lässt sich nicht gezielt einschalten; die Abschreckung (Sirene, Rot-Blau-Licht)
+ist je Modell anders gelöst. Lichter des Hauses kannst du der Kamera aber auf ihrer Seite in der App
+zuordnen und dort schalten.
 
 ---
 
@@ -355,6 +402,13 @@ Hub sieht:
 - [ ] Gegensprechen, sofern die Kamera einen Lautsprecher hat.
 - [ ] Kameras über „ONVIF + RTSP“ (E1 Pro): Schwenkrichtungen stimmen (links ist links, oben ist oben),
       Bewegung stoppt beim Loslassen, Positionen werden angefahren, Standbild in der Übersicht erscheint.
+
+**Hikvision**
+- [ ] Verbindung testen nennt Modell und Firmware und keine offenen Hinweise (Ton, Audiokodierung).
+- [ ] Live-Bild in HD und SD, mit Ton.
+- [ ] Schwenken/Zoomen: Richtungen stimmen, Bewegung stoppt beim Loslassen; Positionen werden angefahren.
+- [ ] Gegensprechen, sofern die Kamera einen Lautsprecher hat.
+- [ ] Standbild in der Übersicht erscheint.
 
 **Sonos & Spotify**
 - [ ] Alle Lautsprecher erscheinen; Lautstärke und Play/Pause wirken.

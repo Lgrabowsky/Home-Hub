@@ -19,7 +19,7 @@ export const AREAS: Area[] = [
   { key: 'mygekko', title: 'Gebäude (myGEKKO)', purpose: 'Licht, Jalousien, Heizung, Szenen, Fenster- und Türkontakte', icon: Building2, tone: 'warm', service: 'mygekko', testable: true },
   { key: 'knx', title: 'KNX-Bus', purpose: 'Fenster- und Türkontakte direkt vom KNX-Bus mithören', icon: Network, tone: 'warm', service: 'knx', testable: true },
   { key: 'doorbird', title: 'Türstationen (DoorBird)', purpose: 'Klingel, Gegensprechen, Türöffner und Verlauf', icon: DoorClosed, tone: 'ok', service: 'doorbird', testable: true },
-  { key: 'reolink', title: 'Kameras (Reolink)', purpose: 'Live-Bild, Schwenken und Gegensprechen', icon: Cctv, tone: 'cool', service: 'reolink', testable: true },
+  { key: 'reolink', title: 'Kameras', purpose: 'Reolink, Hikvision und ONVIF: Live-Bild, Schwenken, Gegensprechen', icon: Cctv, tone: 'cool', service: 'reolink', testable: true },
   { key: 'sonos', title: 'Lautsprecher (Sonos)', purpose: 'Musik in allen Räumen', icon: Speaker, tone: 'music', service: 'sonos', testable: true },
   { key: 'spotify', title: 'Spotify', purpose: 'Suchen und Stöbern in deiner Musik', icon: Music2, tone: 'music', service: 'spotify', testable: true },
 ];

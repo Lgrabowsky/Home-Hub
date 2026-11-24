@@ -170,6 +170,36 @@ test.describe('windows, doors and cameras', () => {
     await expect(page.getByRole('button', { name: /Sirene/ })).toHaveCount(0);
   });
 
+  test('a Hikvision camera is turned, zoomed and positioned through ISAPI', async ({ page, request }) => {
+    const camera = (await hubState(request)).entities['cam:carport'];
+    expect(camera).toMatchObject({ available: true, model: 'DS-2DE2A404IW-DE3', features: { ptz: true, zoom: true, presets: true, light: false, siren: false } });
+
+    await page.goto('/sicherheit/kamera/carport');
+    const position = page.getByRole('button', { name: 'Briefkasten', exact: true });
+    await expect(position).toBeVisible();
+    await position.click();
+    await expect(page.getByRole('alert')).toBeHidden();
+    const left = page.getByRole('button', { name: /links/i }).first();
+    const box = (await left.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(500);
+    await page.mouse.up();
+    await expect(page.getByRole('alert')).toBeHidden();
+    await expect(page.getByRole('button', { name: /Sirene/ })).toHaveCount(0);
+  });
+
+  test('the camera settings explain Hikvision and show how each camera is connected', async ({ page }) => {
+    await page.goto('/einstellungen/dienste/reolink');
+    await expect(page.getByRole('heading', { name: 'Kameras', exact: true }).first()).toBeVisible();
+    await page.getByText('Hikvision vorbereiten').click();
+    await expect(page.getByText('Video&Audio', { exact: false })).toBeVisible();
+    // Each camera says how it is connected (the demo's settings are fixed, so the sheets stay closed).
+    await expect(page.getByRole('button', { name: /Carport/ })).toContainText('Hikvision');
+    await expect(page.getByRole('button', { name: /Wohnzimmer/ })).toContainText('ONVIF + RTSP');
+    await expect(page.getByRole('button', { name: /Garten/ })).toContainText('Reolink');
+  });
+
   test('talking to a camera opens the microphone channel', async ({ page, request }) => {
     const state = await hubState(request);
     test.skip(state.services.media.status !== 'ok', 'live video needs go2rtc and ffmpeg');

@@ -38,6 +38,7 @@ function DeviceList<D extends BaseDevice>({
   emptyTitle,
   emptyText,
   addLabel,
+  kindOf,
   onAdd,
   onEdit,
 }: {
@@ -49,6 +50,8 @@ function DeviceList<D extends BaseDevice>({
   emptyTitle: string;
   emptyText: string;
   addLabel: string;
+  /** Shown first in the subtitle, e.g. the make of a camera. */
+  kindOf?(device: D): string;
   onAdd(): void;
   onEdit(index: number): void;
 }) {
@@ -77,7 +80,7 @@ function DeviceList<D extends BaseDevice>({
               icon={icon}
               tone={entity?.available ? 'ok' : 'neutral'}
               title={device.name}
-              subtitle={[device.host, device.room].filter(Boolean).join(' · ')}
+              subtitle={[kindOf?.(device), device.host, device.room].filter(Boolean).join(' · ')}
               trailing={
                 !isSaved ? (
                   <Badge tone="accent">Neu</Badge>
@@ -340,7 +343,16 @@ export function DoorBirdForm({ value, saved, onChange, test }: FormProps<'doorbi
   );
 }
 
-// --- Reolink ---------------------------------------------------------------------------------------
+// --- Cameras (Reolink, Hikvision, ONVIF) ------------------------------------------------------------
+
+const CONNECTION_LABEL: Record<ReolinkDeviceSettings['connection'], string> = { api: 'Reolink', hikvision: 'Hikvision', onvif: 'ONVIF + RTSP' };
+
+const CONNECTION_TEXT: Record<ReolinkDeviceSettings['connection'], string> = {
+  api: 'Reolink-Kameras und -Rekorder: alle Funktionen inklusive Licht und Sirene. Braucht HTTP oder HTTPS an der Kamera.',
+  hikvision:
+    'Hikvision-Kameras und -Rekorder über ihre Weboberfläche (ISAPI): Live-Bild, Ton, Schwenken, Zoom, gespeicherte Positionen und Gegensprechen. Licht und Sirene gehen so nicht.',
+  onvif: 'Für Reolink-Kameras ohne HTTP/HTTPS (z. B. E1 Pro) und Kameras anderer Hersteller: Live-Bild, Ton, Schwenken und gespeicherte Positionen über ONVIF (8000) und RTSP (554). Licht und Sirene gehen so nicht.',
+};
 
 export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink'>) {
   const set = (changes: Partial<typeof value>) => onChange({ ...value, ...changes });
@@ -352,18 +364,28 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
     <>
       <Section>
         <RowGroup>
-          <SwitchRow title="Reolink verwenden" subtitle="Live-Bild, Schwenken, Licht und Gegensprechen in der App." checked={value.enabled} onChange={(enabled) => set({ enabled })} tone="cool" />
+          <SwitchRow title="Kameras verwenden" subtitle="Reolink, Hikvision und Kameras mit ONVIF: Live-Bild, Schwenken und Gegensprechen in der App." checked={value.enabled} onChange={(enabled) => set({ enabled })} tone="cool" />
         </RowGroup>
       </Section>
 
       <Section title="Kameras">
         <HowTo
-          title="In der Reolink-App vorbereiten"
+          title="Reolink vorbereiten"
           steps={[
-            <>In den Einstellungen der Kamera unter „Netzwerk › Erweitert › Server-Einstellungen“ die Dienste „HTTPS“ (oder „HTTP“) und „RTSP“ einschalten.</>,
+            <>In der Reolink-App in den Einstellungen der Kamera unter „Netzwerk › Erweitert › Server-Einstellungen“ die Dienste „HTTPS“ (oder „HTTP“) und „RTSP“ einschalten.</>,
             <>Gibt es dort kein HTTP/HTTPS, sondern nur „Basisdienste“, „RTSP“ und „ONVIF“ (z. B. E1 Pro und andere E1-Modelle): „RTSP“ und „ONVIF“ einschalten und bei der Kamera die Verbindungsart „ONVIF + RTSP“ wählen.</>,
             <>Am besten einen eigenen Benutzer für den Hub anlegen. Zum Schwenken und für das Licht braucht er Administratorrechte.</>,
             <>Hängen die Kameras an einem Rekorder (NVR), trägst du dessen Adresse ein und wählst je Kamera den Kanal.</>,
+          ]}
+        />
+        <HowTo
+          title="Hikvision vorbereiten"
+          steps={[
+            <>Die Weboberfläche der Kamera im Browser öffnen (ihre IP-Adresse) und unter „Konfiguration › System › Benutzerverwaltung“ einen eigenen Benutzer für den Hub anlegen, z. B. als „Bediener“ mit den Rechten „Live-Ansicht“, „PTZ-Steuerung“ und „Zweiwege-Audio“.</>,
+            <>Für Ton im Live-Bild unter „Video/Audio › Video“ beim Haupt- und beim Substream den Stream-Typ „Video&Audio“ wählen. Für das Gegensprechen unter „Video/Audio › Audio“ die Audiokodierung „G.711ulaw“ einstellen.</>,
+            <>HTTP (Port 80) und RTSP (Port 554) sind ab Werk an („Netzwerk › Grundeinstellungen › Port“). Gegensprechen braucht HTTP.</>,
+            <>Wichtig: Hikvision sperrt nach einigen falschen Passwörtern die Anmeldung für bis zu 30 Minuten – auch das Live-Bild. Benutzername und Passwort deshalb genau eintragen.</>,
+            <>Hängt die Kamera an einem Hikvision-Rekorder, kannst du auch dessen Adresse eintragen und unter „Erweitert“ die Kamera (D1, D2 …) wählen – Gegensprechen geht dann aber nur direkt mit der Kamera.</>,
           ]}
         />
         <DeviceList
@@ -375,6 +397,7 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
           emptyTitle="Noch keine Kamera"
           emptyText="Füge deine erste Kamera hinzu – du brauchst ihre Adresse im Heimnetz und einen Benutzer der Kamera."
           addLabel="Kamera hinzufügen"
+          kindOf={(device) => CONNECTION_LABEL[device.connection]}
           onAdd={() => {
             setAdvanced(false);
             editing.add();
@@ -411,16 +434,9 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
                 className="w-full"
                 value={draft.connection}
                 onChange={(connection) => setDevice({ connection })}
-                options={[
-                  { value: 'api', label: 'Reolink (HTTP/HTTPS)' },
-                  { value: 'onvif', label: 'ONVIF + RTSP' },
-                ]}
+                options={(['api', 'hikvision', 'onvif'] as const).map((value) => ({ value, label: CONNECTION_LABEL[value] }))}
               />
-              <p className="mt-1.5 text-sm text-faint">
-                {draft.connection === 'api'
-                  ? 'Alle Funktionen inklusive Licht und Sirene. Braucht HTTP oder HTTPS an der Kamera.'
-                  : 'Für Kameras ohne HTTP/HTTPS (z. B. E1 Pro): Live-Bild, Ton, Schwenken und gespeicherte Positionen über die Ports ONVIF (8000) und RTSP (554). Licht und Sirene gehen so nicht.'}
-              </p>
+              <p className="mt-1.5 text-sm text-faint">{CONNECTION_TEXT[draft.connection]}</p>
             </div>
             <button type="button" className="flex items-center gap-1 text-sm font-medium text-accent" aria-expanded={advanced} onClick={() => setAdvanced(!advanced)}>
               Erweitert
@@ -438,26 +454,34 @@ export function ReolinkForm({ value, saved, onChange, test }: FormProps<'reolink
             )}
             {advanced && draft.connection !== 'onvif' && (
               <div className="space-y-4 rounded-control bg-sunken p-3.5">
-                <Field label="Kanal" hint="Nur bei einem Rekorder: die Nummer der Kamera, beginnend bei 0. Einzelne Kameras haben immer 0.">
-                  <NumberInput value={draft.channel} min={0} max={63} onChange={(channel) => setDevice({ channel })} className="max-w-24 bg-surface" />
-                </Field>
-                <div>
-                  <p className="mb-1.5 text-sm font-medium">Videoübertragung</p>
-                  <Segmented
-                    className="w-full"
-                    value={draft.streamProtocol}
-                    onChange={(streamProtocol) => setDevice({ streamProtocol })}
-                    options={[
-                      { value: 'rtsp', label: 'RTSP' },
-                      { value: 'flv', label: 'FLV' },
-                    ]}
-                  />
-                  <p className="mt-1.5 text-sm text-faint">{draft.streamProtocol === 'rtsp' ? 'Standard – ermöglicht Gegensprechen.' : 'Läuft bei manchen Modellen stabiler, aber ohne Gegensprechen.'}</p>
-                </div>
+                {draft.connection === 'hikvision' ? (
+                  <Field label="Kamera am Rekorder" hint="Nur bei einem Rekorder: die Nummer der Kamera (D1 = 1, D2 = 2 …). Einzelne Kameras haben immer 1.">
+                    <NumberInput value={draft.channel + 1} min={1} max={64} fallback={1} onChange={(camera) => setDevice({ channel: camera - 1 })} className="max-w-24 bg-surface" />
+                  </Field>
+                ) : (
+                  <Field label="Kanal" hint="Nur bei einem Rekorder: die Nummer der Kamera, beginnend bei 0. Einzelne Kameras haben immer 0.">
+                    <NumberInput value={draft.channel} min={0} max={63} onChange={(channel) => setDevice({ channel })} className="max-w-24 bg-surface" />
+                  </Field>
+                )}
+                {draft.connection === 'api' && (
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium">Videoübertragung</p>
+                    <Segmented
+                      className="w-full"
+                      value={draft.streamProtocol}
+                      onChange={(streamProtocol) => setDevice({ streamProtocol })}
+                      options={[
+                        { value: 'rtsp', label: 'RTSP' },
+                        { value: 'flv', label: 'FLV' },
+                      ]}
+                    />
+                    <p className="mt-1.5 text-sm text-faint">{draft.streamProtocol === 'rtsp' ? 'Standard – ermöglicht Gegensprechen.' : 'Läuft bei manchen Modellen stabiler, aber ohne Gegensprechen.'}</p>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">Verschlüsselt verbinden (HTTPS)</p>
-                    <p className="text-sm text-faint">Einschalten, wenn an der Kamera nur HTTPS aktiv ist.</p>
+                    <p className="text-sm text-faint">{draft.connection === 'hikvision' ? 'Die Steuerung läuft dann über HTTPS. Gegensprechen braucht trotzdem HTTP (Port 80).' : 'Einschalten, wenn an der Kamera nur HTTPS aktiv ist.'}</p>
                   </div>
                   <Toggle checked={draft.https} label="Verschlüsselt verbinden (HTTPS)" onChange={(https) => setDevice({ https })} />
                 </div>
