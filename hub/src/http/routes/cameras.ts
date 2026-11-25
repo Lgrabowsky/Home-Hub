@@ -10,8 +10,10 @@ export function registerCameraRoutes(app: FastifyInstance, ctx: HubContext): voi
   const control = { config: { permission: 'cameras.control' as const } };
   type Id = { Params: { id: string } };
 
-  app.get<Id>('/api/cameras/:id/snapshot', view, async (request, reply) => {
-    const image = await ctx.integrations.need('reolink').snapshot(request.params.id);
+  app.get<Id & { Querystring: { size?: string } }>('/api/cameras/:id/snapshot', view, async (request, reply) => {
+    // `size=small`: a picture of the sub stream for tiles.
+    const size = request.query.size === 'small' ? 'small' : 'full';
+    const image = await ctx.integrations.need('reolink').snapshot(request.params.id, size);
     return reply.type(sniffImageType(image)).send(image);
   });
 

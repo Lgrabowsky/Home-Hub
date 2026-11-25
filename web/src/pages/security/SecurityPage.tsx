@@ -9,6 +9,7 @@ import { Badge, Card, cx, EmptyState, PageHeader, Row, RowGroup, Section, Segmen
 import { useEntities } from '../../hooks/entities.ts';
 import { formatAgo } from '../../lib/format.ts';
 import { useCan, useIsAdmin } from '../../store/session.ts';
+import { tileSnapshot, TILE_REFRESH_MS } from '../../lib/snapshots.ts';
 
 type Filter = 'all' | 'open' | 'window' | 'door';
 
@@ -175,7 +176,7 @@ function MediaCard({ entity }: { entity: DoorEntity | CameraEntity }) {
       to={isDoor ? `/sicherheit/tuer/${deviceId}` : `/sicherheit/kamera/${deviceId}`}
       className={cx('group relative block aspect-video overflow-hidden rounded-tile bg-surface shadow-tile transition active:scale-[0.99]', !entity.available && 'opacity-60')}
     >
-      <HubImage src={entity.available ? `/api/${isDoor ? 'doors' : 'cameras'}/${deviceId}/snapshot` : null} alt={entity.name} refreshMs={10_000} className="absolute inset-0 size-full" />
+      <HubImage src={entity.available ? tileSnapshot(entity) : null} alt={entity.name} refreshMs={TILE_REFRESH_MS} className="absolute inset-0 size-full" />
       <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent px-3.5 pb-2.5 pt-10 text-white">
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-semibold">{entity.name}</span>

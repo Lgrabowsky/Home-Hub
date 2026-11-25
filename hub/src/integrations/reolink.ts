@@ -5,7 +5,7 @@ import { describeError, DeviceHttp, DeviceHttpError } from '../util/http.ts';
 import { Mutex, Poller } from '../util/poller.ts';
 import { streamName, type StreamSpec } from './media.ts';
 import { HikvisionCamera } from './reolink/hikvision-camera.ts';
-import { OnvifCamera, rtspUrl } from './reolink/onvif-camera.ts';
+import { OnvifCamera, rtspUrl, type SnapshotSize } from './reolink/onvif-camera.ts';
 import type { Integration, IntegrationDeps } from './types.ts';
 
 /**
@@ -256,8 +256,10 @@ class Camera {
   private lastError: string | null = null;
 
   private moving: { op: string; timer: NodeJS.Timeout } | null = null;
-  private snap: { at: number; data: Buffer } | null = null;
-  private snapInFlight: Promise<Buffer> | null = null;
+  private readonly snaps = new Map<SnapshotSize, { at: number; data: Buffer }>();
+  private readonly snapsInFlight = new Map<SnapshotSize, Promise<Buffer>>();
+  /** The camera refused a picture of its sub stream: small pictures are full ones. */
+  private noSmallSnap = false;
   private presetCache: { at: number; list: PtzPreset[] } | null = null;
 
   constructor(
@@ -507,14 +509,17 @@ class Camera {
 
   // --- Operations --------------------------------------------------------------------------------
 
-  snapshot(): Promise<Buffer> {
-    if (this.snap && Date.now() - this.snap.at < this.timing.snapshotCacheMs) return Promise.resolve(this.snap.data);
-    if (this.snapInFlight) return this.snapInFlight;
+  snapshot(size: SnapshotSize = 'full'): Promise<Buffer> {
+    const cached = this.snaps.get(size);
+    if (cached && Date.now() - cached.at < this.timing.snapshotCacheMs) return Promise.resolve(cached.data);
+    const running = this.snapsInFlight.get(size);
+    if (running) return running;
     this.assertReachable();
     const load = async (): Promise<Buffer> => {
       for (let attempt = 0; ; attempt++) {
         const { http, token } = await this.ensureSession();
-        const path = `/cgi-bin/api.cgi?cmd=Snap&channel=${this.device.channel}&rs=${randomBytes(8).toString('hex')}&token=${token}`;
+        const small = size === 'small' && !this.noSmallSnap;
+        const path = `/cgi-bin/api.cgi?cmd=Snap&channel=${this.device.channel}${small ? '&snapType=sub' : ''}&rs=${randomBytes(8).toString('hex')}&token=${token}`;
         const response = await http.request(path, { timeoutMs: Math.max(this.timing.requestTimeoutMs, 10_000), maxBytes: 12 * 1024 * 1024 });
         if (response.status === 200 && isImage(response.body)) return response.body;
         // Errors arrive as JSON (served as text/html), e.g. "please login first".
@@ -531,13 +536,18 @@ class Camera {
           });
           continue;
         }
+        if (small) {
+          // Older firmwares know no sub-stream picture: the full one it is, from now on.
+          this.noSmallSnap = true;
+          continue;
+        }
         throw new ReolinkError('Die Kamera lieferte kein Bild', 'api', rspCode);
       }
     };
-    this.snapInFlight = load()
+    const promise = load()
       .then(
         (data) => {
-          this.snap = { at: Date.now(), data };
+          this.snaps.set(size, { at: Date.now(), data });
           return data;
         },
         (err: unknown) => {
@@ -546,9 +556,10 @@ class Camera {
         },
       )
       .finally(() => {
-        this.snapInFlight = null;
+        this.snapsInFlight.delete(size);
       });
-    return this.snapInFlight;
+    this.snapsInFlight.set(size, promise);
+    return promise;
   }
 
   async ptz(op: PtzOp, speed?: number): Promise<void> {
@@ -802,8 +813,8 @@ export class ReolinkIntegration implements Integration {
   }
 
   /** Current JPEG. Throws `HttpError` when the camera is unknown or unreachable. */
-  async snapshot(cameraId: string): Promise<Buffer> {
-    return this.camera(cameraId).snapshot();
+  async snapshot(cameraId: string, size: SnapshotSize = 'full'): Promise<Buffer> {
+    return this.camera(cameraId).snapshot(size);
   }
 
   /**

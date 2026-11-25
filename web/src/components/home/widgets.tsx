@@ -1,7 +1,7 @@
 import { Bell, Box, CalendarClock, ChevronDown, ChevronRight, ChevronUp, CloudRain, DoorOpen, Lightbulb, Music2, PlayCircle, Power, ShieldCheck, Star, Thermometer, Wind, type LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HOME_FUNCTIONS, roomKey, shownRoom, type ActionEntity, type Entity, type HomeFunction, type HomeWidget, type HomeWidgetSize, type HomeWidgetType } from '@home-hub/shared';
+import { HOME_FUNCTIONS, roomKey, shownRoom, type ActionEntity, type Entity, type HomeFunction, type HomeWidget, type HomeWidgetSize, type HomeWidgetType, type LightEntity } from '@home-hub/shared';
 import { useTimers, describeAt } from '../../pages/home/TimersSection.tsx';
 import { EntityTile } from '../entities/EntityTile.tsx';
 import { HubImage } from '../HubImage.tsx';
@@ -14,7 +14,8 @@ import { formatAgo, formatNumber, formatTemperature } from '../../lib/format.ts'
 import { useHub } from '../../store/hub.ts';
 import { useLabs } from '../../store/labs.ts';
 import { useCan } from '../../store/session.ts';
-import { purposeOf } from '../security/LightWatch.tsx';
+import { LightsOnSheet, purposeOf } from '../security/LightWatch.tsx';
+import { tileSnapshot, TILE_REFRESH_MS } from '../../lib/snapshots.ts';
 
 /**
  * The tiles of the start page. Each person arranges them as they like
@@ -81,7 +82,7 @@ export function SnapshotCard({ entity, large }: { entity: Extract<Entity, { kind
       to={isDoor ? `/sicherheit/tuer/${deviceId}` : `/sicherheit/kamera/${deviceId}`}
       className={cx('relative block h-full w-full overflow-hidden rounded-tile bg-surface shadow-tile transition active:scale-[0.99]', large ? 'min-h-56' : 'aspect-video', !entity.available && 'opacity-60')}
     >
-      <HubImage src={entity.available ? `/api/${isDoor ? 'doors' : 'cameras'}/${deviceId}/snapshot` : null} alt={entity.name} refreshMs={10_000} className="absolute inset-0 size-full" />
+      <HubImage src={entity.available ? tileSnapshot(entity) : null} alt={entity.name} refreshMs={TILE_REFRESH_MS} className="absolute inset-0 size-full" />
       <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-3.5 pb-2.5 pt-8 text-white">
         <span className="flex items-center gap-1.5 truncate text-[15px] font-semibold">
           {isDoor && <Bell className="size-4 shrink-0" aria-hidden />}
@@ -339,6 +340,58 @@ function House3DCard() {
   );
 }
 
+/**
+ * Which lights are on, by room. Tapping shows them, to switch one by one — there is deliberately no
+ * button that switches every light of the house (the "Licht" tile has one).
+ */
+function LightsStatusCard({ wide }: { wide: boolean }) {
+  const entities = useHub((state) => state.entities);
+  const [open, setOpen] = useState(false);
+  const { lights, on, rooms } = useMemo(() => {
+    const lights = Object.values(entities).filter((entity): entity is LightEntity => entity.kind === 'light' && !entity.isGroup);
+    const on = lights
+      .filter((light) => light.on && light.available)
+      .sort((a, b) => (a.room ?? '').localeCompare(b.room ?? '', 'de') || byName(a, b));
+    const counts = new Map<string, number>();
+    for (const light of on) counts.set(light.room ?? 'Ohne Raum', (counts.get(light.room ?? 'Ohne Raum') ?? 0) + 1);
+    return { lights, on, rooms: [...counts.entries()] };
+  }, [entities]);
+  const figure = on.length === 0 ? 'Alle aus' : `${on.length} an`;
+  return (
+    <>
+      <div
+        className="panel relative flex h-full min-h-[9.75rem] flex-col rounded-tile p-3.5 transition-[background] duration-500"
+        style={on.length > 0 ? { background: `radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, ${toneVar.warm} 15%, transparent), transparent 65%), var(--hh-panel), var(--hh-raised)` } : undefined}
+      >
+        <button type="button" onClick={() => setOpen(true)} aria-label={`Lichter-Status: ${figure} – anzeigen`} className="absolute inset-0 rounded-tile transition hover:bg-fg/[0.03] active:bg-fg/[0.06]" />
+        <div className="pointer-events-none relative flex items-start justify-between gap-2">
+          <BulbGlyph entity={{ on: on.length > 0, brightness: null, color: null }} />
+          <span className="pt-1 text-[13px] font-medium text-muted">Lichter-Status</span>
+        </div>
+        <div className="pointer-events-none relative mt-auto min-w-0 pt-3">
+          <p className="text-[26px] font-semibold leading-none tracking-tight tabular-nums">{figure}</p>
+          {on.length === 0 ? (
+            <p className="mt-1 truncate text-[13px] text-muted">{lights.length === 1 ? '1 Licht' : `${lights.length} Lichter`} im Haus</p>
+          ) : wide ? (
+            <p className="mt-1.5 flex flex-wrap gap-1.5">
+              {rooms.slice(0, 6).map(([room, count]) => (
+                <span key={room} className="rounded-full bg-warm/15 px-2 py-0.5 text-xs font-medium text-fg">
+                  {room}
+                  {count > 1 ? ` · ${count}` : ''}
+                </span>
+              ))}
+              {rooms.length > 6 && <span className="px-1 text-xs text-muted">+{rooms.length - 6}</span>}
+            </p>
+          ) : (
+            <p className="mt-1 truncate text-[13px] text-muted">{rooms.map(([room]) => room).join(', ')}</p>
+          )}
+        </div>
+      </div>
+      <LightsOnSheet title="Lichter-Status" open={open} onClose={() => setOpen(false)} lights={on} allOff={false} />
+    </>
+  );
+}
+
 function EmptyTile({ text }: { text: string }) {
   return <div className="flex h-full min-h-20 items-center justify-center rounded-tile border border-dashed border-line px-4 text-center text-sm text-muted">{text}</div>;
 }
@@ -378,6 +431,8 @@ export function WidgetView({ widget, onDetails }: { widget: HomeWidget; onDetail
       return <TimersCard />;
     case 'house3d':
       return house3d ? <House3DCard /> : <EmptyTile text="3D-Haus ist unter Labs ausgeschaltet." />;
+    case 'lights':
+      return <LightsStatusCard wide={widget.size !== 'small'} />;
   }
 }
 
@@ -424,7 +479,7 @@ export const FUNCTION_LABELS: Record<HomeFunction, string> = {
   musik: 'Musik',
 };
 
-const OVERVIEW_NAMES: Partial<Record<HomeWidgetType, string>> = { ...SECTION_TITLES, weather: 'Wetter', timers: 'Zeitschaltuhren', house3d: '3D-Haus' };
+const OVERVIEW_NAMES: Partial<Record<HomeWidgetType, string>> = { ...SECTION_TITLES, weather: 'Wetter', timers: 'Zeitschaltuhren', house3d: '3D-Haus', lights: 'Lichter-Status' };
 
 /** What a tile shows, in words (for the edit controls and screen readers). */
 export function widgetName(widget: HomeWidget, entities: Record<string, Entity>): string {

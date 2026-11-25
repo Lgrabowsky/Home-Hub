@@ -16,6 +16,8 @@ import { expectedOrigins, isAllowedAppOrigin } from '../server.ts';
  *                  relayed to the private go2rtc instance
  */
 
+/** Video waiting for a slow viewer, at most (≈ 15 s of HD, a minute of SD). */
+const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 const CLOSE_UNAUTHORIZED = 4401;
 const CLOSE_FORBIDDEN = 4403;
 const CLOSE_UNAVAILABLE = 4503;
@@ -223,7 +225,10 @@ export function registerRealtimeRoutes(app: FastifyInstance, ctx: HubContext): v
     });
     upstream.on('message', (data, isBinary) => {
       if (socket.readyState !== socket.OPEN) return;
-      if (socket.bufferedAmount > 32 * 1024 * 1024) return cleanup(); // the viewer cannot keep up
+      // The viewer cannot keep up (slow connection): rather than piling up many seconds of video —
+      // a picture that lags further and further behind — end the stream; the player reconnects at the
+      // live edge and goes to SD if this repeats.
+      if (socket.bufferedAmount > MAX_BUFFERED_BYTES) return cleanup();
       if (isBinary) return socket.send(data, { binary: true });
       const { text, type, error } = sanitizeUpstreamText(data.toString());
       if (error) ctx.log.debug({ stream: name, error }, 'media upstream reported an error');

@@ -8,7 +8,7 @@ import { describeError } from '../util/http.ts';
 import { DOORBIRD_DEMO_STATIONS, startDoorBirdSim, type DoorBirdSim } from './doorbird-sim.ts';
 import { startKnxSim } from './knx-sim.ts';
 import { startMyGekkoSim, type MyGekkoSim } from './mygekko-sim.ts';
-import { startGoveeSim } from './govee-sim.ts';
+import { GOVEE_DEMO_KEY, startGoveeSim } from './govee-sim.ts';
 import { HIKVISION_DEMO_CAMERAS, startHikvisionSim } from './hikvision-sim.ts';
 import { REOLINK_DEMO_CAMERAS, startReolinkSim } from './reolink-sim.ts';
 import { startSonosSim } from './sonos-sim.ts';
@@ -230,7 +230,7 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
   // --- Govee -------------------------------------------------------------------------------------
 
   // Two LED strips with LAN control (each on its own loopback address) and a lamp only the cloud reaches.
-  const goveeSim = await startGoveeSim();
+  const goveeSim = await startGoveeSim({ apiKey: GOVEE_DEMO_KEY });
   closers.push(() => goveeSim.close());
   integrations.goveeOptions = {
     cloudBase: goveeSim.cloudBase,

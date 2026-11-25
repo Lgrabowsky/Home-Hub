@@ -5,6 +5,30 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.11.0
+
+- **Licht-Überwachung:** Die Liste der eingeschalteten Lichter ist nach Räumen gegliedert, und die
+  Zeile unter „Sicherheit“ nennt den Raum gleich mit („Decke (Küche)“).
+- **Stabileres Live-Bild (alle Kameras):** Bleibt das Bild stehen, verbindet die App nach wenigen
+  Sekunden von selbst neu (das Standbild überbrückt). Sie hält sich ruhig an der Live-Kante, statt beim
+  Aufholen in Zeitlupe zu fallen; hängt HD wiederholt, wechselt sie auf SD (erneut „HD“ tippen versucht es
+  wieder). Der Hub staut für langsame Verbindungen nicht mehr bis zu 32 MB Video auf.
+- **Hikvision:** Der Verbindungstest nennt Einstellungen, die das Live-Bild hängen lassen
+  (Smart Codec H.264+/H.265+, zu langes I-Frame-Intervall, niedrige Bildrate im Substream).
+- **Zoom im Kamerabild:** mit zwei Fingern, Doppeltipp/Doppelklick oder Mausrad; im vergrößerten Bild
+  verschieben. Gilt auch für Türstationen.
+- **Keine Bildreste in den Balken:** Über und unter dem Kamerabild ist es jetzt schwarz.
+- **Kamera-Kacheln** auf Übersicht und Sicherheit erneuern sich alle 3 Sekunden – mit einem kleinen Bild
+  aus dem Substream statt des vollen 4K-Bilds.
+- **Nachrichtenzentrale:** ein kleines Glocken-Symbol oben rechts (kein eigener Tab) zeigt alle
+  Auffälligkeiten. Meldungen auf der Übersicht lassen sich mit „×“ ausblenden; sie erscheinen wieder,
+  wenn sich das Problem ändert oder neu auftritt.
+- **Neue Kachel „Lichter-Status“:** zeigt, welche Lichter in welchen Räumen an sind – ohne Knopf, der
+  alle Lichter auf einmal schaltet.
+- **„Kachel hinzufügen“ neu:** nach Arten geordnet, jede Kachel mit Vorschau und einem Satz, was sie
+  zeigt und kann; was schon auf der Startseite ist, ist markiert.
+- Braucht einen Hub ab Version 0.11.0.
+
 ## 0.10.0
 
 - **Govee-Lichter (LED-Streifen und Lampen):** neuer Bereich **Einstellungen › Lichtstreifen (Govee)**.

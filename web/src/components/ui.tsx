@@ -1,18 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { ChevronLeft, Loader2, X, type LucideIcon } from 'lucide-react';
-import {
-  cloneElement,
-  isValidElement,
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type ButtonHTMLAttributes,
-  type ComponentProps,
-  type ReactNode,
-  type SelectHTMLAttributes,
-} from 'react';
+import { type ButtonHTMLAttributes, cloneElement, type ComponentProps, createContext, isValidElement, type ReactNode, type SelectHTMLAttributes, useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { haptic } from '../lib/platform.ts';
@@ -166,8 +154,12 @@ export function TileGrid({ children, className, dense }: { children: ReactNode; 
   );
 }
 
+/** Something every page header shows at its end (the app shell puts the notification bell there). */
+export const HeaderAccessory = createContext<ReactNode>(null);
+
 export function PageHeader({ title, subtitle, back, actions }: { title: ReactNode; subtitle?: ReactNode; back?: boolean | string; actions?: ReactNode }) {
   const navigate = useNavigate();
+  const accessory = useContext(HeaderAccessory);
   return (
     <header className="mb-5 flex items-start gap-2 pt-1">
       {back && (
@@ -182,7 +174,12 @@ export function PageHeader({ title, subtitle, back, actions }: { title: ReactNod
         <h1 className="truncate text-[26px] font-bold leading-tight tracking-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 line-clamp-2 text-muted">{subtitle}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-1">{actions}</div>}
+      {(actions || accessory) && (
+        <div className="-mr-2 flex shrink-0 items-center gap-1">
+          {actions}
+          {accessory}
+        </div>
+      )}
     </header>
   );
 }

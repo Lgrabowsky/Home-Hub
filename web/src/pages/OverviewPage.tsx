@@ -1,15 +1,16 @@
 import { closestCenter, DndContext, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type Announcements, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, rectSortingStrategy, SortableContext, sortableKeyboardCoordinates, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, Bell, Check, LayoutGrid, Maximize2, Pencil, Plus, RotateCcw, Settings2, ShieldAlert, Sparkles, Thermometer, X, type LucideIcon } from 'lucide-react';
+import { Bell, Check, LayoutGrid, Maximize2, Pencil, Plus, RotateCcw, Settings2, ShieldAlert, Sparkles, Thermometer, X, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { HOME_FUNCTIONS, roomKey, SERVICE_LABELS, shownRoom, type Entity, type HomeWidget, type HouseLayout } from '@home-hub/shared';
+import { useNavigate } from 'react-router-dom';
+import { roomKey, shownRoom, type Entity, type HomeWidget, type HouseLayout } from '@home-hub/shared';
 import { EntitySheet } from '../components/entities/sheets.tsx';
-import { entityIcon } from '../components/entities/icons.ts';
-import { FULL_WIDTH, FUNCTION_LABELS, SECTION_TITLES, SIZE_LABELS, sizesFor, spanClass, useDefaultHome, WidgetView, widgetKey, widgetName } from '../components/home/widgets.tsx';
+import { FULL_WIDTH, SECTION_TITLES, SIZE_LABELS, sizesFor, spanClass, useDefaultHome, WidgetView, widgetName } from '../components/home/widgets.tsx';
+import { WidgetCatalog } from '../components/home/WidgetCatalog.tsx';
+import { NoticeBanners, NoticeBell } from '../components/NoticeCenter.tsx';
 import { toast } from '../components/toast.tsx';
-import { Button, ConfirmDialog, cx, EmptyState, IconButton, Notice, Row, RowGroup, Sheet, TextInput, toneSoft, type Tone } from '../components/ui.tsx';
+import { Button, ConfirmDialog, cx, EmptyState, IconButton, toneSoft, type Tone } from '../components/ui.tsx';
 import { useRooms } from '../hooks/entities.ts';
 import { formatAgo, formatTemperature, greeting } from '../lib/format.ts';
 import { useHub } from '../store/hub.ts';
@@ -145,7 +146,6 @@ export function OverviewPage() {
     return { all, alarmTriggered, lastRing, outside };
   }, [entities]);
 
-  const problems = Object.values(services).filter((service) => service && (service.status === 'offline' || service.status === 'degraded'));
   const nothingConfigured = data.all.length === 0 && music.players.length === 0 && Object.values(services).every((service) => !service || service.status === 'unconfigured');
   const recentRing = data.lastRing && now - data.lastRing.at < 30 * 60_000 ? data.lastRing : null;
   const outsideTemperature = data.outside?.kind === 'sensor' && typeof data.outside.value === 'number' ? data.outside.value : null;
@@ -197,7 +197,10 @@ export function OverviewPage() {
           )}
         </p>
       </div>
-      {!nothingConfigured && !editing && <IconButton icon={Pencil} label="Startseite bearbeiten" onClick={startEditing} className="-mr-2 mt-0.5" />}
+      <div className="-mr-2 mt-0.5 flex shrink-0 items-center gap-1">
+        {!nothingConfigured && !editing && <IconButton icon={Pencil} label="Startseite bearbeiten" onClick={startEditing} />}
+        <NoticeBell />
+      </div>
     </header>
   );
 
@@ -274,23 +277,7 @@ export function OverviewPage() {
         </div>
       )}
 
-      {!editing && problems.length > 0 && (
-        <div className="mb-6 space-y-2">
-          {problems.map(
-            (service) =>
-              service && (
-                <Notice key={service.id} tone={service.status === 'offline' ? 'danger' : 'warn'} icon={AlertTriangle}>
-                  <span className="font-medium">{SERVICE_LABELS[service.id]}:</span> {service.message ?? 'gerade nicht erreichbar.'}
-                  {isAdmin && (
-                    <Link to="/einstellungen/diagnose" className="ml-1.5 underline underline-offset-2">
-                      Diagnose
-                    </Link>
-                  )}
-                </Notice>
-              ),
-          )}
-        </div>
-      )}
+      {!editing && <NoticeBanners className="mb-6" />}
 
       {widgets.length === 0 && !editing && (
         <EmptyState icon={LayoutGrid} title="Deine Startseite ist leer" text="Füge Kacheln hinzu: Bereiche, Räume, Geräte, Kameras, Szenen …" action={<Button icon={Pencil} onClick={startEditing}>Bearbeiten</Button>} />
@@ -336,105 +323,5 @@ export function OverviewPage() {
         }}
       />
     </>
-  );
-}
-
-/** "+ Kachel": everything that can go on the start page. */
-function WidgetCatalog({ open, onClose, current, onAdd }: { open: boolean; onClose(): void; current: HomeWidget[]; onAdd(widget: HomeWidget): void }) {
-  const entities = useHub((state) => state.entities);
-  const music = useHub((state) => state.music);
-  const labs = useLabs((state) => state.house3d);
-  const canSecurity = useCan('security.view');
-  const rooms = useRooms();
-  const [query, setQuery] = useState('');
-  const all = Object.values(entities);
-  const has = (type: HomeWidget['type']) => current.some((widget) => widget.type === type);
-  const hasFunction = (fn: string) => current.some((widget) => widget.type === 'function' && widget.function === fn);
-  const kinds = new Set(all.map((entity) => entity.kind));
-  const functionAvailable: Record<string, boolean> = {
-    licht: kinds.has('light'),
-    jalousien: kinds.has('blind'),
-    klima: kinds.has('climate'),
-    sicherheit: canSecurity && (kinds.has('contact') || kinds.has('alarm')),
-    zutritt: kinds.has('access'),
-    geraete: kinds.has('switch'),
-    musik: music.players.length > 0,
-  };
-  const overviews: { type: HomeWidget['type']; label: string; size: HomeWidget['size']; show: boolean }[] = [
-    { type: 'scenes', label: 'Szenen', size: 'wide', show: kinds.has('action') },
-    { type: 'favorites', label: 'Favoriten', size: 'wide', show: true },
-    { type: 'rooms', label: 'Alle Räume', size: 'wide', show: true },
-    { type: 'weather', label: 'Wetter', size: 'small', show: Boolean(entities['gekko:meteo/temperature']) },
-    { type: 'timers', label: 'Nächste Zeitschaltuhren', size: 'wide', show: true },
-    { type: 'house3d', label: '3D-Haus', size: 'small', show: labs },
-  ];
-  const media = all.filter((entity) => entity.kind === 'camera' || entity.kind === 'door');
-  const q = query.trim().toLowerCase();
-  const devices = all
-    .filter((entity) => entity.kind !== 'camera' && entity.kind !== 'door' && (q === '' || `${entity.name} ${entity.room ?? ''}`.toLowerCase().includes(q)))
-    .sort((a, b) => `${a.room ?? ''} ${a.name}`.localeCompare(`${b.room ?? ''} ${b.name}`, 'de'))
-    .slice(0, q === '' ? 40 : 100);
-  const plus = <Plus className="size-4.5 text-faint" aria-hidden />;
-
-  return (
-    <Sheet open={open} onClose={onClose} title="Kachel hinzufügen">
-      <div className="flex flex-col gap-5">
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Bereiche</p>
-          <RowGroup>
-            {HOME_FUNCTIONS.filter((fn) => functionAvailable[fn] && !hasFunction(fn)).map((fn) => (
-              <Row key={fn} title={FUNCTION_LABELS[fn]} trailing={plus} onClick={() => onAdd({ key: widgetKey('fn'), size: 'small', type: 'function', function: fn })} />
-            ))}
-            {HOME_FUNCTIONS.every((fn) => !functionAvailable[fn] || hasFunction(fn)) && <p className="px-4 py-3 text-sm text-muted">Alle Bereiche sind schon auf der Startseite.</p>}
-          </RowGroup>
-        </div>
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Übersichten</p>
-          <RowGroup>
-            {overviews
-              .filter((entry) => entry.show && !has(entry.type))
-              .map((entry) => (
-                <Row key={entry.type} title={entry.label} trailing={plus} onClick={() => onAdd({ key: widgetKey(entry.type), size: entry.size, type: entry.type } as HomeWidget)} />
-              ))}
-          </RowGroup>
-        </div>
-        {rooms.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Räume</p>
-            <RowGroup>
-              {rooms.map((room) => (
-                <Row key={room.id} title={room.name} trailing={plus} onClick={() => onAdd({ key: widgetKey('room'), size: 'small', type: 'room', room: room.name })} />
-              ))}
-            </RowGroup>
-          </div>
-        )}
-        {media.length > 0 && (
-          <div>
-            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Kameras & Türstationen</p>
-            <RowGroup>
-              {media.map((entity) => (
-                <Row key={entity.id} icon={entityIcon(entity)} title={entity.name} trailing={plus} onClick={() => onAdd({ key: widgetKey('cam'), size: 'wide', type: 'camera', entityId: entity.id })} />
-              ))}
-            </RowGroup>
-          </div>
-        )}
-        <div>
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-faint">Einzelne Geräte</p>
-          <TextInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Gerät oder Raum suchen" aria-label="Gerät oder Raum suchen" className="mb-2" />
-          <RowGroup>
-            {devices.map((entity) => (
-              <Row
-                key={entity.id}
-                icon={entityIcon(entity)}
-                title={entity.name}
-                subtitle={entity.room ?? undefined}
-                trailing={plus}
-                onClick={() => onAdd({ key: widgetKey('dev'), size: 'small', type: 'entity', entityId: entity.id })}
-              />
-            ))}
-          </RowGroup>
-        </div>
-      </div>
-    </Sheet>
   );
 }

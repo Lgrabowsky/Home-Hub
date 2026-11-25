@@ -1,9 +1,10 @@
-import { RefreshCw, VideoOff } from 'lucide-react';
+import { RefreshCw, VideoOff, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { StreamQuality } from '@home-hub/shared';
 import { LiveStream, type LiveStatus } from '../lib/live.ts';
 import { HubImage } from './HubImage.tsx';
 import { Button, cx, Spinner } from './ui.tsx';
+import { NO_ZOOM, useZoom, ZoomPan, zoomLabel } from './ZoomPan.tsx';
 
 interface LiveViewProps {
   /** `cam:<id>` or `door:<id>`. */
@@ -20,16 +21,18 @@ interface LiveViewProps {
   onStatus?(status: LiveStatus): void;
   /** Controls drawn on top of the picture. */
   children?: ReactNode;
+  /** Digital zoom into the picture (fingers, double tap, mouse wheel). */
+  zoomable?: boolean;
 }
 
-const IDLE: LiveStatus = { phase: 'idle', mode: null, message: null, quality: 'main', hasAudio: false };
+const IDLE: LiveStatus = { phase: 'idle', mode: null, message: null, quality: 'main', hasAudio: false, downgraded: null };
 
 /**
  * Live picture of a camera or door station. Shows the latest snapshot at once,
  * replaces it with moving video as soon as the stream is up, and recovers on
  * its own when the connection drops.
  */
-export function LiveView({ entityId, quality = 'main', poster, muted = true, fit = 'contain', className, alt, onStatus, children }: LiveViewProps) {
+export function LiveView({ entityId, quality = 'main', poster, muted = true, fit = 'contain', className, alt, onStatus, children, zoomable = false }: LiveViewProps) {
   const video = useRef<HTMLVideoElement>(null);
   const stream = useRef<LiveStream | null>(null);
   const notify = useRef(onStatus);
@@ -70,26 +73,41 @@ export function LiveView({ entityId, quality = 'main', poster, muted = true, fit
   }, [status.phase]);
 
   const playing = status.phase === 'playing';
+  const [zoom, setZoom] = useZoom(`${entityId}|${quality}`);
   return (
     <div className={cx('relative overflow-hidden bg-black', className)}>
-      {poster !== undefined && (
-        <HubImage
-          src={poster}
-          alt={alt}
-          refreshMs={playing ? undefined : 5000}
-          className={cx('absolute inset-0 size-full', fit === 'cover' ? 'object-cover' : 'object-contain')}
-          fallback={<VideoOff className="size-8" aria-hidden />}
+      <ZoomPan view={zoom} onView={setZoom} enabled={zoomable}>
+        {/* The still picture only stands in while there is no video: behind a playing video it would show in the bars. */}
+        {poster !== undefined && !playing && (
+          <HubImage
+            src={poster}
+            alt={alt}
+            refreshMs={5000}
+            className={cx('absolute inset-0 size-full', fit === 'cover' ? 'object-cover' : 'object-contain')}
+            fallback={<VideoOff className="size-8" aria-hidden />}
+          />
+        )}
+        <video
+          ref={video}
+          autoPlay
+          playsInline
+          muted
+          disablePictureInPicture
+          aria-label={alt}
+          className={cx('absolute inset-0 size-full transition-opacity duration-300', fit === 'cover' ? 'object-cover' : 'object-contain', playing ? 'opacity-100' : 'opacity-0')}
         />
+      </ZoomPan>
+      {zoomable && zoom.scale > 1 && (
+        <button
+          type="button"
+          onClick={() => setZoom(NO_ZOOM)}
+          className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur transition active:scale-95"
+          aria-label={`Zoom ${zoomLabel(zoom.scale)} zurücksetzen`}
+        >
+          <ZoomOut className="size-3.5" aria-hidden />
+          {zoomLabel(zoom.scale)}
+        </button>
       )}
-      <video
-        ref={video}
-        autoPlay
-        playsInline
-        muted
-        disablePictureInPicture
-        aria-label={alt}
-        className={cx('absolute inset-0 size-full transition-opacity duration-300', fit === 'cover' ? 'object-cover' : 'object-contain', playing ? 'opacity-100' : 'opacity-0')}
-      />
 
       {status.phase === 'connecting' && slow && (
         <div className="absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white backdrop-blur" role="status">

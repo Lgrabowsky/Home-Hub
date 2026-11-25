@@ -21,6 +21,9 @@ import { describeRtsp, RtspError, type RtspDescription } from './rtsp.ts';
  * - still pictures come from the live stream (go2rtc, or ffmpeg directly).
  */
 
+/** `full`: the camera's full picture. `small`: a picture of the sub stream, for tiles (a fraction of the data). */
+export type SnapshotSize = 'full' | 'small';
+
 export interface OnvifCameraTiming {
   activeMs: number;
   idleMs: number;
@@ -343,7 +346,8 @@ export class OnvifCamera {
 
   // --- Operations --------------------------------------------------------------------------------------
 
-  snapshot(): Promise<Buffer> {
+  /** Pictures come from the sub stream in any case: `size` changes nothing here. */
+  snapshot(_size: SnapshotSize = 'full'): Promise<Buffer> {
     if (this.snap && Date.now() - this.snap.at < this.timing.snapshotCacheMs) return Promise.resolve(this.snap.data);
     if (this.snapInFlight) return this.snapInFlight;
     if (!this.reachable) throw unavailable(`Die Kamera „${this.device.name}“ ist gerade nicht erreichbar.`);

@@ -66,6 +66,9 @@ export interface GoveeSim {
   close(): Promise<void>;
 }
 
+/** The demo's API key (a simulator: nothing secret about it). */
+export const GOVEE_DEMO_KEY = '00000000-demo-4000-8000-000000000000';
+
 /** The demo household's lights. */
 export const GOVEE_DEMO_LIGHTS: GoveeSimLight[] = [
   { device: 'AA:BB:CC:DD:EE:01:02:03', sku: 'H619A', name: 'Wohnzimmer LED-Streifen', lan: true },

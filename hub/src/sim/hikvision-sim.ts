@@ -26,6 +26,10 @@ export interface HikvisionSimOptions {
   talkCodec?: string;
   /** Sound in the video streams ("Video&Audio"). */
   streamAudio?: boolean;
+  /** H.264+/H.265+ switched on. */
+  smartCodec?: boolean;
+  /** I-frame interval of both streams (frames; default 25 at 25 fps). */
+  gop?: number;
   /** Behave like a recorder: `channels[n]` is camera D<n+1>, all with the profile's abilities. */
   nvr?: { channels: { name: string; online: boolean }[] };
   /** Lock logins after this many wrong passwords in a row (null = never). */
@@ -209,7 +213,7 @@ export async function startHikvisionSim(options: HikvisionSimOptions = {}): Prom
     const codec = quality === 'main' ? profile.mainCodec : 'H.264';
     return xml(
       `<StreamingChannel version="2.0" xmlns="${NS}"><id>${id}</id><channelName>${name}</channelName><enabled>true</enabled>` +
-        `<Video><enabled>true</enabled><videoInputChannelID>1</videoInputChannelID><videoCodecType>${codec}</videoCodecType><videoResolutionWidth>${width}</videoResolutionWidth><videoResolutionHeight>${height}</videoResolutionHeight><maxFrameRate>2500</maxFrameRate></Video>` +
+        `<Video><enabled>true</enabled><videoInputChannelID>1</videoInputChannelID><videoCodecType>${codec}</videoCodecType><videoResolutionWidth>${width}</videoResolutionWidth><videoResolutionHeight>${height}</videoResolutionHeight><maxFrameRate>2500</maxFrameRate><GovLength>${options.gop ?? 25}</GovLength><SmartCodec><enabled>${options.smartCodec ?? false}</enabled></SmartCodec></Video>` +
         `<Audio><enabled>${streamAudio}</enabled><audioInputChannelID>1</audioInputChannelID><audioCompressionType>G.711ulaw</audioCompressionType></Audio></StreamingChannel>`,
     );
   }

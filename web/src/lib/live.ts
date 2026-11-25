@@ -26,11 +26,18 @@ export interface LiveStatus {
   quality: StreamQuality;
   /** The stream carries sound. */
   hasAudio: boolean;
+  /** Why the player went from HD to SD by itself: a format the device cannot play, or a connection too weak for HD. */
+  downgraded: 'format' | 'network' | null;
 }
 
 const MSE_CODECS = ['avc1.640029', 'avc1.64002A', 'avc1.640033', 'hvc1.1.6.L153.B0', 'mp4a.40.2', 'mp4a.40.5', 'flac', 'opus'];
 const START_TIMEOUT_MS = 15_000;
 const RETRY_MS = [1000, 2000, 4000, 8000, 15_000];
+/** No new picture for this long while playing: the stream is reconnected (quietly, the still picture stands in). */
+const STALL_MS = 6000;
+/** HD that hangs this often within the window goes to SD. */
+const STALLS_FOR_SD = 2;
+const STALL_WINDOW_MS = 120_000;
 
 type MediaSourceCtor = typeof MediaSource;
 
@@ -89,13 +96,16 @@ export class LiveStream {
   private rtcFailed = false;
   private usingRtc = false;
   private objectUrl: string | null = null;
+  private watchTimer: ReturnType<typeof setInterval> | null = null;
+  private stalls: number[] = [];
+  private downgraded: LiveStatus['downgraded'] = null;
 
   constructor(
     private readonly video: HTMLVideoElement,
     private readonly options: LiveOptions,
   ) {
     this.quality = options.quality;
-    this.status = { phase: 'idle', mode: null, message: null, quality: this.quality, hasAudio: false };
+    this.status = { phase: 'idle', mode: null, message: null, quality: this.quality, hasAudio: false, downgraded: null };
   }
 
   start(): void {
@@ -103,6 +113,8 @@ export class LiveStream {
     this.stopped = false;
     this.attempt = 0;
     this.quality = this.options.quality;
+    this.stalls = [];
+    this.downgraded = null;
     document.addEventListener('visibilitychange', this.onVisibility);
     void this.connect();
   }
@@ -128,7 +140,7 @@ export class LiveStream {
   };
 
   private update(partial: Partial<LiveStatus>): void {
-    this.status = { ...this.status, ...partial, quality: this.quality };
+    this.status = { ...this.status, ...partial, quality: this.quality, downgraded: this.downgraded };
     this.options.onStatus(this.status);
   }
 
@@ -136,8 +148,10 @@ export class LiveStream {
     this.generation++;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.startTimer) clearTimeout(this.startTimer);
+    if (this.watchTimer) clearInterval(this.watchTimer);
     this.retryTimer = null;
     this.startTimer = null;
+    this.watchTimer = null;
     const socket = this.socket;
     this.socket = null;
     if (socket) {
@@ -288,6 +302,7 @@ export class LiveStream {
     if (this.quality === 'main') {
       // Typically an H.265 main stream the browser cannot decode: the sub stream is always H.264.
       this.quality = 'sub';
+      this.downgraded = 'format';
       this.teardown();
       void this.connect();
     } else {
@@ -300,6 +315,67 @@ export class LiveStream {
     this.startTimer = null;
     this.attempt = 0;
     this.update({ phase: 'playing', mode, message: null, hasAudio });
+    this.watch(mode, this.generation);
+  }
+
+  /**
+   * Watches that pictures keep coming. A stream can stay "connected" while nothing arrives any more
+   * (camera hiccup, Wi-Fi roaming, a proxy that buffers): then the last frame would freeze forever.
+   */
+  private watch(mode: 'webrtc' | 'mse', generation: number): void {
+    if (this.watchTimer) clearInterval(this.watchTimer);
+    let lastProgress = Date.now();
+    let lastTime = this.video.currentTime;
+    let lastFrames = -1;
+    let checking = false;
+    this.watchTimer = setInterval(() => {
+      if (generation !== this.generation || this.stopped) return;
+      // A hidden page is torn down anyway; a paused element (e.g. by the system) is not a stall.
+      if (document.visibilityState !== 'visible' || this.video.paused) {
+        lastProgress = Date.now();
+        return;
+      }
+      if (mode === 'mse') {
+        if (Math.abs(this.video.currentTime - lastTime) > 0.01) {
+          lastTime = this.video.currentTime;
+          lastProgress = Date.now();
+        }
+      } else if (this.pc && !checking) {
+        checking = true;
+        void this.pc
+          .getStats()
+          .then((stats) => {
+            stats.forEach((report: { type?: string; kind?: string; framesDecoded?: number }) => {
+              if (report.type === 'inbound-rtp' && report.kind === 'video' && typeof report.framesDecoded === 'number') {
+                if (report.framesDecoded !== lastFrames) {
+                  lastFrames = report.framesDecoded;
+                  lastProgress = Date.now();
+                }
+              }
+            });
+          })
+          .catch(() => {})
+          .finally(() => {
+            checking = false;
+          });
+      }
+      if (Date.now() - lastProgress > STALL_MS) this.stalled();
+    }, 1000);
+  }
+
+  private stalled(): void {
+    const now = Date.now();
+    this.stalls = [...this.stalls.filter((at) => now - at < STALL_WINDOW_MS), now];
+    if (this.quality === 'main' && this.stalls.length >= STALLS_FOR_SD) {
+      // HD keeps hanging: the connection does not carry it. SD is a fraction of the data.
+      this.quality = 'sub';
+      this.downgraded = 'network';
+      this.stalls = [];
+    }
+    // Quietly: the still picture stands in while the stream comes back.
+    this.teardown();
+    this.update({ phase: 'connecting', mode: null, message: null });
+    void this.connect();
   }
 
   private play(): void {
@@ -339,6 +415,31 @@ export class LiveStream {
       this.video.src = this.objectUrl;
     }
     this.play();
+
+    // Ran out of picture although more is buffered (a gap in the data): jump over it.
+    const onWaiting = () => {
+      if (generation !== this.generation || this.usingRtc) return;
+      const ranges = this.video.buffered;
+      if (!ranges.length) return;
+      const end = ranges.end(ranges.length - 1);
+      if (end - this.video.currentTime > 0.5) this.video.currentTime = end - 0.3;
+    };
+    // The decoder gave up (broken data): start over instead of showing a frozen picture.
+    const onError = () => {
+      if (generation === this.generation && !this.usingRtc && this.status.phase === 'playing') this.stalled();
+    };
+    this.video.addEventListener('waiting', onWaiting);
+    this.video.addEventListener('error', onError);
+    const forget = () => {
+      this.video.removeEventListener('waiting', onWaiting);
+      this.video.removeEventListener('error', onError);
+    };
+    const watcher = setInterval(() => {
+      if (generation !== this.generation) {
+        forget();
+        clearInterval(watcher);
+      }
+    }, 2000);
 
     let buffer: SourceBuffer | null = null;
     const pending = new Uint8Array(2 * 1024 * 1024);
@@ -380,8 +481,12 @@ export class LiveStream {
           }
         }
         if (this.video.currentTime < start) this.video.currentTime = start;
+        // Stay close to live without stuttering: a small reserve (~0.3–0.8 s) is played at normal
+        // speed, a growing lag is caught up gently, a large one skipped. (Crawling at a tenth of the
+        // speed whenever the reserve runs low looks like a hanging picture.)
         const gap = end - this.video.currentTime;
-        this.video.playbackRate = gap > 0.1 ? Math.min(gap, 4) : 0.1;
+        if (gap > 4) this.video.currentTime = end - 0.5;
+        this.video.playbackRate = gap > 1.5 ? 1.5 : gap > 0.8 ? 1.1 : gap < 0.3 ? 0.95 : 1;
         if (!announced && this.video.readyState >= 2) {
           announced = true;
           this.markPlaying('mse', /mp4a|flac|opus/.test(codecs));

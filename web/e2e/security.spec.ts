@@ -107,9 +107,12 @@ test.describe('windows, doors and cameras', () => {
 
     const row = page.getByRole('button', { name: /^Status Beleuchtung/ });
     await expect(row).toContainText('an:');
+    // The room at first glance.
+    await expect(row).toContainText(/[\wäöüß ]+ \([\wäöüß ]+\)/);
     await row.click();
     const sheet = page.getByRole('dialog', { name: 'Status Beleuchtung' });
     await expect(sheet.getByText('Stehlampe')).toBeVisible();
+    await expect(sheet.getByText('Wohnzimmer', { exact: true })).toBeVisible();
     // Only lights that are on: switched off, it is gone.
     await sheet.getByRole('switch', { name: 'Flur ausschalten' }).click();
     await expect(sheet.getByRole('switch', { name: /^Flur / })).toHaveCount(0);
@@ -169,6 +172,23 @@ test.describe('windows, doors and cameras', () => {
     await expect(page.getByRole('alert')).toBeHidden();
     // Neither spotlight nor siren are offered: ONVIF cannot switch them.
     await expect(page.getByRole('button', { name: /Sirene/ })).toHaveCount(0);
+  });
+
+  test('the camera picture can be zoomed into and back', async ({ page }) => {
+    await page.goto('/sicherheit/kamera/carport');
+    const picture = page.getByLabel('Live-Bild Carport').first();
+    await expect(picture).toBeVisible();
+    await picture.dblclick({ force: true });
+    const reset = page.getByRole('button', { name: /^Zoom 2,5× zurücksetzen$/ });
+    await expect(reset).toBeVisible();
+    await reset.click();
+    await expect(reset).toHaveCount(0);
+  });
+
+  test('camera tiles ask for a small picture of the sub stream', async ({ page }) => {
+    const small = page.waitForRequest((request) => /\/api\/cameras\/[a-z0-9-]+\/snapshot\?size=small/.test(request.url()));
+    await page.goto('/sicherheit');
+    await small;
   });
 
   test('a Hikvision camera is turned, zoomed and positioned through ISAPI', async ({ page, request }) => {

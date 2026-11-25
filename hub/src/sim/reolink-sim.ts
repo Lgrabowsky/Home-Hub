@@ -580,7 +580,7 @@ export async function startReolinkSim(options: ReolinkSimOptions = {}): Promise<
       const token = rawToken && rawToken !== 'null' ? rawToken : null;
 
       if (req.method === 'GET' && url.searchParams.get('cmd') === 'Snap') {
-        commands.push('Snap');
+        commands.push(url.searchParams.get('snapType') === 'sub' ? 'Snap:sub' : 'Snap');
         if (!validToken(token)) return send(res, 200, [fail('Snap', -6, 'please login first')]);
         stats.snaps++;
         settle();

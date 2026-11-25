@@ -10,6 +10,7 @@ import { cx, type Tone } from '../ui.tsx';
 import { entityIcon } from './icons.ts';
 import { blindStateText, climateModeLabel } from './sheets.tsx';
 import { accessIsOpen, accessStateText } from './access.tsx';
+import { tileSnapshot, TILE_REFRESH_MS } from '../../lib/snapshots.ts';
 
 export const CLOCK_MODE_TEXT = { off: 'Aus', on: 'Dauerhaft ein', auto: 'Nach Schaltzeiten' } as const;
 
@@ -177,14 +178,13 @@ export function EntityTile({ entity, onDetails, showRoom }: EntityTileProps) {
     case 'door': {
       const deviceId = entity.id.slice(entity.id.indexOf(':') + 1);
       const path = entity.kind === 'camera' ? `/sicherheit/kamera/${deviceId}` : `/sicherheit/tuer/${deviceId}`;
-      const snapshot = entity.kind === 'camera' ? `/api/cameras/${deviceId}/snapshot` : `/api/doors/${deviceId}/snapshot`;
       return (
         <button
           type="button"
           onClick={() => navigate(path)}
           className={cx('group relative col-span-2 aspect-video overflow-hidden rounded-tile bg-surface text-left shadow-tile transition active:scale-[0.99]', !entity.available && 'opacity-60')}
         >
-          <HubImage src={entity.available ? snapshot : null} alt={entity.name} refreshMs={10_000} className="absolute inset-0 size-full" />
+          <HubImage src={entity.available ? tileSnapshot(entity) : null} alt={entity.name} refreshMs={TILE_REFRESH_MS} className="absolute inset-0 size-full" />
           <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-3.5 pb-2.5 pt-8 text-white">
             <span className="block truncate text-[15px] font-semibold">{title}</span>
             <span className="block truncate text-[13px] text-white/75">{entity.available ? entityStateText(entity) : 'Nicht erreichbar'}</span>

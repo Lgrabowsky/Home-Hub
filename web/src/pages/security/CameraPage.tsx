@@ -25,6 +25,8 @@ export function CameraPage() {
   const frame = useRef<HTMLDivElement>(null);
   const fullscreen = useFullscreen(frame);
   const [quality, setQuality] = useState<StreamQuality>('main');
+  // Tapping "HD" again after the player went to SD by itself tries HD once more.
+  const [restart, setRestart] = useState(0);
   const [status, setStatus] = useState<LiveStatus | null>(null);
   const [sound, setSound] = useState(false);
   const [talking, setTalking] = useState(false);
@@ -79,12 +81,14 @@ export function CameraPage() {
       <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:items-start lg:gap-6">
         <div ref={frame} className={cx('relative overflow-hidden rounded-tile bg-black shadow-tile', fullscreen.active && 'flex items-center rounded-none')}>
           <LiveView
+            key={restart}
             entityId={camera.id}
             quality={quality}
             alt={`Live-Bild ${camera.name}`}
             poster={camera.available ? `/api/cameras/${encodeURIComponent(id)}/snapshot` : null}
             muted={!sound || talking}
             onStatus={setStatus}
+            zoomable
             className={cx('w-full', fullscreen.active ? 'h-dvh' : 'aspect-video')}
           >
             <div className="absolute right-2.5 top-2.5 flex gap-1.5">
@@ -125,7 +129,10 @@ export function CameraPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Segmented
               value={quality}
-              onChange={setQuality}
+              onChange={(next) => {
+                if (next === quality && status?.quality !== next) setRestart((value) => value + 1);
+                setQuality(next);
+              }}
               options={[
                 { value: 'main', label: 'HD' },
                 { value: 'sub', label: 'SD' },
@@ -151,7 +158,13 @@ export function CameraPage() {
               )}
             </div>
           </div>
-          {fallbackToSd && <p className="text-sm text-muted">HD kann dieses Gerät hier nicht abspielen – es läuft die SD-Ansicht.</p>}
+          {fallbackToSd && (
+            <p className="text-sm text-muted">
+              {status?.downgraded === 'network'
+                ? 'Die Verbindung reicht gerade nicht für HD – es läuft die SD-Ansicht. „HD“ antippen versucht es erneut.'
+                : 'HD kann dieses Gerät hier nicht abspielen – es läuft die SD-Ansicht.'}
+            </p>
+          )}
 
           {(canMove || (canControl && features.talk)) && (
             <div className="flex flex-wrap items-center justify-center gap-6 rounded-tile bg-surface p-5 shadow-tile">

@@ -288,8 +288,11 @@ die Menünamen können je nach Firmware leicht abweichen)
    z. B. als „Bediener“ mit den Rechten **Live-Ansicht**, **PTZ-Steuerung** und **Zweiwege-Audio**.
    Den Administrator brauchst du dafür nicht.
 2. **Video/Audio › Video:** für Ton im Live-Bild beim Haupt- **und** beim Substream den Stream-Typ
-   **„Video&Audio“** wählen. Wer H.265 im Hauptstream hat: Die App weicht in Browsern, die H.265 nicht
-   können, auf den Substream (H.264) aus. H.264+/H.265+ besser ausschalten.
+   **„Video&Audio“** wählen. Damit das Live-Bild flüssig läuft und nicht hängen bleibt:
+   **Smart Codec (H.264+/H.265+) ausschalten**, das **I-Frame-Intervall auf die Bildrate** stellen
+   (z. B. 25 bei 25 Bildern/s) und den Substream mit H.264 und 15–25 Bildern/s betreiben. Wer H.265 im
+   Hauptstream hat: Die App weicht in Browsern, die H.265 nicht können, auf den Substream aus. Der
+   Verbindungstest weist auf solche Einstellungen hin.
 3. **Video/Audio › Audio:** für das Gegensprechen die Audiokodierung **„G.711ulaw“** (oder
    „G.711alaw“) einstellen – nur diese Kodierung kommt aus der App bis zum Lautsprecher.
 4. **Netzwerk › Grundeinstellungen › Port:** HTTP 80, RTSP 554 (Standard). Gegensprechen braucht HTTP,

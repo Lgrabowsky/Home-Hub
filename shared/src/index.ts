@@ -119,6 +119,8 @@ export type HomeWidget = { key: string; size: HomeWidgetSize } & (
   | { type: 'weather' }
   | { type: 'timers' }
   | { type: 'house3d' }
+  /** Which lights are on, by room — deliberately without a button that switches them all. */
+  | { type: 'lights' }
 );
 
 export type HomeWidgetType = HomeWidget['type'];

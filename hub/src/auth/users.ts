@@ -335,6 +335,7 @@ function homeWidgets(value: unknown): HomeWidget[] | null {
       case 'weather':
       case 'timers':
       case 'house3d':
+      case 'lights':
         widget = { key, size, type: w.type };
         break;
       default:

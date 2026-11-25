@@ -41,9 +41,15 @@ export function HubImage({ src, alt, className, refreshMs, fallback, version = 0
     const timer = window.setInterval(() => {
       if (visible && document.visibilityState === 'visible') setTick((value) => value + 1);
     }, refreshMs);
+    // Back from the background: a fresh picture at once, not after the next interval.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') setTick((value) => value + 1);
+    };
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(timer);
       observer.disconnect();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refreshMs, src]);
 
@@ -102,5 +108,7 @@ export function HubImage({ src, alt, className, refreshMs, fallback, version = 0
       </div>
     );
   }
-  return <img ref={element} src={url} alt={alt} className={cx('object-cover', className)} draggable={false} onLoad={onLoad} />;
+  // `object-cover` unless the caller chose another fit (two fit classes would leave the winner to the style sheet's order).
+  const fit = /\bobject-(contain|cover|fill|none|scale-down)\b/.test(className ?? '') ? '' : 'object-cover';
+  return <img ref={element} src={url} alt={alt} className={cx(fit, className)} draggable={false} onLoad={onLoad} />;
 }

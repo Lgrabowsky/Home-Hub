@@ -188,6 +188,16 @@ describe('pictures', () => {
     expect(garden.stats.snaps).toBe(2);
   });
 
+  it('gives tiles a picture of the sub stream, cached apart from the full one', async () => {
+    const garden = await sim({ profile: 'ptz' });
+    const integration = start([garden.settings({ id: 'garten', name: 'Garten' })]);
+    await online('garten');
+    await integration.snapshot('garten', 'small');
+    await integration.snapshot('garten');
+    await integration.snapshot('garten', 'small');
+    expect(garden.commands.filter((command) => command.startsWith('Snap'))).toEqual(['Snap:sub', 'Snap']);
+  });
+
   it('gets a new token when the snapshot is refused for the old one', async () => {
     const garden = await sim({ profile: 'ptz' });
     const integration = start([garden.settings({ id: 'garten', name: 'Garten' })], { activeMs: 60_000, lightMs: 60_000 });

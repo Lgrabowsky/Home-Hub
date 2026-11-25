@@ -5,7 +5,7 @@ import { describeError, DeviceHttp, DeviceHttpError, type DeviceResponse } from 
 import { Poller } from '../../util/poller.ts';
 import { streamName } from '../media.ts';
 import type { IntegrationDeps } from '../types.ts';
-import { encodeUserInfo, grabFrame, isJpeg } from './onvif-camera.ts';
+import { encodeUserInfo, grabFrame, isJpeg, type SnapshotSize } from './onvif-camera.ts';
 import { isXml, list, node, text, type Xml } from './onvif.ts';
 import { describeRtsp, RtspError, type RtspDescription } from './rtsp.ts';
 
@@ -272,6 +272,31 @@ interface StreamInfo {
   /** The stream carries sound ("Video&Audio"). */
   audio: boolean;
   audioCodec: string | null;
+  /** Frames per second. */
+  fps: number | null;
+  /** I-frame interval in frames. */
+  gop: number | null;
+  /** H.264+/H.265+ ("Smart Codec"): long, variable key-frame gaps that make live pictures hang. */
+  smartCodec: boolean;
+}
+
+/** What in the camera's video settings makes a live picture hang or stutter (empty when nothing does). */
+export function streamAdvice(main: StreamInfo | null, sub: StreamInfo | null): string[] {
+  const advice: string[] = [];
+  const streams = [['Hauptstream', main], ['Substream', sub]] as const;
+  const smart = streams.filter(([, info]) => info?.smartCodec).map(([name]) => name);
+  if (smart.length > 0) advice.push(`Smart Codec (H.264+/H.265+) ist an (${smart.join(' und ')}): Das lässt das Live-Bild immer wieder hängen. Unter Video/Audio › Video ausschalten.`);
+  for (const [name, info] of streams) {
+    if (!info?.gop || !info.fps) continue;
+    const seconds = info.gop / info.fps;
+    if (seconds > 2) {
+      advice.push(
+        `${name}: I-Frame-Intervall ${info.gop} bei ${info.fps} Bildern/s – nach einem Aussetzer dauert es bis zu ${Math.round(seconds)} s, bis das Bild weiterläuft. Unter Video/Audio › Video das I-Frame-Intervall auf die Bildrate stellen (z. B. ${Math.round(info.fps)}).`,
+      );
+    }
+  }
+  if (sub?.fps && sub.fps < 10) advice.push(`Der Substream läuft mit nur ${sub.fps} Bildern/s – die SD-Ansicht und die Kacheln wirken ruckelig. Empfohlen: 15 bis 25.`);
+  return advice;
 }
 
 function streamInfo(xml: Xml): StreamInfo {
@@ -288,6 +313,10 @@ function streamInfo(xml: Xml): StreamInfo {
     height: count(video.videoResolutionHeight),
     audio: text(audio.enabled) === 'true',
     audioCodec: text(audio.audioCompressionType) || null,
+    // Hikvision gives the frame rate in hundredths (2500 = 25 fps).
+    fps: count(video.maxFrameRate) !== null ? Math.round(count(video.maxFrameRate)! / 100) || null : null,
+    gop: count(video.GovLength),
+    smartCodec: text(node(video.SmartCodec).enabled) === 'true',
   };
 }
 
@@ -387,10 +416,12 @@ export class HikvisionCamera {
   private lastError: string | null = null;
   /** The camera has no `/picture`: still pictures come from the video. */
   private noPicture = false;
+  /** No picture of the sub stream: small pictures are full ones. */
+  private noSubPicture = false;
 
   private moving: { op: PtzOp; timer: NodeJS.Timeout } | null = null;
-  private snap: { at: number; data: Buffer } | null = null;
-  private snapInFlight: Promise<Buffer> | null = null;
+  private readonly snaps = new Map<SnapshotSize, { at: number; data: Buffer }>();
+  private readonly snapsInFlight = new Map<SnapshotSize, Promise<Buffer>>();
   private presetCache: { at: number; list: PtzPreset[] } | null = null;
 
   constructor(
@@ -476,7 +507,7 @@ export class HikvisionCamera {
       channel: this.found?.info.nvr ? `D${hikChannel(this.device)}` : hikChannel(this.device),
       channelOnline: this.online,
       features: this.features,
-      video: this.found ? { main: this.found.main, sub: this.found.sub } : null,
+      video: this.found ? { main: this.found.main, sub: this.found.sub, advice: streamAdvice(this.found.main, this.found.sub) } : null,
       talkCodec: this.found?.talkCodec ?? null,
       pausedUntil: this.blockedUntil > Date.now() ? new Date(this.blockedUntil).toISOString() : null,
       lastError: this.lastError,
@@ -574,17 +605,31 @@ export class HikvisionCamera {
 
   // --- Operations --------------------------------------------------------------------------------------
 
-  snapshot(): Promise<Buffer> {
-    if (this.snap && Date.now() - this.snap.at < this.timing.snapshotCacheMs) return Promise.resolve(this.snap.data);
-    if (this.snapInFlight) return this.snapInFlight;
+  snapshot(size: SnapshotSize = 'full'): Promise<Buffer> {
+    const cached = this.snaps.get(size);
+    if (cached && Date.now() - cached.at < this.timing.snapshotCacheMs) return Promise.resolve(cached.data);
+    const running = this.snapsInFlight.get(size);
+    if (running) return running;
     if (!this.reachable) throw unavailable(`Die Kamera „${this.device.name}“ ist gerade nicht erreichbar.`);
+    const picture = (quality: 'main' | 'sub') =>
+      this.client.request('GET', `/ISAPI/Streaming/channels/${hikStreamId(this.device, quality)}/picture`, {
+        timeoutMs: Math.max(this.timing.requestTimeoutMs, 10_000),
+        maxBytes: 12 * 1024 * 1024,
+      });
     const load = async (): Promise<Buffer> => {
+      // Tiles: a picture of the sub stream (a few dozen kB instead of up to 2 MB for 4K).
+      if (size === 'small' && !this.noSubPicture && !this.noPicture) {
+        try {
+          const response = await picture('sub');
+          if (response.status === 200 && isImage(response.body)) return response.body;
+          if (response.status === 404 || response.status === 403 || response.status === 400) this.noSubPicture = true;
+        } catch (err) {
+          this.lastError = describeError(err);
+        }
+      }
       if (!this.noPicture) {
         try {
-          const response = await this.client.request('GET', `/ISAPI/Streaming/channels/${hikStreamId(this.device, 'main')}/picture`, {
-            timeoutMs: Math.max(this.timing.requestTimeoutMs, 10_000),
-            maxBytes: 12 * 1024 * 1024,
-          });
+          const response = await picture('main');
           if (response.status === 200 && isImage(response.body)) return response.body;
           if (response.status === 404 || response.status === 403) this.noPicture = true;
         } catch (err) {
@@ -595,10 +640,10 @@ export class HikvisionCamera {
       if (fromVideo && isJpeg(fromVideo)) return fromVideo;
       return grabFrame(this.deps.config.media.ffmpegBin, hikRtspUrl(this.device, 'sub'), 12_000);
     };
-    this.snapInFlight = load()
+    const promise = load()
       .then(
         (data) => {
-          this.snap = { at: Date.now(), data };
+          this.snaps.set(size, { at: Date.now(), data });
           return data;
         },
         (err: unknown) => {
@@ -607,9 +652,10 @@ export class HikvisionCamera {
         },
       )
       .finally(() => {
-        this.snapInFlight = null;
+        this.snapsInFlight.delete(size);
       });
-    return this.snapInFlight;
+    this.snapsInFlight.set(size, promise);
+    return promise;
   }
 
   /** One continuous movement (all zero = stop). Values −100…100. */
@@ -783,7 +829,7 @@ export class HikvisionCamera {
       const sizes = [describe('HD', found.main), describe('SD', found.sub)].filter((entry): entry is string => entry !== null && !entry.endsWith(': '));
       if (sizes.length > 0) details.push(`Video: ${sizes.join(', ')}`);
       if (/265|hevc/i.test(`${found.main?.codec ?? ''} ${stream.video ?? ''}`)) details.push('Hinweis: H.265 kann nicht jeder Browser anzeigen – die App weicht dann auf die SD-Ansicht aus. Wer das vermeiden will, stellt den Hauptstream der Kamera auf H.264.');
-      if (/\+/.test(`${found.main?.codec ?? ''} ${found.sub?.codec ?? ''}`)) details.push('Hinweis: H.264+/H.265+ können manche Geräte ruckelig zeigen; unter Video/Audio › Video lässt sich das abschalten.');
+      details.push(...streamAdvice(found.main, found.sub));
       if (found.sub && !found.sub.audio) details.push('Ton: Im Substream ist kein Ton eingeschaltet. Unter Video/Audio › Video beim Haupt- und beim Substream den Stream-Typ „Video&Audio“ wählen.');
       if (info.nvr) details.push('Gegensprechen geht über den Rekorder nicht – dafür die Kamera direkt mit ihrer eigenen Adresse eintragen.');
       else if (found.talkCodec && !features.talk)

@@ -22,7 +22,9 @@ test('the start page is arranged to taste, and the arrangement belongs to the pe
   await expect(page.getByRole('button', { name: 'Licht: Größe ändern, jetzt Breit' })).toBeVisible();
   await page.getByRole('button', { name: 'Klima entfernen' }).click();
   await page.getByRole('button', { name: 'Kachel', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Kachel hinzufügen' }).getByRole('button', { name: 'Nächste Zeitschaltuhren' }).click();
+  const catalog = page.getByRole('dialog', { name: 'Kachel hinzufügen' });
+  await catalog.getByRole('tab', { name: 'Übersichten' }).click();
+  await catalog.getByRole('button', { name: 'Nächste Zeitschaltuhren hinzufügen' }).click();
   await expect(page.getByRole('button', { name: 'Zeitschaltuhren entfernen' })).toBeVisible();
   await page.getByRole('button', { name: 'Fertig' }).click();
 
@@ -46,4 +48,34 @@ test('the start page is arranged to taste, and the arrangement belongs to the pe
   await page.getByRole('dialog', { name: 'Standard-Startseite?' }).getByRole('button', { name: 'Zurücksetzen' }).click();
   await expect.poll(home).toBeNull();
   await expect(page.getByRole('link', { name: /^Klima/ })).toBeVisible();
+});
+
+test('the catalog shows each tile with a preview and what it does; the lights status cannot switch every light', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Startseite bearbeiten' }).click();
+  await page.getByRole('button', { name: 'Kachel', exact: true }).click();
+  const catalog = page.getByRole('dialog', { name: 'Kachel hinzufügen' });
+  // Areas come first; those already on the page say so.
+  await expect(catalog.getByText('Wie viele Lichter an sind und in welchen Räumen – mit Knopf „Alle aus“.')).toBeVisible();
+  await expect(catalog.getByRole('button', { name: 'Licht: schon auf der Startseite' })).toBeDisabled();
+  await catalog.getByRole('tab', { name: 'Übersichten' }).click();
+  await expect(catalog.getByText(/ohne Knopf, der alle Lichter schaltet/)).toBeVisible();
+  await catalog.getByRole('button', { name: 'Lichter-Status hinzufügen' }).click();
+  await page.getByRole('button', { name: 'Fertig' }).click();
+
+  const tile = page.getByRole('button', { name: /^Lichter-Status: .* – anzeigen$/ });
+  await expect(tile).toBeVisible();
+  // No "all off" on this tile, nor in what it opens.
+  await expect(tile.locator('..').getByRole('button', { name: 'Alle Lichter ausschalten' })).toHaveCount(0);
+  await tile.click();
+  const sheet = page.getByRole('dialog', { name: 'Lichter-Status' });
+  await expect(sheet).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Alle ausschalten' })).toHaveCount(0);
+  await expect(sheet.getByRole('button', { name: 'Alle Lichter ansehen' })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Schließen' }).first().click();
+
+  // Back to the standard.
+  await page.getByRole('button', { name: 'Startseite bearbeiten' }).click();
+  await page.getByRole('button', { name: 'Standard' }).click();
+  await page.getByRole('dialog', { name: 'Standard-Startseite?' }).getByRole('button', { name: 'Zurücksetzen' }).click();
 });

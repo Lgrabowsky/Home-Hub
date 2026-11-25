@@ -26,9 +26,27 @@ export function useWatchedLightsOn(): LightEntity[] {
   }, [entities, excluded]);
 }
 
-/** Only the lights that are on — switched off one by one or all at once. */
-function LightsOnSheet({ title, open, onClose }: { title: string; open: boolean; onClose(): void }) {
-  const lights = useWatchedLightsOn();
+/** The lights grouped by room, in the order they come (already sorted by room). */
+function byRoom(lights: LightEntity[]): [string, LightEntity[]][] {
+  const groups = new Map<string, LightEntity[]>();
+  for (const light of lights) {
+    const room = light.room ?? 'Ohne Raum';
+    groups.set(room, [...(groups.get(room) ?? []), light]);
+  }
+  return [...groups.entries()];
+}
+
+/** "Decke (Küche)": a light's name with its room, unless the name says it already. */
+export function lightWithRoom(light: LightEntity): string {
+  if (!light.room || light.name.toLowerCase().includes(light.room.toLowerCase())) return light.name;
+  return `${light.name} (${light.room})`;
+}
+
+/**
+ * Only the lights that are on, by room — switched off one by one, and (where `allOff` allows it) all
+ * at once. The start page's status tile leaves "all at once" out on purpose.
+ */
+export function LightsOnSheet({ title, open, onClose, lights, allOff = true }: { title: string; open: boolean; onClose(): void; lights: LightEntity[]; allOff?: boolean }) {
   const canControl = useCan('home.control');
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
@@ -40,7 +58,7 @@ function LightsOnSheet({ title, open, onClose }: { title: string; open: boolean;
       title={title}
       subtitle={lights.length === 0 ? 'Alle Lichter sind aus' : `${lights.length} ${lights.length === 1 ? 'Licht ist' : 'Lichter sind'} an`}
       footer={
-        canControl && lights.length > 1 ? (
+        allOff && canControl && lights.length > 1 ? (
           <Button block icon={Power} onClick={() => lights.forEach((light) => void sendCommand(light, { action: 'turn_off' }, { on: false }))}>
             Alle ausschalten
           </Button>
@@ -48,18 +66,39 @@ function LightsOnSheet({ title, open, onClose }: { title: string; open: boolean;
       }
     >
       {lights.length > 0 ? (
-        <div className="divide-y divide-line/70 overflow-hidden rounded-tile bg-sunken">
-          {lights.map((light) => (
-            <EntityRow key={light.id} entity={light} title={light.name} room={light.room ?? undefined} onDetails={setDetails} />
+        <div className="flex flex-col gap-4">
+          {byRoom(lights).map(([room, list]) => (
+            <div key={room}>
+              <p className="mb-1.5 px-1 text-xs font-semibold uppercase tracking-wide text-faint">{room}</p>
+              <div className="divide-y divide-line/70 overflow-hidden rounded-tile bg-sunken">
+                {list.map((light) => (
+                  <EntityRow key={light.id} entity={light} room={light.room ?? undefined} onDetails={setDetails} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       ) : (
         <p className="flex items-center gap-2 rounded-control bg-sunken px-4 py-3 text-sm text-muted">
           <Lightbulb className="size-4.5" aria-hidden />
-          Kein überwachtes Licht ist an.
+          {allOff ? 'Kein überwachtes Licht ist an.' : 'Kein Licht ist an.'}
         </p>
       )}
-      {isAdmin && (
+      {!allOff && (
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Lightbulb}
+          className="mt-3"
+          onClick={() => {
+            onClose();
+            navigate('/licht');
+          }}
+        >
+          Alle Lichter ansehen
+        </Button>
+      )}
+      {allOff && isAdmin && (
         <Button
           size="sm"
           variant="ghost"
@@ -91,7 +130,7 @@ export function LightWatchRow({ alarm }: { alarm: AlarmEntity }) {
       ? `${state} · alle Lichter aus`
       : `${state} · ${lights.length === 1 ? '1 Licht' : `${lights.length} Lichter`} an: ${lights
           .slice(0, 3)
-          .map((light) => light.name)
+          .map(lightWithRoom)
           .join(', ')}${lights.length > 3 ? ' …' : ''}`;
   return (
     <>
@@ -103,7 +142,7 @@ export function LightWatchRow({ alarm }: { alarm: AlarmEntity }) {
         trailing={<Badge tone={alarm.mode === 'armed' ? 'accent' : 'neutral'}>{alarm.mode === 'armed' ? 'Scharf' : alarm.mode === 'disarmed' ? 'Unscharf' : 'Unbekannt'}</Badge>}
         onClick={() => setOpen(true)}
       />
-      <LightsOnSheet title={alarm.name} open={open} onClose={() => setOpen(false)} />
+      <LightsOnSheet title={alarm.name} open={open} onClose={() => setOpen(false)} lights={lights} />
     </>
   );
 }

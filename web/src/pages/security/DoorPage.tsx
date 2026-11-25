@@ -238,6 +238,7 @@ export function DoorPage() {
               poster={door.available ? `/api/doors/${encodeURIComponent(id)}/snapshot` : null}
               muted={!sound || talking}
               onStatus={setStatus}
+              zoomable
               className={cx('w-full', fullscreen.active ? 'h-dvh' : 'aspect-video')}
             >
               <div className="absolute right-2.5 top-2.5 flex gap-1.5">

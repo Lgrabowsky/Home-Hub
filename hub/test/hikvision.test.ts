@@ -159,6 +159,9 @@ describe('camera', () => {
     const picture = await integration.snapshot('carport');
     expect(picture.subarray(0, 4).equals(dome.frame().subarray(0, 4))).toBe(true);
     expect(dome.stats.pictures).toBe(1);
+    // Tiles get a picture of the sub stream.
+    await integration.snapshot('carport', 'small');
+    expect(dome.requests).toContain('GET /ISAPI/Streaming/channels/102/picture');
   });
 
   it('declares RTSP streams and the ISAPI back channel for go2rtc', async () => {
@@ -301,6 +304,18 @@ describe('connection test', () => {
     expect(result).toMatchObject({ ok: false, message: 'Benutzername oder Passwort stimmen nicht.' });
     expect(result.details!.join('\n')).toContain('30 Minuten');
     expect(dome.stats.failedLogins).toBe(1);
+  });
+
+  it('names the video settings that make a live picture hang', async () => {
+    const turret = await sim({ profile: 'turret', smartCodec: true, gop: 250 });
+    const result = await ReolinkIntegration.test(turret.settings({ id: 'turm', name: 'Turm' }), { timing: FAST });
+    const details = result.details!.join('\n');
+    expect(details).toContain('Smart Codec (H.264+/H.265+) ist an (Hauptstream und Substream)');
+    expect(details).toContain('I-Frame-Intervall 250 bei 25 Bildern/s');
+    const good = await sim({ profile: 'turret' });
+    const clean = (await ReolinkIntegration.test(good.settings({ id: 'turm2', name: 'Turm' }), { timing: FAST })).details!.join('\n');
+    expect(clean).not.toContain('Smart Codec');
+    expect(clean).not.toContain('I-Frame');
   });
 
   it('says when the speaker needs another codec', async () => {
