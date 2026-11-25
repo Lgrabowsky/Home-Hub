@@ -1,6 +1,6 @@
 # Home Hub
 
-**Eine App für dein ganzes Zuhause** – myGEKKO, KNX, DoorBird, Reolink, Hikvision, Sonos und Spotify in einer
+**Eine App für dein ganzes Zuhause** – myGEKKO, KNX, DoorBird, Reolink, Hikvision, Govee, Sonos und Spotify in einer
 einzigen, modernen Oberfläche. Als Web-App (im Browser, installierbar als PWA) und als Android-App.
 
 Du schaltest Licht und Jalousien, siehst, welches Fenster offen ist, sprichst mit dem Besuch an der
@@ -38,6 +38,7 @@ zu merken, dass dahinter fünf verschiedene Hersteller stecken.
  │  außer der Anmeldung)│             │   ├─ myGEKKO   (Licht, Jalousien, …)     │
  └─────────────────────┘              │   ├─ DoorBird  (Türstationen)            │
                                       │   ├─ Kameras   (Reolink, Hikvision)      │
+                                      │   ├─ Govee     (LED-Streifen, Lampen)    │
                                       │   ├─ Sonos     (Lautsprecher)            │
                                       │   └─ Video-Dienst (go2rtc)               │
                                       └──────────────────────────────────────────┘
@@ -59,7 +60,8 @@ docker compose -f docker-compose.demo.yml up --build
 
 Dann <http://localhost:8080> öffnen und mit dem Einrichtungscode `DEMO-DEMO-DEMO` ein Konto anlegen.
 Alle Geräte sind simuliert: ein Haus mit Lichtern, Jalousien, Heizung, Kontakten, zwei Türstationen,
-fünf Kameras (eine davon über ONVIF wie eine E1 Pro, eine Hikvision), sechs Lautsprechern und einem Spotify-Konto.
+fünf Kameras (eine davon über ONVIF wie eine E1 Pro, eine Hikvision), drei Govee-Lichtern, sechs Lautsprechern und
+einem Spotify-Konto.
 
 Ohne Docker (Node.js ab 22.13, für Live-Video zusätzlich `go2rtc` und `ffmpeg` im Pfad):
 
@@ -72,7 +74,7 @@ npm run demo
 
 1. **[Installation](docs/INSTALLATION.md)** – Hub auf einem Rechner im Heimnetz starten. Auf einem Windows-PC
    ohne Windows anzutasten (auch Windows 7): **[in einer virtuellen Maschine](docs/VIRTUELLE-MASCHINE.md)**.
-2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, KNX, DoorBird, Reolink, Hikvision, Sonos und Spotify
+2. **[Geräte verbinden](docs/GERAETE.md)** – was an myGEKKO, KNX, DoorBird, Reolink, Hikvision, Govee, Sonos und Spotify
    vorzubereiten ist, inklusive der Fenster- und Türkontakte.
 3. **[Zugriff von unterwegs](docs/FERNZUGRIFF.md)** – per VPN (empfohlen) oder über eine eigene Adresse.
 4. **[Android-App](docs/ANDROID.md)** – APK unter **Releases** herunterladen und installieren.

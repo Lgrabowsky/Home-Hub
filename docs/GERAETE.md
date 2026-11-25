@@ -334,6 +334,47 @@ Formular mit dem Ergebnis offen; **Trotzdem übernehmen** trägt sie dennoch ein
 
 ---
 
+## Govee-Lichter (LED-Streifen und Lampen)
+
+Govee-Lichter steuert der Hub auf zwei Wegen, die sich ergänzen:
+
+- **Im Heimnetz (LAN)** – für Lichter, bei denen in der Govee-App die **LAN-Steuerung** eingeschaltet
+  ist. Der Hub spricht sie direkt an (UDP, Ports 4001–4003): schnell, ohne Cloud, ohne Limit.
+- **Über die Govee-Cloud** mit deinem **API-Key** – für alle übrigen Lichter, und damit die Namen aus
+  der Govee-App erscheinen.
+
+**In der Govee Home App vorbereiten**
+
+1. Beim Licht oben rechts das **Zahnrad** öffnen und **„LAN-Steuerung“** einschalten (sofern das Modell
+   es anbietet – viele LED-Streifen können es).
+2. Für die Cloud: **Profil › Einstellungen (Zahnrad) › API-Key beantragen**. Govee schickt den Key per
+   E-Mail.
+3. Tipp: Den Raum in den Namen schreiben („Wohnzimmer LED-Streifen“) – dann ordnet der Hub das Licht
+   dem Raum zu. Sonst unter **Räume › Bearbeiten**.
+
+**In der App:** Lichtstreifen (Govee) › einschalten › API-Key eintragen › **Testen** › Speichern. Der Test
+zeigt jedes Licht und ob es im Heimnetz oder nur über die Cloud erreicht wird.
+
+- **Ohne API-Key** erscheinen nur Lichter mit LAN-Steuerung, mit der Modellnummer als Namen
+  (umbenennen unter Räume › Bearbeiten).
+- **Andere Netze (VLAN):** Die Suche erreicht nur Lichter im selben Netz. Lichter anderswo trägst du
+  unter „Adressen der Lichter“ mit ihrer IP-Adresse ein (feste IP im Router vergeben).
+- **Docker:** Der Hub braucht dafür `network_mode: host` (so ist die mitgelieferte
+  `docker-compose.yml` eingestellt) und Port 4002 auf dem Hub für sich – läuft dort schon eine andere
+  Govee-Steuerung (z. B. Home Assistant), meldet der Hub das und nimmt für alle Lichter die Cloud.
+
+**Was du bekommst:** Ein/Aus, Helligkeit, Farbe und Weißton (Farbtemperatur) – in der Licht-Übersicht,
+in den Räumen, in Zeitschaltuhren, in der Licht-Überwachung und als Licht an einer Kamera.
+
+**Datenschutz und Limit:** Befehle an Lichter ohne LAN-Steuerung gehen über die Server von Govee.
+Govee erlaubt 10 000 Anfragen pro Tag; der Hub fragt den Zustand solcher Lichter deshalb nur alle paar
+Minuten ab (öfter, solange eine App offen ist), fasst schnelle Änderungen am Farbrad zusammen und
+pausiert, wenn Govee ablehnt. Lichter im Heimnetz kosten keine Anfrage.
+
+**Nicht enthalten:** Szenen/Effekte und einzelne Segmente eines Streifens.
+
+---
+
 ## Sonos-Lautsprecher
 
 **In der Sonos-App vorbereiten**
@@ -421,6 +462,11 @@ Hub sieht:
 - [ ] Schwenken/Zoomen: Richtungen stimmen, Bewegung stoppt beim Loslassen; Positionen werden angefahren.
 - [ ] Gegensprechen, sofern die Kamera einen Lautsprecher hat.
 - [ ] Standbild in der Übersicht erscheint.
+
+**Govee**
+- [ ] Testen zeigt alle Lichter; die mit LAN-Steuerung stehen als „im Heimnetz“ da.
+- [ ] Ein/Aus, Helligkeit, Farbe und Weißton wirken – auch bei einem Licht nur über die Cloud.
+- [ ] Nach einem Neustart des Hubs stimmen die Zustände (an/aus, Farbe).
 
 **Sonos & Spotify**
 - [ ] Alle Lautsprecher erscheinen; Lautstärke und Play/Pause wirken.

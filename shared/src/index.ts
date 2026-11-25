@@ -127,7 +127,7 @@ export type HomeWidgetType = HomeWidget['type'];
 // Services (integrations) and their health
 // ---------------------------------------------------------------------------
 
-export const SERVICE_IDS = ['mygekko', 'knx', 'doorbird', 'reolink', 'sonos', 'spotify', 'media'] as const;
+export const SERVICE_IDS = ['mygekko', 'knx', 'doorbird', 'reolink', 'govee', 'sonos', 'spotify', 'media'] as const;
 export type ServiceId = (typeof SERVICE_IDS)[number];
 
 export const SERVICE_LABELS: Record<ServiceId, string> = {
@@ -135,6 +135,7 @@ export const SERVICE_LABELS: Record<ServiceId, string> = {
   knx: 'KNX',
   doorbird: 'DoorBird',
   reolink: 'Kameras',
+  govee: 'Govee',
   sonos: 'Sonos',
   spotify: 'Spotify',
   media: 'Video-Dienst',
@@ -897,6 +898,20 @@ export interface KnxInterfaceInfo {
   routing: boolean;
 }
 
+/**
+ * Govee lights (LED strips and others). Locally over Govee's LAN interface where it is switched on in
+ * the Govee app; otherwise through Govee's cloud API with the household's API key.
+ */
+export interface GoveeSettings {
+  enabled: boolean;
+  /** API key from the Govee Home app (empty: only lights reachable on the LAN). */
+  apiKey: string;
+  /** Use the LAN interface (UDP) for lights that offer it. */
+  lan: boolean;
+  /** IP addresses of lights the LAN search cannot reach (other subnet / VLAN). */
+  lanHosts: string[];
+}
+
 export interface SpotifySettings {
   enabled: boolean;
   clientId: string;
@@ -926,6 +941,7 @@ export interface IntegrationSettingsMap {
   knx: KnxSettings;
   doorbird: DoorBirdSettings;
   reolink: ReolinkSettings;
+  govee: GoveeSettings;
   sonos: SonosSettings;
   spotify: SpotifySettings;
 }

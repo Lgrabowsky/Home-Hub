@@ -11,6 +11,7 @@ import { HttpError, notFound } from '../http/errors.ts';
 import { describeError } from '../util/http.ts';
 import { Mutex } from '../util/poller.ts';
 import { DoorBirdIntegration } from './doorbird.ts';
+import { GoveeIntegration, type GoveeOptions } from './govee.ts';
 import { KnxIntegration } from './knx.ts';
 import { MediaManager, type StreamSpec } from './media.ts';
 import { MyGekkoIntegration } from './mygekko.ts';
@@ -25,11 +26,11 @@ import type { Integration, IntegrationDeps } from './types.ts';
  * from the API to the right place.
  */
 
-type DeviceKey = 'mygekko' | 'knx' | 'doorbird' | 'reolink' | 'sonos' | 'spotify';
-const DEVICE_KEYS: DeviceKey[] = ['mygekko', 'knx', 'doorbird', 'reolink', 'sonos', 'spotify'];
+type DeviceKey = 'mygekko' | 'knx' | 'doorbird' | 'reolink' | 'govee' | 'sonos' | 'spotify';
+const DEVICE_KEYS: DeviceKey[] = ['mygekko', 'knx', 'doorbird', 'reolink', 'govee', 'sonos', 'spotify'];
 
 /** Entities are stored under an owner equal to the service id. */
-const ENTITY_OWNERS: Partial<Record<DeviceKey, string>> = { mygekko: 'mygekko', knx: 'knx', doorbird: 'doorbird', reolink: 'reolink' };
+const ENTITY_OWNERS: Partial<Record<DeviceKey, string>> = { mygekko: 'mygekko', knx: 'knx', doorbird: 'doorbird', reolink: 'reolink', govee: 'govee' };
 
 export class IntegrationManager {
   readonly media: MediaManager;
@@ -37,6 +38,7 @@ export class IntegrationManager {
   knx: KnxIntegration | null = null;
   doorbird: DoorBirdIntegration | null = null;
   reolink: ReolinkIntegration | null = null;
+  govee: GoveeIntegration | null = null;
   sonos: SonosIntegration | null = null;
   spotify: SpotifyIntegration | null = null;
 
@@ -44,6 +46,8 @@ export class IntegrationManager {
   readonly streamOverrides = new Map<string, string[]>();
   /** Demo mode / tests: alternative Spotify endpoints. */
   spotifyEndpoints: Partial<SpotifyEndpoints> = {};
+  /** Demo mode / tests: Govee cloud simulator and LAN ports. */
+  goveeOptions: GoveeOptions = {};
 
   private active = false;
   private started = false;
@@ -155,6 +159,8 @@ export class IntegrationManager {
         return new DoorBirdIntegration(deps, settings.get('doorbird'));
       case 'reolink':
         return new ReolinkIntegration(deps, settings.get('reolink'));
+      case 'govee':
+        return new GoveeIntegration(deps, settings.get('govee'), this.goveeOptions);
       case 'sonos':
         return new SonosIntegration(deps, settings.get('sonos'));
       case 'spotify':
@@ -200,6 +206,8 @@ export class IntegrationManager {
     switch (entity.service) {
       case 'mygekko':
         return this.need('mygekko').command(entityId, command);
+      case 'govee':
+        return this.need('govee').command(entityId, command);
       default:
         throw new HttpError(400, 'unsupported', 'Dieses Gerät lässt sich so nicht bedienen.');
     }
@@ -219,6 +227,8 @@ export class IntegrationManager {
           return await this.testDevices((value as IntegrationSettingsMap['doorbird']).devices, (d) => DoorBirdIntegration.test(d));
         case 'reolink':
           return await this.testDevices((value as IntegrationSettingsMap['reolink']).devices, (d) => ReolinkIntegration.test(d));
+        case 'govee':
+          return await GoveeIntegration.test(value as IntegrationSettingsMap['govee'], this.goveeOptions, this.govee);
         case 'sonos':
           return await SonosIntegration.test(value as IntegrationSettingsMap['sonos']);
         case 'spotify':

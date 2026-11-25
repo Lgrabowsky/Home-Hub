@@ -5,6 +5,21 @@ Versionsnummer steht. Hub und App sollten dieselbe Version haben: den Hub aktual
 [docs/INSTALLATION.md](docs/INSTALLATION.md) bzw. [docs/VIRTUELLE-MASCHINE.md](docs/VIRTUELLE-MASCHINE.md)
 beschrieben.
 
+## 0.10.0
+
+- **Govee-Lichter (LED-Streifen und Lampen):** neuer Bereich **Einstellungen › Lichtstreifen (Govee)**.
+  Ein/Aus, Helligkeit, Farbe und Weißton – überall, wo Lichter vorkommen (Räume, Licht-Übersicht,
+  Zeitschaltuhren, Licht-Überwachung, Lichter an Kameras).
+- **Im Heimnetz zuerst:** Lichter mit eingeschalteter „LAN-Steuerung“ schaltet der Hub direkt (schnell,
+  ohne Cloud, ohne Limit); die übrigen über die Govee-Cloud mit deinem API-Key. Fällt ein Licht im
+  Heimnetz aus, übernimmt die Cloud.
+- **Sparsam mit dem Govee-Limit** (10 000 Anfragen am Tag): Zustand nur für Lichter ohne LAN und nur alle
+  paar Minuten, schnelle Farbänderungen werden zusammengefasst, bei Ablehnung pausiert die Cloud.
+- Räume aus dem Namen („Wohnzimmer LED-Streifen“ → Wohnzimmer); der Test zeigt, welches Licht wie
+  erreicht wird.
+- Demo: drei Govee-Lichter.
+- Braucht einen Hub ab Version 0.10.0.
+
 ## 0.9.0
 
 - **Schwenken & Zoom und Gegensprechen je Kamera schaltbar:** im Formular jeder Kamera unter

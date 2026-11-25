@@ -8,6 +8,7 @@ import { describeError } from '../util/http.ts';
 import { DOORBIRD_DEMO_STATIONS, startDoorBirdSim, type DoorBirdSim } from './doorbird-sim.ts';
 import { startKnxSim } from './knx-sim.ts';
 import { startMyGekkoSim, type MyGekkoSim } from './mygekko-sim.ts';
+import { startGoveeSim } from './govee-sim.ts';
 import { HIKVISION_DEMO_CAMERAS, startHikvisionSim } from './hikvision-sim.ts';
 import { REOLINK_DEMO_CAMERAS, startReolinkSim } from './reolink-sim.ts';
 import { startSonosSim } from './sonos-sim.ts';
@@ -225,6 +226,17 @@ export async function startDemo(ctx: HubContext): Promise<DemoHandle> {
       ...storedCameras.filter((device) => !demoIds.has(device.id)),
     ],
   });
+
+  // --- Govee -------------------------------------------------------------------------------------
+
+  // Two LED strips with LAN control (each on its own loopback address) and a lamp only the cloud reaches.
+  const goveeSim = await startGoveeSim();
+  closers.push(() => goveeSim.close());
+  integrations.goveeOptions = {
+    cloudBase: goveeSim.cloudBase,
+    lan: { multicast: '127.0.0.1', scanPort: goveeSim.scanPort, devicePort: goveeSim.devicePort || 4003, listenPort: 0 },
+  };
+  settings.set('govee', { enabled: true, apiKey: goveeSim.apiKey, lan: true, lanHosts: [] });
 
   // --- Sonos -------------------------------------------------------------------------------------
 

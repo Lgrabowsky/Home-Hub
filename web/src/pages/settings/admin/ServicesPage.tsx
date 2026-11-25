@@ -17,7 +17,7 @@ const STATUS: Record<ServiceHealth['status'], { label: string; tone: Tone }> = {
   unconfigured: { label: 'Nicht eingerichtet', tone: 'neutral' },
 };
 
-function summary(area: Area, settings: IntegrationSettingsMap, counts: { contacts: number; speakers: number }, spotify: SpotifyStatus | undefined): string | null {
+function summary(area: Area, settings: IntegrationSettingsMap, counts: { contacts: number; speakers: number; govee: number }, spotify: SpotifyStatus | undefined): string | null {
   switch (area.key) {
     case 'general':
       return `${settings.general.hubName} · Zwei-Faktor ${settings.general.requireTotp ? 'Pflicht' : 'freiwillig'}`;
@@ -29,6 +29,8 @@ function summary(area: Area, settings: IntegrationSettingsMap, counts: { contact
       return settings.doorbird.enabled ? `${plural(settings.doorbird.devices.length, 'Türstation', 'Türstationen')}` : null;
     case 'reolink':
       return settings.reolink.enabled ? `${plural(settings.reolink.devices.length, 'Kamera', 'Kameras')}` : null;
+    case 'govee':
+      return settings.govee?.enabled ? `${plural(counts.govee, 'Licht', 'Lichter')}${settings.govee.lan ? ' · im Heimnetz' : ''}${settings.govee.apiKey ? ' · Cloud' : ''}` : null;
     case 'sonos':
       return settings.sonos.enabled ? `${counts.speakers} Lautsprecher` : null;
     case 'spotify':
@@ -41,6 +43,7 @@ export function ServicesPage() {
   const services = useHub((state) => state.services);
   const contacts = useHub((state) => Object.values(state.entities).filter((entity) => entity.kind === 'contact').length);
   const speakers = useHub((state) => state.music.players.length);
+  const goveeLights = useHub((state) => Object.values(state.entities).filter((entity) => entity.service === 'govee').length);
   const drafts = useDrafts((state) => state.drafts);
   const query = useQuery({ queryKey: ['settings-all'], queryFn: () => get<{ settings: IntegrationSettingsMap; demo: boolean }>('/api/admin/settings'), staleTime: 0 });
   const spotify = useQuery({ queryKey: ['spotify-status'], queryFn: () => get<SpotifyStatus>('/api/spotify/status'), staleTime: 30_000 });
@@ -63,7 +66,7 @@ export function ServicesPage() {
         {AREAS.map((area) => {
           const health = area.service ? services[area.service] : undefined;
           const status = health ? STATUS[health.status] : null;
-          const line = query.data ? summary(area, query.data.settings, { contacts, speakers }, spotify.data) : null;
+          const line = query.data ? summary(area, query.data.settings, { contacts, speakers, govee: goveeLights }, spotify.data) : null;
           return (
             <button
               key={area.key}

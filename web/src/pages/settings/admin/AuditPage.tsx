@@ -14,7 +14,7 @@ interface Described {
   text: string;
 }
 
-const AREAS: Record<string, string> = { general: 'Allgemein', mygekko: 'Gebäude', doorbird: 'Türstationen', reolink: 'Kameras', sonos: 'Lautsprecher', spotify: 'Spotify', house3d: '3D-Haus' };
+const AREAS: Record<string, string> = { general: 'Allgemein', mygekko: 'Gebäude', doorbird: 'Türstationen', reolink: 'Kameras', govee: 'Govee-Lichter', sonos: 'Lautsprecher', spotify: 'Spotify', house3d: '3D-Haus' };
 
 /** Turns a raw audit record into a sentence a home owner understands. */
 function describe(entry: AuditEntry): Described {

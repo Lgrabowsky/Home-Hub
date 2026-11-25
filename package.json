@@ -1,6 +1,6 @@
 {
   "name": "home-hub",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "description": "Home Hub – eine App für MyGekko, DoorBird, Reolink, Sonos und Spotify",
   "type": "module",

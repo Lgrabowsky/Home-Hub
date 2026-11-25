@@ -1,4 +1,4 @@
-import { Building2, Cctv, DoorClosed, Music2, Network, SlidersHorizontal, Speaker, type LucideIcon } from 'lucide-react';
+import { Building2, Cctv, DoorClosed, Lightbulb, Music2, Network, SlidersHorizontal, Speaker, type LucideIcon } from 'lucide-react';
 import type { IntegrationSettingsMap, ServiceId, SettingsKey } from '@home-hub/shared';
 import type { Tone } from '../ui.tsx';
 
@@ -20,6 +20,7 @@ export const AREAS: Area[] = [
   { key: 'knx', title: 'KNX-Bus', purpose: 'Fenster- und Türkontakte direkt vom KNX-Bus mithören', icon: Network, tone: 'warm', service: 'knx', testable: true },
   { key: 'doorbird', title: 'Türstationen (DoorBird)', purpose: 'Klingel, Gegensprechen, Türöffner und Verlauf', icon: DoorClosed, tone: 'ok', service: 'doorbird', testable: true },
   { key: 'reolink', title: 'Kameras', purpose: 'Reolink, Hikvision und ONVIF: Live-Bild, Schwenken, Gegensprechen', icon: Cctv, tone: 'cool', service: 'reolink', testable: true },
+  { key: 'govee', title: 'Lichtstreifen (Govee)', purpose: 'LED-Streifen und Lampen: Farbe, Helligkeit, Weißton', icon: Lightbulb, tone: 'warm', service: 'govee', testable: true },
   { key: 'sonos', title: 'Lautsprecher (Sonos)', purpose: 'Musik in allen Räumen', icon: Speaker, tone: 'music', service: 'sonos', testable: true },
   { key: 'spotify', title: 'Spotify', purpose: 'Suchen und Stöbern in deiner Musik', icon: Music2, tone: 'music', service: 'spotify', testable: true },
 ];

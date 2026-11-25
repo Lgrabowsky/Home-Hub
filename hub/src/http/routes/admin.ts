@@ -18,7 +18,7 @@ export function registerAdminRoutes(app: FastifyInstance, ctx: HubContext): void
 
   app.get('/api/admin/settings', admin, async () => {
     const out: Partial<{ [K in SettingsKey]: IntegrationSettingsMap[K] }> = {};
-    for (const k of ['general', 'mygekko', 'knx', 'doorbird', 'reolink', 'sonos', 'spotify'] as const) {
+    for (const k of ['general', 'mygekko', 'knx', 'doorbird', 'reolink', 'govee', 'sonos', 'spotify'] as const) {
       (out as Record<string, unknown>)[k] = settings.getMasked(k);
     }
     return { settings: out, demo: ctx.config.demo };

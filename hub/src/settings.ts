@@ -193,6 +193,23 @@ const schemas = {
       if (value.enabled && value.mode === 'tunnel' && !value.host) ctx.addIssue({ code: 'custom', path: ['host'], message: 'Adresse der KNX-Schnittstelle fehlt.' });
     }),
 
+  govee: z
+    .object({
+      enabled: z.boolean().default(false),
+      apiKey: z
+        .string()
+        .trim()
+        .max(200)
+        .regex(/^[A-Za-z0-9-]*$/, 'Der API-Key besteht nur aus Buchstaben, Ziffern und Bindestrichen.')
+        .or(z.literal(SECRET_SET))
+        .default(''),
+      lan: z.boolean().default(true),
+      lanHosts: z.array(requiredHost).max(64).default([]),
+    })
+    .superRefine((value, ctx) => {
+      if (value.enabled && !value.apiKey && !value.lan) ctx.addIssue({ code: 'custom', path: ['apiKey'], message: 'Ohne API-Key braucht es die Steuerung im Heimnetz (LAN).' });
+    }),
+
   spotify: z
     .object({
       enabled: z.boolean().default(false),
@@ -237,6 +254,11 @@ function mapSecrets<K extends SettingsKey>(
     case 'spotify': {
       const v = copy as IntegrationSettingsMap['spotify'];
       v.clientSecret = fn(v.clientSecret, 'clientSecret', null);
+      break;
+    }
+    case 'govee': {
+      const v = copy as IntegrationSettingsMap['govee'];
+      v.apiKey = fn(v.apiKey, 'apiKey', null);
       break;
     }
     case 'doorbird':
@@ -291,6 +313,9 @@ const FIELD_LABELS: Record<string, string> = {
   channel: 'Kanal',
   clientId: 'Client-ID',
   clientSecret: 'Client-Secret',
+  apiKey: 'API-Key',
+  lan: 'Steuerung im Heimnetz',
+  lanHosts: 'Adressen der Lichter',
   market: 'Land',
   address: 'Gruppenadresse',
   invert: 'Umgekehrt',
